@@ -142,7 +142,7 @@ export class CredentialStore extends Disposable {
 	private _handlingAuthError: Map<AuthProvider, Promise<AuthResult>> = new Map();
 	private _lastAuthErrorHandledAt: Map<AuthProvider, number> = new Map();
 	private _currentUserRequests: WeakMap<GitHub, Promise<void>> = new WeakMap();
-	private readonly _accountPreferencePrompts = new Set<AuthProvider>();
+	private _hasOfferedAccountPreferences: boolean = false;
 	// Cooldown long enough to absorb retries from in-flight requests that were
 	// issued with the now-invalid token, but short enough that a token that
 	// is invalidated again soon after re-auth will still trigger another prompt.
@@ -612,23 +612,23 @@ export class CredentialStore extends Disposable {
 	}
 
 	public async showAccountPreferencesForInaccessibleRepository(authProviderId: AuthProvider, repository: string): Promise<void> {
-		if (this.isDisposed || this._accountPreferencePrompts.has(authProviderId)) {
+		// Enterprise accounts can belong to other hosts, and account information does not identify the host.
+		if (authProviderId !== AuthProvider.github || this.isDisposed || this._hasOfferedAccountPreferences) {
 			return;
 		}
 		try {
-			const accounts = await vscode.authentication.getAccounts(authProviderId);
-			if (this.isDisposed || accounts.length < 2 || this._accountPreferencePrompts.has(authProviderId)) {
+			const accounts = await vscode.authentication.getAccounts(AuthProvider.github);
+			if (this.isDisposed || accounts.length < 2 || this._hasOfferedAccountPreferences) {
 				return;
 			}
-			this._accountPreferencePrompts.add(authProviderId);
+			this._hasOfferedAccountPreferences = true;
 			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
 			const choice = await vscode.window.showWarningMessage(
-				vscode.l10n.t('The account selected for GitHub Pull Requests may not have access to {0}. You are signed in with multiple accounts. Would you like to choose a different account for this workspace?', repository),
-				{ modal: true },
+				vscode.l10n.t('The account selected for GitHub Pull Requests may not have access to {0}. You are signed in with multiple GitHub accounts. Would you like to choose a different account for this workspace?', repository),
 				manageAccounts,
 			);
 			if (!this.isDisposed && choice === manageAccounts) {
-				await commands.executeCommand(commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, authProviderId);
+				await commands.executeCommand(commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github);
 			}
 		} catch (error) {
 			Logger.error(`Unable to show account preferences: ${error}`, CredentialStore.ID);

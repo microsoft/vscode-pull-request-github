@@ -188,20 +188,20 @@ describe('CredentialStore', function () {
 			credentialStore.dispose();
 		});
 
-		it('offers a modal and opens preferences for the affected provider', async function () {
+		it('offers a warning that opens GitHub.com account preferences', async function () {
 			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
 				{ id: 'personal', label: 'Personal' },
 				{ id: 'work', label: 'Work' },
 			]);
 			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
-			const warning = sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, ...items: vscode.MessageItem[]) => items[0]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
 			const execute = sinon.stub(commands, 'executeCommand').resolves();
 
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
 
 			deepStrictEqual(getAccounts.firstCall.args, [AuthProvider.github]);
 			strictEqual(warning.firstCall.args[0].includes('owner/repo'), true);
-			deepStrictEqual(warning.firstCall.args.slice(1), [{ modal: true }, manageAccounts]);
+			deepStrictEqual(warning.firstCall.args.slice(1), [manageAccounts]);
 			deepStrictEqual(execute.firstCall.args, [commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github]);
 		});
 
@@ -220,9 +220,21 @@ describe('CredentialStore', function () {
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
 			strictEqual(warning.callCount, 1);
 			strictEqual(execute.called, false);
+		});
+
+		it('does not prompt for GitHub Enterprise', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'octocat - host-a.example' },
+				{ id: 'work', label: 'octocat - host-b.example' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
 
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.githubEnterprise, 'owner/repo');
-			strictEqual(warning.callCount, 2);
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
 		});
 
 		it('does not prompt without multiple accounts, but can prompt after another account is added', async function () {
@@ -244,7 +256,7 @@ describe('CredentialStore', function () {
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
 
 			getAccounts.resolves([{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }]);
-			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, ...items: vscode.MessageItem[]) => items[0]);
+			sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
 			const execute = sinon.stub(commands, 'executeCommand').rejects(new Error('Command unavailable'));
 			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
 			strictEqual(execute.calledOnce, true);
