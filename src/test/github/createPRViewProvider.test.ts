@@ -790,18 +790,19 @@ describe('Create pull request with unpushed commits', function () {
 		});
 	}
 
-	for (const { description, remoteName, url, pushUrl, serverType } of [
-		{ description: 'is on another server', remoteName: 'fork', url: 'https://ghe.example.com/contributor/test', pushUrl: 'https://ghe.example.com/contributor/test', serverType: GitHubServerType.Enterprise },
-		{ description: 'pushes to another repository', remoteName: 'fork', url: 'https://github.com/contributor/test', pushUrl: 'https://github.com/github/test', serverType: GitHubServerType.GitHubDotCom },
-		// A repository that is only known through the API uses its name as the remote name.
-		{ description: 'has no Git remote', remoteName: 'test', url: 'https://github.com/contributor/test', pushUrl: undefined, serverType: GitHubServerType.GitHubDotCom },
+	// Repositories that are only known through the API use their name as the remote name.
+	for (const { description, remoteName, url, gitRemote, serverType } of [
+		{ description: 'is on another server', remoteName: 'fork', url: 'https://ghe.example.com/contributor/test', gitRemote: { url: 'https://ghe.example.com/contributor/test' }, serverType: GitHubServerType.Enterprise },
+		{ description: 'pushes to another repository', remoteName: 'fork', url: 'https://github.com/contributor/test', gitRemote: { url: 'https://github.com/contributor/test', pushUrl: 'https://github.com/github/test' }, serverType: GitHubServerType.GitHubDotCom },
+		{ description: 'has no Git remote', remoteName: 'test', url: 'https://github.com/contributor/test', gitRemote: undefined, serverType: GitHubServerType.GitHubDotCom },
+		{ description: 'has the remote name of an unrelated Git remote', remoteName: 'test', url: 'https://github.com/contributor/test', gitRemote: { url: 'https://github.com/other/project' }, serverType: GitHubServerType.GitHubDotCom },
 	]) {
 		it(`offers to fork instead of pushing to a writable fork that ${description}`, async function () {
 			sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
 			const fork = createRepository(remoteName, 'contributor', url, serverType);
 			gitHubRepositories.push(fork);
-			if (pushUrl) {
-				await repository.addRemote(remoteName, url, pushUrl);
+			if (gitRemote) {
+				await repository.addRemote(remoteName, gitRemote.url, gitRemote.pushUrl);
 			}
 			sinon.stub(fork, 'getRepositoryForkDetails').resolves({ isFork: true, parent: { owner: { login: 'github' }, name: 'test' } });
 			sinon.stub(fork, 'getViewerPermission').resolves(ViewerPermission.Write);
@@ -818,6 +819,29 @@ describe('Create pull request with unpushed commits', function () {
 			assert(create.notCalled);
 		});
 	}
+
+	it('pushes to an existing fork whose remote URL uses an alias from the Git config', async function () {
+		await repository.setConfig('url.https://github.com/.insteadof', 'gh:');
+		await repository.addRemote('fork', 'gh:contributor/test');
+		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);
+		const fork = createRepository('fork', 'contributor');
+		gitHubRepositories.push(fork);
+		sinon.stub(fork, 'getRepositoryForkDetails').resolves({ isFork: true, parent: { owner: { login: 'github' }, name: 'test' } });
+		sinon.stub(fork, 'getViewerPermission').resolves(ViewerPermission.Write);
+		const prompt = sinon.stub(vscode.window, 'showInformationMessage').resolves('Push Commits' as never);
+		const doFork = sinon.stub(folderManager, 'doFork');
+		repository.expectPush('fork', 'D4', true);
+		const push = sinon.spy(repository, 'push');
+		const createdPR = createPullRequestModel(origin);
+		const create = sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+
+		assert(await createFromView('8'), throwError.firstCall?.args[1] ?? 'The pull request was not created.');
+		assert(prompt.calledOnce);
+		assert(doFork.notCalled);
+		assert(push.calledOnceWithExactly('fork', 'D4', true));
+		assert(create.calledOnce);
+		assert.strictEqual(create.firstCall.args[0].head, 'contributor:D4');
+	});
 
 	it('does not create a pull request when forking is declined', async function () {
 		sinon.stub(origin, 'getViewerPermission').resolves(ViewerPermission.Read);

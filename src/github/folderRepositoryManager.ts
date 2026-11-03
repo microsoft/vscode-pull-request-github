@@ -39,7 +39,7 @@ import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gi
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote, resolveGitUrl } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -3319,10 +3319,11 @@ export class FolderRepositoryManager extends Disposable {
 
 	/**
 	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
+	 * @param remote The GitHub remote of the Git remote with the same name.
 	 * @returns The remote for the repository that `git push` sends commits to, or undefined if there is no Git remote
 	 * with this name or its push URL is on another server.
 	 */
-	public getPushRemote(remote: GitHubRemote): GitHubRemote | undefined {
+	public async getPushRemote(remote: GitHubRemote): Promise<GitHubRemote | undefined> {
 		const gitRemote = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
 		const pushUrl = gitRemote?.pushUrl ?? gitRemote?.fetchUrl;
 		if (!gitRemote || !pushUrl) {
@@ -3331,25 +3332,33 @@ export class FolderRepositoryManager extends Disposable {
 		if (pushUrl === gitRemote.fetchUrl) {
 			return remote;
 		}
-		const pushRemote = parseRemote(remote.remoteName, pushUrl);
+		const pushRemote = parseRemote(remote.remoteName, await resolveGitUrl(pushUrl, this.repository));
 		if (!pushRemote || !isOnServerOf(pushRemote, remote)) {
 			return undefined;
 		}
-		return new GitHubRemote(remote.remoteName, pushUrl, pushRemote.gitProtocol, remote.githubServerType);
+		return new GitHubRemote(remote.remoteName, pushRemote.url, pushRemote.gitProtocol, remote.githubServerType);
+	}
+
+	/** Whether the Git remote with the name of `remote` fetches from the repository of `remote`. */
+	private async fetchesFrom(remote: GitHubRemote): Promise<boolean> {
+		const fetchUrl = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName)?.fetchUrl;
+		const fetchRemote = fetchUrl ? parseRemote(remote.remoteName, await resolveGitUrl(fetchUrl, this.repository)) : null;
+		return !!fetchRemote && isOnServerOf(fetchRemote, remote) && isSameRepository(fetchRemote, remote);
 	}
 
 	/**
 	 * Finds the remote of a fork of `githubRepository` that the user can push to, such as one created by an earlier attempt
-	 * whose push failed. Only forks on the same server with a Git remote that pushes to the fork itself are considered.
+	 * whose push failed. Only forks on the same server with a Git remote that fetches from and pushes to the fork are considered.
 	 */
 	private async findPushableFork(githubRepository: GitHubRepository): Promise<GitHubRemote | undefined> {
 		const { owner, repositoryName } = githubRepository.remote;
 		for (const candidate of this.gitHubRepositories) {
-			if ((candidate === githubRepository) || !isOnServerOf(candidate.remote, githubRepository.remote)) {
+			// A repository that is only known through the API has its name as remote name, which an unrelated Git remote can also have.
+			if ((candidate === githubRepository) || !isOnServerOf(candidate.remote, githubRepository.remote) || !(await this.fetchesFrom(candidate.remote))) {
 				continue;
 			}
-			const pushRemote = this.getPushRemote(candidate.remote);
-			if (!pushRemote || (compareIgnoreCase(pushRemote.owner, candidate.remote.owner) !== 0) || (compareIgnoreCase(pushRemote.repositoryName, candidate.remote.repositoryName) !== 0)) {
+			const pushRemote = await this.getPushRemote(candidate.remote);
+			if (!pushRemote || !isSameRepository(pushRemote, candidate.remote)) {
 				continue;
 			}
 			const forkDetails = await candidate.getRepositoryForkDetails();
@@ -3513,6 +3522,10 @@ export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ re
 function isOnServerOf(remote: Remote, githubRemote: GitHubRemote): boolean {
 	const serverUri = githubRemote.githubServerType === GitHubServerType.GitHubDotCom ? 'https://github.com' : githubRemote.normalizedHost;
 	return remote.matchesServerUri(vscode.Uri.parse(serverUri));
+}
+
+function isSameRepository(remote: Remote, other: Remote): boolean {
+	return (compareIgnoreCase(remote.owner, other.owner) === 0) && (compareIgnoreCase(remote.repositoryName, other.repositoryName) === 0);
 }
 
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {

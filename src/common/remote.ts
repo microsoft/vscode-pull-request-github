@@ -128,7 +128,7 @@ export function parseRemote(remoteName: string, url: string, originalProtocol?: 
  * @param repository The repository to get config from
  * @returns The resolved URL, or the original URL if no substitution found
  */
-async function resolveGitUrl(url: string, repository: Repository): Promise<string> {
+export async function resolveGitUrl(url: string, repository: Repository): Promise<string> {
 	try {
 		// Get all git config entries
 		const configs = await repository.getConfigs();

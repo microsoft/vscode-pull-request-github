@@ -1522,7 +1522,7 @@ Don't forget to commit your template file to the repository so that it can be us
 	 */
 	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
 		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
-		const pushRemote = trackedRemote ? this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
+		const pushRemote = trackedRemote ? await this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
 		if (!trackedRemote || !pushRemote) {
 			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
 			return {};
