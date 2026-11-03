@@ -522,11 +522,16 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 const BypassBranchProtection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	const [bypass, setBypass] = useState(false);
 	const ctx = useContext(PullRequestContext);
-	return <div>
-		<label>
-			<input type="checkbox" checked={bypass} onChange={event => setBypass(event.target.checked)} />
-			Bypass branch protection and merge
-		</label>
+	return <div className="branch-rules-bypass">
+		<div className="branch-rules-bypass-consent">
+			<label>
+				<span className="checkbox-wrapper">
+					<input type="checkbox" checked={bypass} aria-describedby="branch-rules-bypass-description" onChange={event => setBypass(event.target.checked)} />
+				</span>
+				<span>Bypass branch rules and merge</span>
+			</label>
+			<p id="branch-rules-bypass-description">GitHub will verify that all unmet requirements can be bypassed.</p>
+		</div>
 		{bypass
 			? isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />
 			: !isSimple ? <AutoMerge {...pr} updateState={params => ctx.updateAutoMerge(params)} baseHasMergeQueue={false}

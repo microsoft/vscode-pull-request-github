@@ -2279,6 +2279,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	/**
 	 * Get the current mergeability of the pull request.
+	 * The existing viewerCanMergeAsAdmin field carries effective bypass capability:
+	 * GitHub's classic flag, broadened by permission to bypass any applicable ruleset.
+	 * It does not guarantee that all unmet requirements can be bypassed; GitHub
+	 * verifies those requirements when merging.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
 		const version = ++this._mergeabilityVersion;
@@ -2323,9 +2327,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
+			let viewerCanMergeAsAdmin = data.repository?.pullRequest.viewerCanMergeAsAdmin === true;
+			if (!viewerCanMergeAsAdmin
+				&& (mergeability === PullRequestMergeability.NotMergeable || mergeability === PullRequestMergeability.Behind)) {
+				viewerCanMergeAsAdmin = await this.githubRepository.canBypassBranchRulesets(this.base?.ref ?? '');
+			}
+			// The REST fallback adds another suspension point. A newer request or
+			// model refresh must supersede every state update from this response.
+			if (version !== this._mergeabilityVersion) {
+				return currentResult();
+			}
 			const previousMergeability = this.item.mergeable;
 			const previousCanMergeAsAdmin = this.item.viewerCanMergeAsAdmin;
-			this.item.viewerCanMergeAsAdmin = data.repository?.pullRequest.viewerCanMergeAsAdmin === true;
+			this.item.viewerCanMergeAsAdmin = viewerCanMergeAsAdmin;
 			this.item.mergeable = mergeability;
 			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
 			if (viewerCanUpdate !== undefined) {

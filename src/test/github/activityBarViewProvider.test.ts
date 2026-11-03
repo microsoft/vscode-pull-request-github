@@ -5,6 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
+import { NetworkStatus } from 'apollo-boost';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import { GitApiImpl } from '../../api/api1';
 import { GitHubServerType } from '../../common/authentication';
@@ -81,6 +82,10 @@ describe('Active pull request stack changes', function () {
 		const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).build(), repo);
 		const result = new PullRequestModel(credentials, folderManager.telemetry, repo, repo.remote, item);
 		models.set(number, result);
+		sinon.stub(result, 'getMergeability').callsFake(async () => ({
+			mergeability: result.item.mergeable ?? PullRequestMergeability.Unknown,
+			viewerCanMergeAsAdmin: result.item.viewerCanMergeAsAdmin === true,
+		}));
 		sinon.stub(result, 'getTimelineEvents').resolves([]);
 		sinon.stub(result, 'getReviewRequests').resolves([]);
 		sinon.stub(result, 'canEdit').resolves(true);
@@ -153,6 +158,30 @@ describe('Active pull request stack changes', function () {
 		credentials.dispose();
 		context.dispose();
 		sinon.restore();
+	});
+
+	it('loads ruleset bypass capability before initializing an initially blocked sidebar', async function () {
+		(model.getMergeability as SinonStub).restore();
+		model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: false });
+		const resolve = folderManager.resolvePullRequest as SinonStub;
+		resolve.callsFake(async () => {
+			model.update({ ...model.item, viewerCanMergeAsAdmin: false });
+			return model;
+		});
+		sinon.stub(repo, 'query').resolves({
+			data: { repository: { pullRequest: { mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED', viewerCanMergeAsAdmin: false } } },
+			loading: false, stale: false, networkStatus: NetworkStatus.ready,
+		});
+		const bypass = sinon.stub(repo, 'canBypassBranchRulesets').resolves(true);
+
+		await provider.updatePullRequest(model);
+		await settleUpdates();
+
+		assert(bypass.calledOnceWithExactly(model.base.ref));
+		const updates = provider.messages.filter(message => message.command === 'pr.initialize');
+		assert.strictEqual(updates.length, 1);
+		assert.strictEqual(updates[0].pullrequest?.mergeable, PullRequestMergeability.NotMergeable);
+		assert.strictEqual(updates[0].pullrequest?.viewerCanMergeAsAdmin, true);
 	});
 
 	for (const viewerCanMergeAsAdmin of [true, false]) {

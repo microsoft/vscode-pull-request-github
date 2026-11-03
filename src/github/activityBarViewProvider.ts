@@ -264,11 +264,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 			this._item = pullRequestModel;
 			const updatingPromise = Promise.all([
-				this._folderRepositoryManager.resolvePullRequest(
-					pullRequestModel.remote.owner,
-					pullRequestModel.remote.repositoryName,
-					pullRequestModel.number,
-				),
+				(async () => {
+					const resolved = await this._folderRepositoryManager.resolvePullRequest(
+						pullRequestModel.remote.owner,
+						pullRequestModel.remote.repositoryName,
+						pullRequestModel.number,
+					);
+					// Resolve first: its model refresh would otherwise supersede the
+					// capability lookup. Initially blocked PRs are not polled by the UI.
+					await resolved?.getMergeability();
+					return resolved;
+				})(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 				pullRequestModel.getTimelineEvents(),
 				pullRequestModel.getReviewRequests(),

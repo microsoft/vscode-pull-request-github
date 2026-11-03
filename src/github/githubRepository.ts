@@ -2430,6 +2430,54 @@ export class GitHubRepository extends Disposable {
 	}
 
 	/**
+	 * Whether the viewer may bypass any active ruleset applying to this branch.
+	 * This is not a guarantee that all unmet merge requirements can be bypassed.
+	 * Do not cache permissions (including in-flight requests): a later refresh
+	 * must be able to observe permission revocation independently.
+	 */
+	public async canBypassBranchRulesets(branch: string): Promise<boolean> {
+		if (!branch) {
+			return false;
+		}
+		try {
+			const { remote, octokit } = await this.ensure();
+			const repository = { owner: remote.owner, repo: remote.repositoryName };
+			const rulesetIds = new Set<number>();
+			let page = 1;
+			let hasNextPage: boolean;
+			do {
+				const result = await octokit.call(octokit.api.repos.getBranchRules, {
+					...repository, branch, per_page: 100, page,
+				});
+				for (const rule of result.data) {
+					if (typeof rule.ruleset_id === 'number') {
+						rulesetIds.add(rule.ruleset_id);
+					}
+				}
+				hasNextPage = !!result.headers.link?.includes('rel="next"');
+				page++;
+			} while (hasNextPage);
+
+			const permissions = await Promise.all([...rulesetIds].map(async ruleset_id => {
+				// includes_parents also covers organization/enterprise rulesets.
+				const { data } = await octokit.call(octokit.api.repos.getRepoRuleset, {
+					...repository, ruleset_id, includes_parents: true,
+				});
+				// Some servers return `exempt`, which is not yet in the installed API types.
+				const permission: string | undefined = data.current_user_can_bypass;
+				return data.enforcement === 'active'
+					&& (permission === 'always' || permission === 'pull_requests_only' || permission === 'exempt');
+			}));
+			return permissions.some(Boolean);
+		} catch (e) {
+			// Unsupported servers, inaccessible rulesets, and incomplete requests
+			// must never be interpreted as a permission grant.
+			Logger.debug(`Unable to fetch ruleset bypass permissions: ${e}`, this.id);
+			return false;
+		}
+	}
+
+	/**
 	 * Compare across commits.
 	 * @param base The base branch. Must be a branch name. If comparing across repositories, use the format <repo_owner>:branch.
 	 * @param head The head branch. Must be a branch name. If comparing across repositories, use the format <repo_owner>:branch.

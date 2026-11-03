@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { readFileSync } from 'fs';
+import * as path from 'path';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, wait } from 'react-testing-library';
 import { createSandbox, SinonFakeTimers, SinonSandbox } from 'sinon';
@@ -27,7 +29,7 @@ describe('Merge status and actions', function () {
 		sinon.restore();
 	});
 
-	const bypassLabel = 'Bypass branch protection and merge';
+	const bypassLabel = 'Bypass branch rules and merge';
 	const blockedPR = () => new PullRequestBuilder()
 		.mergeable(PullRequestMergeability.NotMergeable).viewerCanMergeAsAdmin(true).build();
 
@@ -48,6 +50,30 @@ describe('Merge status and actions', function () {
 			assert.strictEqual(view.container.querySelector('button'), null);
 		});
 	}));
+
+	[false, true].forEach(isSimple => {
+		it(`styles bypass consent and describes its limits in the ${isSimple ? 'sidebar' : 'editor'}`, function () {
+			const pr = blockedPR();
+			const style = document.createElement('style');
+			style.textContent = readFileSync(path.resolve('webviews', 'common', 'common.css'), 'utf8');
+			document.head.appendChild(style);
+			try {
+				const view = render(<PullRequestContext.Provider value={new PRContext(pr)}><PrActions pr={pr} isSimple={isSimple} /></PullRequestContext.Provider>);
+				const checkbox = view.getByLabelText(bypassLabel) as HTMLInputElement;
+				assert(checkbox.parentElement!.classList.contains('checkbox-wrapper'), 'use the shared visible checkmark');
+				const description = view.getByText('GitHub will verify that all unmet requirements can be bypassed.');
+				assert.strictEqual(checkbox.getAttribute('aria-describedby'), description.id);
+				assert.strictEqual(window.getComputedStyle(view.container.querySelector('.branch-rules-bypass-consent')!).padding, '16px');
+				const labelStyle = window.getComputedStyle(view.container.querySelector('label')!);
+				assert.strictEqual(labelStyle.display, 'flex');
+				assert.strictEqual(labelStyle.gap, '8px');
+				fireEvent.click(view.getByText(bypassLabel));
+				assert.strictEqual(checkbox.checked, true, 'the label toggles consent');
+			} finally {
+				style.remove();
+			}
+		});
+	});
 
 	it('waits for queue requirements before offering bypass on an unstacked PR', function () {
 		const pr = { ...blockedPR(), stack: null, stackLoaded: false };
