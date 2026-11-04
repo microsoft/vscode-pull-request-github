@@ -1781,6 +1781,40 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(update?.viewerCanMergeAsAdmin, false);
 		});
 
+		for (const ref of ['head', 'base'] as const) {
+			for (const comparisonFails of [false, true]) {
+				it(`publishes conflicts and revoked bypass access when ${ref} changes and comparison ${comparisonFails ? 'fails' : 'stalls'}`, async function () {
+					const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
+					model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: true });
+					await new Promise(resolve => setTimeout(resolve, 0));
+					let finishComparison!: (value: boolean) => void;
+					if (comparisonFails) {
+						upToDate.rejects(new Error('Comparison unavailable'));
+					} else {
+						upToDate.returns(new Promise<boolean>(resolve => { finishComparison = resolve; }));
+					}
+					const previousRef = model.item[ref];
+					assert(previousRef);
+
+					model.update({
+						...model.item,
+						[ref]: { ...previousRef, sha: `updated-${ref}` },
+						mergeable: PullRequestMergeability.Conflict,
+						viewerCanMergeAsAdmin: false,
+					});
+					await new Promise(resolve => setTimeout(resolve, 0));
+
+					const update = lastBranchStatusUpdate();
+					assert.strictEqual(update?.mergeable, PullRequestMergeability.Conflict);
+					assert.strictEqual(update?.viewerCanMergeAsAdmin, false);
+					if (!comparisonFails) {
+						finishComparison(false);
+						await new Promise(resolve => setTimeout(resolve, 0));
+					}
+				});
+			}
+		}
+
 		it('ignores an older comparison that finishes after a newer one', async function () {
 			const { panel, upToDate, branchStatusUpdates } = await openPanel();
 			let releaseOlder!: (value: boolean) => void;
@@ -1792,7 +1826,7 @@ describe('PullRequestOverview', function () {
 			releaseOlder(true);
 			await older;
 
-			const updates = branchStatusUpdates();
+			const updates = branchStatusUpdates().filter(update => 'canUpdateBranch' in update);
 			assert.strictEqual(updates.length, 1);
 			assert.strictEqual(updates[0].canUpdateBranch, true);
 		});

@@ -196,7 +196,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeChangesSinceReview = this._register(new vscode.EventEmitter<void>());
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
-	private _mergeabilityVersion = 0;
 	private _hasComments: boolean;
 	private _comments: readonly IComment[] | undefined;
 
@@ -299,8 +298,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
-		// A model refresh supersedes any mergeability query already in flight.
-		this._mergeabilityVersion++;
+		// Updates supersede in-flight refreshes, but initial construction must not
+		// invalidate a newer full fetch that is still waiting for its response.
+		if (this.base) {
+			this.githubRepository.beginPullRequestRefresh(item.number);
+		}
 		// REST pull request lists don't include these, so keep the values that are already known.
 		if (item.viewerCanUpdate === undefined) {
 			item.viewerCanUpdate = this.item.viewerCanUpdate;
@@ -2317,7 +2319,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * verifies those requirements when merging.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
-		const version = ++this._mergeabilityVersion;
+		const version = this.githubRepository.beginPullRequestRefresh(this.number);
 		const currentResult = (): PullRequestMergeabilityResult => ({
 			mergeability: this.item.mergeable ?? PullRequestMergeability.Unknown,
 			viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin === true,
@@ -2350,7 +2352,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 			// Check before mutating any model state: a refresh or newer request may
 			// have revoked capabilities while this request was in flight.
-			if (version !== this._mergeabilityVersion) {
+			if (!this.githubRepository.isCurrentPullRequestRefresh(this.number, version)) {
 				return currentResult();
 			}
 			if (data.repository === null) {
@@ -2359,14 +2361,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
-			let viewerCanMergeAsAdmin = data.repository?.pullRequest.viewerCanMergeAsAdmin === true;
-			if (!viewerCanMergeAsAdmin
-				&& (mergeability === PullRequestMergeability.NotMergeable || mergeability === PullRequestMergeability.Behind)) {
-				viewerCanMergeAsAdmin = await this.githubRepository.canBypassBranchRulesets(this.base?.ref ?? '');
-			}
+			const viewerCanMergeAsAdmin = await this.githubRepository.getEffectiveViewerCanMergeAsAdmin(
+				data.repository?.pullRequest.viewerCanMergeAsAdmin, mergeability, this.base?.ref ?? '');
 			// The REST fallback adds another suspension point. A newer request or
 			// model refresh must supersede every state update from this response.
-			if (version !== this._mergeabilityVersion) {
+			if (!this.githubRepository.isCurrentPullRequestRefresh(this.number, version)) {
 				return currentResult();
 			}
 			const previousMergeability = this.item.mergeable;
@@ -2385,7 +2384,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return { mergeability, viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
-			return version !== this._mergeabilityVersion ? currentResult() : { mergeability: PullRequestMergeability.Unknown };
+			return !this.githubRepository.isCurrentPullRequestRefresh(this.number, version) ? currentResult() : { mergeability: PullRequestMergeability.Unknown };
 		}
 	}
 

@@ -198,7 +198,7 @@ describe('PullRequestModel', function () {
 			bypass = sinon.stub(repo, 'canBypassBranchRulesets').resolves(false);
 		});
 
-		for (const status of ['BLOCKED', 'BEHIND', 'CLEAN', 'DIRTY', 'UNKNOWN', 'UNSTABLE', 'DRAFT']) {
+		for (const status of ['BLOCKED', 'BEHIND', 'CLEAN', 'DIRTY', 'UNKNOWN', 'UNSTABLE', 'DRAFT'] as const) {
 			for (const classic of [true, false, undefined]) {
 				it(`gates ruleset fallback for ${status}, classic capability ${classic}`, async function () {
 					const model = repo.createOrUpdatePullRequestModel(
@@ -215,6 +215,19 @@ describe('PullRequestModel', function () {
 						assert.strictEqual(bypass.firstCall.args[0], model.base.ref);
 					}
 					assert.strictEqual(result.viewerCanMergeAsAdmin, classic === true || shouldFallback);
+
+					// Full fetch parsing must apply the same policy before updating the model.
+					bypass.resetHistory();
+					const pr = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+					pr.mergeable = 'MERGEABLE';
+					pr.mergeStateStatus = status === 'DRAFT' ? 'UNKNOWN' : status;
+					pr.viewerCanMergeAsAdmin = classic;
+					const parsed = await parseGraphQLPullRequest(pr, repo);
+					assert.strictEqual(parsed.viewerCanMergeAsAdmin, classic === true || shouldFallback);
+					assert.strictEqual(bypass.callCount, shouldFallback ? 1 : 0);
+					if (shouldFallback) {
+						assert.strictEqual(bypass.firstCall.args[0], parsed.base!.ref);
+					}
 				});
 			}
 		}
@@ -228,6 +241,141 @@ describe('PullRequestModel', function () {
 			});
 			assert.strictEqual((await model.getMergeability()).viewerCanMergeAsAdmin, false);
 			assert(bypass.notCalled);
+		});
+
+		it('re-evaluates ruleset grants on full repository refreshes before publishing capability', async function () {
+			const response = new GraphQLPullRequestBuilder().build();
+			const pr = response.repository!.pullRequest;
+			pr.mergeable = 'MERGEABLE';
+			pr.mergeStateStatus = 'BLOCKED';
+			pr.viewerCanMergeAsAdmin = false;
+			const model = repo.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(pr, repo));
+			const query = sinon.stub(repo, 'query').resolves({
+				data: { repository: { pullRequest: pr } },
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			bypass.resolves(true);
+			assert.strictEqual((await model.getMergeability()).viewerCanMergeAsAdmin, true);
+			query.resolves({ data: response, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+			const changes = sinon.spy();
+			repo.onDidChangePullRequests(changes);
+
+			for (const allowed of [true, false, true]) {
+				changes.resetHistory();
+				bypass.resetHistory();
+				let complete!: (value: boolean) => void;
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				bypass.callsFake(() => {
+					markStarted();
+					return new Promise<boolean>(resolve => { complete = resolve; });
+				});
+				const previous = model.item.viewerCanMergeAsAdmin;
+				const refresh = repo.getPullRequest(pr.number, 'test', false, false, 'overview');
+				await started;
+				assert.strictEqual(model.item.viewerCanMergeAsAdmin, previous);
+				assert(changes.notCalled, 'must not publish the classic false while resolving rulesets');
+				complete(allowed);
+				assert.strictEqual(await refresh, model);
+				assert.strictEqual(model.item.viewerCanMergeAsAdmin, allowed);
+				assert(bypass.calledOnce);
+				assert.strictEqual(bypass.firstCall.args[0], pr.baseRef!.name);
+				assert.strictEqual(changes.callCount, previous === allowed ? 0 : 1);
+				if (changes.called) {
+					assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
+				}
+			}
+		});
+
+		for (const supersedingUpdate of ['full refresh', 'mergeability request', 'model update']) {
+			it(`ignores a delayed full-refresh grant after a newer ${supersedingUpdate}`, async function () {
+				const response = new GraphQLPullRequestBuilder().build();
+				const pr = response.repository!.pullRequest;
+				pr.mergeable = 'MERGEABLE';
+				pr.mergeStateStatus = 'BLOCKED';
+				pr.viewerCanMergeAsAdmin = false;
+				const model = repo.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(pr, repo));
+				sinon.stub(repo, 'query').resolves({
+					data: response, loading: false, stale: false, networkStatus: NetworkStatus.ready,
+				});
+				bypass.resetHistory();
+				let complete!: (value: boolean) => void;
+				let markStarted!: () => void;
+				const started = new Promise<void>(resolve => { markStarted = resolve; });
+				bypass.onFirstCall().callsFake(() => {
+					markStarted();
+					return new Promise<boolean>(resolve => { complete = resolve; });
+				});
+				const older = repo.getPullRequest(pr.number, 'test', false, false, 'overview');
+				await started;
+				if (supersedingUpdate === 'full refresh') {
+					await repo.getPullRequest(pr.number, 'test', false, false, 'overview');
+				} else if (supersedingUpdate === 'mergeability request') {
+					await model.getMergeability();
+				} else {
+					model.update({ ...model.item, viewerCanMergeAsAdmin: false });
+				}
+				const changes = sinon.spy();
+				repo.onDidChangePullRequests(changes);
+				complete(true);
+				assert.strictEqual(await older, model);
+				assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
+				assert(changes.notCalled);
+			});
+		}
+
+		it('does not let a delayed branch lookup restore a revoked classic grant', async function () {
+			const response = new GraphQLPullRequestBuilder().build();
+			const pr = response.repository!.pullRequest;
+			pr.mergeable = 'MERGEABLE';
+			pr.mergeStateStatus = 'BLOCKED';
+			pr.viewerCanMergeAsAdmin = false;
+			const model = repo.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(pr, repo));
+			let complete!: () => void;
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => { markStarted = resolve; });
+			const query = sinon.stub(repo, 'query').resolves({
+				data: response, loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+			query.onFirstCall().callsFake(() => {
+				markStarted();
+				return new Promise(resolve => {
+					complete = () => resolve({
+						data: { repository: {
+							openPullRequests: { nodes: [{ ...pr, viewerCanMergeAsAdmin: true }] },
+							pullRequests: { nodes: [] },
+						} }, loading: false, stale: false, networkStatus: NetworkStatus.ready,
+					});
+				});
+			});
+			const older = repo.getPullRequestForBranch(pr.headRefName, model.item.head!.repo.owner);
+			await started;
+			await model.getMergeability();
+			const changes = sinon.spy();
+			repo.onDidChangePullRequests(changes);
+			complete();
+			assert.strictEqual(await older, model);
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
+			assert(changes.notCalled);
+		});
+
+		it('checks the fetched base branch, including deleted refs, rather than retaining the old grant', async function () {
+			const pr = new GraphQLPullRequestBuilder().build().repository!.pullRequest;
+			pr.mergeable = 'MERGEABLE';
+			pr.mergeStateStatus = 'BLOCKED';
+			pr.viewerCanMergeAsAdmin = false;
+			bypass.resolves(true);
+			const model = repo.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(pr, repo));
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, true);
+
+			pr.baseRef = undefined;
+			pr.baseRefName = 'retargeted/base';
+			bypass.resetHistory();
+			bypass.resolves(false);
+			repo.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(pr, repo));
+			assert(bypass.calledOnceWithExactly('retargeted/base'));
+			assert.strictEqual(model.base.ref, 'retargeted/base');
+			assert.strictEqual(model.item.viewerCanMergeAsAdmin, false);
 		});
 
 		it('revokes a prior effective grant when rulesets no longer allow bypass', async function () {

@@ -59,6 +59,7 @@ import {
 	PullRequest,
 	PullRequestChecks,
 	PullRequestCheckStatus,
+	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
 	StackablePullRequest,
@@ -342,6 +343,27 @@ export class GitHubRepository extends Disposable {
 
 	public equals(repo: GitHubRepository): boolean {
 		return this.remote.equals(repo.remote);
+	}
+
+	private _pullRequestRefreshSequence = 0;
+	private readonly _pullRequestRefreshVersions = new Map<number, number>();
+	private readonly _parsedPullRequestVersions = new WeakMap<PullRequest, number>();
+
+	// Branch queries reserve a version before the PR numbers are known. Parsing
+	// later associates it with each PR without superseding newer requests.
+	beginPullRequestRefresh(number?: number, version = ++this._pullRequestRefreshSequence): number {
+		if (number !== undefined && version > (this._pullRequestRefreshVersions.get(number) ?? 0)) {
+			this._pullRequestRefreshVersions.set(number, version);
+		}
+		return version;
+	}
+
+	isCurrentPullRequestRefresh(number: number, version: number): boolean {
+		return this._pullRequestRefreshVersions.get(number) === version;
+	}
+
+	trackParsedPullRequestRefresh(pullRequest: PullRequest, version: number): void {
+		this._parsedPullRequestVersions.set(pullRequest, version);
 	}
 
 	getExistingPullRequestModel(prNumber: number): PullRequestModel | undefined {
@@ -972,6 +994,7 @@ export class GitHubRepository extends Disposable {
 	}
 
 	async getPullRequestForBranch(branch: string, headOwner: string, throwOnError: boolean = false): Promise<PullRequestModel | undefined> {
+		const version = this.beginPullRequestRefresh();
 		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, this.id);
@@ -991,7 +1014,7 @@ export class GitHubRepository extends Disposable {
 			if (data?.repository) {
 				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
 					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
-				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
+				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this, version)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
 				if (prs.length === 0) {
 					return undefined;
 				}
@@ -1723,6 +1746,10 @@ export class GitHubRepository extends Disposable {
 
 	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
+		const version = this._parsedPullRequestVersions.get(pullRequest);
+		if (model && version !== undefined && !this.isCurrentPullRequestRefresh(pullRequest.number, version)) {
+			return model;
+		}
 		if (model) {
 			model.update(pullRequest);
 		} else {
@@ -1878,6 +1905,7 @@ export class GitHubRepository extends Disposable {
 			return;
 		}
 
+		const version = this.beginPullRequestRefresh(id);
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
@@ -1896,7 +1924,7 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this, version), silent);
 			if (loadMode === 'default') {
 				await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
 			}
@@ -2427,6 +2455,17 @@ export class GitHubRepository extends Disposable {
 		}
 
 		return ret;
+	}
+
+	/** Resolve effective bypass capability from fresh classic and ruleset permissions. */
+	public async getEffectiveViewerCanMergeAsAdmin(classic: boolean | undefined, mergeability: PullRequestMergeability, branch: string): Promise<boolean> {
+		if (classic === true) {
+			return true;
+		}
+		if (mergeability !== PullRequestMergeability.NotMergeable && mergeability !== PullRequestMergeability.Behind) {
+			return false;
+		}
+		return this.canBypassBranchRulesets(branch);
 	}
 
 	/**

@@ -502,16 +502,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const branchStatusSequence = compareWithBase ? ++this._branchStatusSequence : this._branchStatusSequence;
 		try {
 			if (compareWithBase) {
-				if (!baseOrHeadChanged) {
-					// Revocations and conflicts must not wait for the independent branch comparison.
-					await this._postMessage({
-						command: 'pr.update',
-						pullrequest: {
-							mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
-							viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
-						} satisfies Partial<PullRequest>,
-					});
-				}
+				// Revocations and conflicts must not wait for the independent branch comparison,
+				// including when the same refresh changes the head or base.
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+						viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
+					} satisfies Partial<PullRequest>,
+				});
 				const isBranchUpToDateWithBase = await this._folderRepositoryManager.isHeadUpToDateWithBase(item);
 				if (this.isDisposed || item !== this._item || updateSequence !== this._updateSequence || branchStatusSequence !== this._branchStatusSequence) {
 					return;

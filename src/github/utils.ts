@@ -952,7 +952,10 @@ export function isStacksUnsupportedError(error: unknown): boolean {
 export async function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
+	version?: number,
 ): Promise<PullRequest> {
+	const refreshVersion = githubRepository.beginPullRequestRefresh(graphQLPullRequest.number, version);
+	const mergeability = parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus);
 	const pr: PullRequest = {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
@@ -971,8 +974,7 @@ export async function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAccount(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		viewerCanMergeAsAdmin: graphQLPullRequest.viewerCanMergeAsAdmin === true,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
+		mergeable: mergeability,
 		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
 		hasComments: graphQLPullRequest.reviewThreads.totalCount > 0,
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
@@ -995,8 +997,14 @@ export async function parseGraphQLPullRequest(
 		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
 		stack: parseStackSummary(graphQLPullRequest),
 	};
+	// Full GraphQL refreshes publish effective capability, just like getMergeability.
+	// Re-query rulesets for the fetched base branch; retaining a prior grant could
+	// hide a permission revocation or a retarget to a differently protected branch.
+	pr.viewerCanMergeAsAdmin = await githubRepository.getEffectiveViewerCanMergeAsAdmin(
+		graphQLPullRequest.viewerCanMergeAsAdmin, mergeability, pr.base?.ref ?? '');
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
+	githubRepository.trackParsedPullRequestRefresh(pr, refreshVersion);
 	return pr;
 }
 
