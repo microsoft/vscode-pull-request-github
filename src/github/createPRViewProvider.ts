@@ -1515,6 +1515,28 @@ Don't forget to commit your template file to the repository so that it can be us
 	}
 
 	/**
+	 * Pushes the commits of the compare branch to the remote it tracks. Without permission to push to that remote,
+	 * the user is offered to fork the repository, and the commits are pushed to the fork instead.
+	 * @returns The repository that the commits were pushed to when it isn't the one the branch tracks, such as a fork,
+	 * or undefined if the commits weren't pushed.
+	 */
+	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
+		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
+		const pushRemote = trackedRemote ? await this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
+		if (!trackedRemote || !pushRemote) {
+			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
+			return {};
+		}
+
+		const pushedTo = await this._folderRepositoryManager.publishBranch(pushRemote, compareBranchName);
+		if (!pushedTo) {
+			return undefined;
+		}
+		const isTrackedRepository = (compareIgnoreCase(pushedTo.owner, trackedRemote.owner) === 0) && (compareIgnoreCase(pushedTo.repositoryName, trackedRemote.repositoryName) === 0);
+		return { headRemote: isTrackedRepository ? undefined : pushedTo };
+	}
+
+	/**
 	 * The ahead count of a branch is relative to its upstream, but the branch is pushed to the remote branch with the same name.
 	 * When the upstream is a different branch (ex. the branch was created with `git switch -c feature origin/main`),
 	 * the unpushed commits are the ones that aren't on the remote branch with the same name.
@@ -1622,8 +1644,8 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
-					const compareOwner = message.args.compareOwner;
-					const compareRepositoryName = message.args.compareRepo;
+					let compareOwner = message.args.compareOwner;
+					let compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
 					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
 					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
@@ -1653,7 +1675,25 @@ Don't forget to commit your template file to the repository so that it can be us
 						if (messageResult === pushCommits) {
 							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
 							totalIncrement += 10;
-							await this._folderRepositoryManager.repository.push(compareBranch.upstream.remote, compareBranchName);
+							const pushResult = await this.pushCommits(compareBranch.upstream.remote, compareBranchName);
+							if (!pushResult) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							if (pushResult.headRemote) {
+								// The commits were pushed to another repository than the one the branch tracks, such as a fork,
+								// which becomes the head of the pull request.
+								compareOwner = pushResult.headRemote.owner;
+								compareRepositoryName = pushResult.headRemote.repositoryName;
+								// Also select it in the view, so that retrying after a failed create doesn't use the
+								// original repository, which also has this branch, as the head.
+								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
+									this.model.compareOwner = compareOwner;
+									// The model change only reaches the view after looking up existing and stacked pull requests,
+									// which a retry could beat.
+									await this._postMessage({ command: 'pr.initialize', params: { compareRemote: serializeRemoteInfo(pushResult.headRemote) } });
+								}
+							}
 						} else if (messageResult !== continueWithoutPushing) {
 							// User cancelled (clicked X or pressed Escape)
 							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });

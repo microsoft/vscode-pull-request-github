@@ -39,7 +39,7 @@ import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gi
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote, resolveGitUrl } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -3321,14 +3321,75 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	/**
+	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
+	 * @param remote The GitHub remote of the Git remote with the same name.
+	 * @returns The remote for the repository that `git push` sends commits to, or undefined if there is no Git remote
+	 * with this name or its push URL is on another server.
+	 */
+	public async getPushRemote(remote: GitHubRemote): Promise<GitHubRemote | undefined> {
+		const gitRemote = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
+		const pushUrl = gitRemote?.pushUrl ?? gitRemote?.fetchUrl;
+		if (!gitRemote || !pushUrl) {
+			return undefined;
+		}
+		if (pushUrl === gitRemote.fetchUrl) {
+			return remote;
+		}
+		const pushRemote = parseRemote(remote.remoteName, await resolveGitUrl(pushUrl, this.repository));
+		if (!pushRemote || !isOnServerOf(pushRemote, remote)) {
+			return undefined;
+		}
+		return new GitHubRemote(remote.remoteName, pushRemote.url, pushRemote.gitProtocol, remote.githubServerType);
+	}
+
+	/** Whether the Git remote with the name of `remote` fetches from the repository of `remote`. */
+	private async fetchesFrom(remote: GitHubRemote): Promise<boolean> {
+		const fetchUrl = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName)?.fetchUrl;
+		const fetchRemote = fetchUrl ? parseRemote(remote.remoteName, await resolveGitUrl(fetchUrl, this.repository)) : null;
+		return !!fetchRemote && isOnServerOf(fetchRemote, remote) && isSameRepository(fetchRemote, remote);
+	}
+
+	/**
+	 * Finds the remote of a fork of `githubRepository` that the user can push to, such as one created by an earlier attempt
+	 * whose push failed. Only forks on the same server with a Git remote that fetches from and pushes to the fork are considered.
+	 */
+	private async findPushableFork(githubRepository: GitHubRepository): Promise<GitHubRemote | undefined> {
+		const { owner, repositoryName } = githubRepository.remote;
+		for (const candidate of this.gitHubRepositories) {
+			// A repository that is only known through the API has its name as remote name, which an unrelated Git remote can also have.
+			if ((candidate === githubRepository) || !isOnServerOf(candidate.remote, githubRepository.remote) || !(await this.fetchesFrom(candidate.remote))) {
+				continue;
+			}
+			const pushRemote = await this.getPushRemote(candidate.remote);
+			if (!pushRemote || !isSameRepository(pushRemote, candidate.remote)) {
+				continue;
+			}
+			const forkDetails = await candidate.getRepositoryForkDetails();
+			if (!forkDetails?.isFork || (compareIgnoreCase(forkDetails.parent.owner.login, owner) !== 0) || (compareIgnoreCase(forkDetails.parent.name, repositoryName) !== 0)) {
+				continue;
+			}
+			const permission = await candidate.getViewerPermission();
+			if ((permission === ViewerPermission.Admin) || (permission === ViewerPermission.Maintain) || (permission === ViewerPermission.Write)) {
+				return candidate.remote;
+			}
+		}
+		return undefined;
+	}
+
 	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
 		const githubRepo = await this.createGitHubRepository(
 			pushRemote,
 			this.credentialStore,
 		);
-		let permission: ViewerPermission;
+		let needsFork: boolean;
+		let existingFork: GitHubRemote | undefined;
 		try {
-			permission = await githubRepo.getViewerPermission();
+			const permission = await githubRepo.getViewerPermission();
+			needsFork = permission === ViewerPermission.Read || permission === ViewerPermission.Triage || permission === ViewerPermission.Unknown;
+			if (needsFork) {
+				existingFork = await this.findPushableFork(githubRepo);
+			}
 		} catch (e) {
 			if (isRateLimitError(e)) {
 				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'), { modal: true });
@@ -3337,11 +3398,9 @@ export class FolderRepositoryManager extends Disposable {
 			throw e;
 		}
 		let selectedRemote: GitHubRemote | undefined;
-		if (
-			permission === ViewerPermission.Read ||
-			permission === ViewerPermission.Triage ||
-			permission === ViewerPermission.Unknown
-		) {
+		if (existingFork) {
+			selectedRemote = existingFork;
+		} else if (needsFork) {
 			// No permission to publish the branch to the chosen remote. Offer to fork.
 			const fork = await this.tryOfferToFork(githubRepo);
 			if (!fork) {
@@ -3350,7 +3409,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === fork);
 		} else {
-			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === pushRemote.remoteName);
+			// Keep the repository that the permission was checked for: a remote's push URL can point to a different
+			// repository than its fetch URL, so looking the remote up by name could return the wrong one.
+			selectedRemote = githubRepo.remote;
 		}
 
 		if (!selectedRemote) {
@@ -3460,6 +3521,16 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
+
+/** Whether `remote` is on the same server as `githubRemote`, which for GitHub.com includes its SSH host. */
+function isOnServerOf(remote: Remote, githubRemote: GitHubRemote): boolean {
+	const serverUri = githubRemote.githubServerType === GitHubServerType.GitHubDotCom ? 'https://github.com' : githubRemote.normalizedHost;
+	return remote.matchesServerUri(vscode.Uri.parse(serverUri));
+}
+
+function isSameRepository(remote: Remote, other: Remote): boolean {
+	return (compareIgnoreCase(remote.owner, other.owner) === 0) && (compareIgnoreCase(remote.repositoryName, other.repositoryName) === 0);
+}
 
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;
