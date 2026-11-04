@@ -50,6 +50,7 @@ export const enum GitErrorCodes {
 	CantLockRef = 'CantLockRef',
 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
 	PatchDoesNotApply = 'PatchDoesNotApply',
+	UnknownPath = 'UnknownPath',
 }
 
 export const enum Status {

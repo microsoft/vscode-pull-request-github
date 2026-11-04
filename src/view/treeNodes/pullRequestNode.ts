@@ -225,7 +225,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			this.pullRequestModel = this._folderReposManager.activePullRequest;
 			rawChanges.push(...this._folderReposManager.activePullRequest.fileChanges.values());
 		} else {
-			rawChanges.push(...await this.pullRequestModel.getFileChangesInfo());
+			rawChanges.push(...await this.pullRequestModel.getFileChangesInfo(this._folderReposManager.repository));
 		}
 
 		// Merge base is set as part of getFileChangesInfo
