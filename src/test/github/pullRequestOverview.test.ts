@@ -1747,6 +1747,50 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('stack membership during ref changes', function () {
+		for (const ref of ['base', 'head'] as const) {
+			for (const fails of [false, true]) {
+				it(`preserves the displayed stack when ${ref} changes and its replacement ${fails ? 'fails' : 'loads'}`, async function () {
+					const { panel, model, stackQuery } = await createPanel();
+					await (panel as any).refreshStack();
+					const displayedStack = (panel as any)._loadedStack;
+					assert(displayedStack);
+					const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+					let finish!: (stack: PullRequestStack | undefined) => void;
+					let reject!: (error: Error) => void;
+					stackQuery.returns(new Promise<PullRequestStack | undefined>((resolve, fail) => { finish = resolve; reject = fail; }));
+					const previousRef = model.item[ref]!;
+
+					model.update({ ...model.item, [ref]: { ...previousRef, ref: `changed-${ref}` } });
+
+					assert.strictEqual((panel as any)._stackLoaded, false);
+					assert.strictEqual((panel as any)._loadedStack, displayedStack);
+					const loading = postMessage.firstCall.args[0].pullrequest;
+					assert.strictEqual(loading.stackLoaded, false);
+					assert.strictEqual('stack' in loading, false, 'loading must not erase known stack membership');
+					await new Promise(resolve => setTimeout(resolve, 0));
+					assert(!postMessage.getCalls().some(call => 'stack' in (call.args[0].pullrequest ?? {})));
+
+					if (fails) {
+						reject(new Error('Stack unavailable'));
+					} else {
+						finish(undefined);
+					}
+					await (panel as any)._stackRefreshPromise;
+					const membership = postMessage.getCalls().filter(call => 'stack' in (call.args[0].pullrequest ?? {}));
+					if (fails) {
+						assert.strictEqual(membership.length, 0);
+						assert(postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoadError === true));
+					} else {
+						assert.strictEqual(membership.length, 1);
+						assert.strictEqual(membership[0].args[0].pullrequest.stack, null);
+						assert.strictEqual(membership[0].args[0].pullrequest.stackLoaded, true);
+					}
+				});
+			}
+		}
+	});
+
 	describe('merge queue eligibility on retarget', function () {
 		for (const fails of [false, true]) {
 			it(`keeps eligibility unknown until the new base lookup ${fails ? 'fails' : 'finishes'}`, async function () {

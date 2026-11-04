@@ -355,13 +355,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					this._stackLoaded = false;
 					this._stackPrefetch = undefined;
 					this._stackUpdateEligibility = undefined;
-					this._loadedStack = undefined;
+					// Keep the displayed stack until its replacement is known. Clearing it
+					// would route a stacked PR through the ordinary single-PR merge flow.
 					this._stackRecommendation = undefined;
 					void this._postMessage({
 						command: 'pr.update',
 						pullrequest: {
 							stackLoaded: false,
-							stack: null,
 							stackRecommendation: null,
 							stackLoadError: false,
 							canUpdateStack: false,

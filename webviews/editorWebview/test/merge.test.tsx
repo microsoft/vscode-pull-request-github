@@ -152,6 +152,30 @@ describe('Merge status and actions', function () {
 		});
 	}
 
+	for (const isSimple of [false, true]) {
+		it(`does not expose single-PR merging while a displayed stack reloads in the ${isSimple ? 'sidebar' : 'editor'}`, function () {
+			const mergeLabel = isSimple ? 'Create Merge Commit' : 'Merge Pull Request';
+			const pr: PullRequest = {
+				...new PullRequestBuilder().mergeable(PullRequestMergeability.Mergeable).build(),
+				stackLoaded: true,
+				stack: { position: 1, size: 1, base: 'main', pullRequests: [] },
+			};
+			const context = new PRContext(pr);
+			const content = (value: PullRequest) => <PullRequestContext.Provider value={context}><PrActions pr={value} isSimple={isSimple} /></PullRequestContext.Provider>;
+			const view = render(content(pr));
+
+			view.rerender(content({ ...pr, base: 'owner/repo:retargeted', stackLoaded: false }));
+
+			assert(view.getByText('Checking whether the stack can be merged...'));
+			assert.strictEqual(view.queryByText(mergeLabel), null);
+			assert.strictEqual(view.queryByLabelText(bypassLabel), null);
+			view.rerender(content({ ...pr, stackLoaded: false, stackLoadError: true }));
+			assert.strictEqual(view.queryByText(mergeLabel), null);
+			view.rerender(content({ ...pr, stack: null, stackLoaded: true }));
+			assert(view.getAllByText(mergeLabel).length > 0);
+		});
+	}
+
 	it('hides bypass during retarget queue loading and keeps it hidden for a queued base', function () {
 		const pr = { ...blockedPR(), stackLoaded: true, stack: null, mergeQueueMethod: null };
 		const context = new PRContext(pr);
