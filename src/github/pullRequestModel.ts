@@ -96,6 +96,7 @@ import {
 } from './utils';
 import { Change, Repository } from '../api/api';
 import { Status } from '../api/api1';
+import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
@@ -109,6 +110,7 @@ import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent }
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant, isObject } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
+import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -1849,8 +1851,27 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, openToTheSide?: boolean): Promise<void> {
 		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-		for (const changeModel of changeModels) {
-			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+		if (folderManager.repository instanceof RemoteOnlyRepository) {
+			// `pr:` documents can only be resolved through a workspace repository, so read the files from GitHub instead.
+			const headCommit = pullRequestModel.head?.sha;
+			if (!headCommit) {
+				throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
+			}
+			const fileSystemProvider = getGitHubCommitFileSystemProvider();
+			if (!fileSystemProvider) {
+				throw new Error('GitHub commit file system provider is not initialized.');
+			}
+			fileSystemProvider.registerGitHubRepository(pullRequestModel.githubRepository);
+			for (const changeModel of changeModels) {
+				// Submodule `pr:` URIs carry their content, so they don't need a repository.
+				args.push(changeModel.submoduleChange
+					? [changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]
+					: this.toGitHubCommitMultiDiffEntry(pullRequestModel.githubRepository, changeModel.change, changeModel.change.baseCommit, headCommit));
+			}
+		} else {
+			for (const changeModel of changeModels) {
+				args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+			}
 		}
 
 		/* __GDPR__
@@ -1904,18 +1925,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (!remoteChanges) {
 				throw new Error(`Pull request #${pullRequestModel.number} has no file changes.`);
 			}
-			const remote = pullRequestModel.githubRepository.remote;
-			args = remoteChanges.map((change): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] => {
-				const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner: remote.owner, repo: remote.repositoryName });
-				const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
-				const leftUri = toGitHubCommitUri(parentFileName, { commit: startCommit, owner: remote.owner, repo: remote.repositoryName });
-				if (change.status === GitChangeType.ADD) {
-					return [rightUri, undefined, rightUri];
-				} else if (change.status === GitChangeType.DELETE) {
-					return [rightUri, leftUri, undefined];
-				}
-				return [rightUri, leftUri, rightUri];
-			});
+			args = remoteChanges.map(change => this.toGitHubCommitMultiDiffEntry(pullRequestModel.githubRepository, change, startCommit, headCommit));
 		}
 
 		/* __GDPR__
@@ -1947,6 +1957,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Using GitHub content because the pull request commit range is not available locally: ${formatError(error)}`, PullRequestModel.ID);
 			return false;
 		}
+	}
+
+	private static toGitHubCommitMultiDiffEntry(githubRepository: GitHubRepository, change: InMemFileChange | SlimFileChange, baseCommit: string, headCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
+		const { owner, repositoryName: repo } = githubRepository.remote;
+		const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner, repo });
+		const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
+		const leftUri = toGitHubCommitUri(parentFileName, { commit: baseCommit, owner, repo });
+		if (change.status === GitChangeType.ADD) {
+			return [rightUri, undefined, rightUri];
+		} else if (change.status === GitChangeType.DELETE) {
+			return [rightUri, leftUri, undefined];
+		}
+		return [rightUri, leftUri, rightUri];
 	}
 
 	private static localChangeToMultiDiffEntry(change: Change, startCommit: string, endCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {

@@ -6,12 +6,17 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { Status } from '../../api/api1';
-import { GitChangeType, SlimFileChange } from '../../common/file';
+import { GitApiImpl, Status } from '../../api/api1';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../../common/file';
 import { EventType } from '../../common/timelineEvent';
+import { Schemes } from '../../common/uri';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { getGitHubCommitFileSystemProvider } from '../../view/githubFileContentProvider';
+import { InMemPRFileSystemProvider } from '../../view/inMemPRContentProvider';
 import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
@@ -1904,6 +1909,69 @@ describe('PullRequestModel', function () {
 				owner: repo.remote.owner,
 				repo: repo.remote.repositoryName,
 			});
+		});
+	});
+
+	describe('openChanges', function () {
+		const reviewedCommit = '4444444444444444444444444444444444444444';
+		const headCommit = '5555555555555555555555555555555555555555';
+		let repositoriesManager: RepositoriesManager;
+		let gitAPI: GitApiImpl;
+		let resolver: FolderRepositoryManagerResolver;
+
+		beforeEach(function () {
+			repositoriesManager = new RepositoriesManager(credentials, telemetry);
+			gitAPI = new GitApiImpl(repositoriesManager);
+			resolver = new FolderRepositoryManagerResolver(context, repositoriesManager, telemetry);
+		});
+
+		afterEach(function () {
+			resolver.dispose();
+			gitAPI.dispose();
+			repositoriesManager.dispose();
+		});
+
+		it('reads the files from GitHub when the pull request repository is not open', async function () {
+			const pr = new PullRequestBuilder().head(head => head.sha(headCommit)).build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			const oldPointer = `Subproject commit ${'a'.repeat(40)}`;
+			const newPointer = `Subproject commit ${'b'.repeat(40)}`;
+			sinon.stub(model, 'getFileChangesInfo').resolves([
+				new SlimFileChange(reviewedCommit, '', GitChangeType.MODIFY, 'modified.ts', undefined),
+				new SlimFileChange(reviewedCommit, '', GitChangeType.ADD, 'added.ts', undefined),
+				new SlimFileChange(reviewedCommit, '', GitChangeType.DELETE, 'deleted.ts', undefined),
+				new SlimFileChange(reviewedCommit, '', GitChangeType.RENAME, 'new.ts', 'old.ts'),
+				new InMemFileChange(reviewedCommit, GitChangeType.MODIFY, 'modules/dependency', undefined, `@@ -1 +1 @@\n-${oldPointer}\n+${newPointer}`, undefined, '', 'b'.repeat(40)),
+			]);
+			sinon.stub(CredentialStore.prototype, 'isAnyAuthenticated').returns(true);
+			sinon.stub(repo, 'getFile').callsFake(async (filePath: string, ref: string) => new TextEncoder().encode(`${ref}:${filePath}`));
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const gitHubCommitFileSystemProvider = getGitHubCommitFileSystemProvider({ reposManager: repositoriesManager, gitAPI, credentialStore: credentials })!;
+			const prFileSystemProvider = new InMemPRFileSystemProvider(repositoriesManager, gitAPI, credentials);
+
+			await PullRequestModel.openChanges(resolver.getRemoteOnlyManager(), model);
+
+			const [command, title, entries] = executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.changes');
+			assert.strictEqual(title, `Changes in Pull Request #${model.number}`);
+			const read = async (uri: vscode.Uri | undefined) => {
+				if (!uri) {
+					return undefined;
+				}
+				const provider = uri.scheme === Schemes.Pr ? prFileSystemProvider : gitHubCommitFileSystemProvider;
+				return new TextDecoder().decode(await provider.readFile(uri));
+			};
+			const contents: (string | undefined)[][] = [];
+			for (const [, originalUri, modifiedUri] of entries) {
+				contents.push([await read(originalUri), await read(modifiedUri)]);
+			}
+			assert.deepStrictEqual(contents, [
+				[`${reviewedCommit}:/modified.ts`, `${headCommit}:/modified.ts`],
+				[undefined, `${headCommit}:/added.ts`],
+				[`${reviewedCommit}:/deleted.ts`, undefined],
+				[`${reviewedCommit}:/old.ts`, `${headCommit}:/new.ts`],
+				[`${oldPointer}\n`, `${newPointer}\n`],
+			]);
 		});
 	});
 
