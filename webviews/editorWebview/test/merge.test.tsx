@@ -152,6 +152,25 @@ describe('Merge status and actions', function () {
 		});
 	}
 
+	it('hides bypass during retarget queue loading and keeps it hidden for a queued base', function () {
+		const pr = { ...blockedPR(), stackLoaded: true, stack: null, mergeQueueMethod: null };
+		const context = new PRContext(pr);
+		const content = (value: PullRequest) => <PullRequestContext.Provider value={context}><PrActions pr={value} isSimple={false} /></PullRequestContext.Provider>;
+		const view = render(content(pr));
+		fireEvent.click(view.getByLabelText(bypassLabel));
+		assert(view.getByText('Merge Pull Request'));
+
+		const retargeted = { ...pr, base: 'owner/repo:queued-target', stackLoaded: false };
+		view.rerender(content(retargeted));
+		assert.strictEqual(view.queryByLabelText(bypassLabel), null);
+		assert.strictEqual(view.queryByText('Merge Pull Request'), null);
+		view.rerender(content({ ...retargeted, stackLoaded: true, mergeQueueMethod: 'squash' }));
+		assert.strictEqual(view.queryByLabelText(bypassLabel), null);
+		assert.strictEqual(view.queryByText('Merge Pull Request'), null);
+		view.rerender(content({ ...retargeted, stackLoaded: true }));
+		assert.strictEqual((view.getByLabelText(bypassLabel) as HTMLInputElement).checked, false);
+	});
+
 	it('discards consent after losing capability or changing PR identity', function () {
 		const pr = blockedPR();
 		const context = new PRContext(pr);

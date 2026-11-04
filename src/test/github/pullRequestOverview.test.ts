@@ -1124,6 +1124,31 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(deferred.pullrequest!.viewerCanMergeAsAdmin, true);
 		});
 
+		it('does not publish the initial base queue method after retargeting while the new lookup is pending', async function () {
+			sinon.stub(prModel, 'getStack').resolves(undefined);
+			getMergeQueueMethod.resolves('merge');
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+			await openPanel();
+			const panel = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, prModel.number)!;
+			let finishQueue!: (method: MergeMethod | undefined) => void;
+			getMergeQueueMethod.returns(new Promise<MergeMethod | undefined>(resolve => { finishQueue = resolve; }));
+			const base = prModel.item.base!;
+			prModel.update({ ...prModel.item, base: { ...base, ref: 'new-target' } });
+			messages.length = 0;
+
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred);
+			assert.strictEqual('mergeQueueMethod' in deferred.pullrequest!, false);
+			assert.strictEqual((panel as any)._stackLoaded, false);
+			finishQueue(undefined);
+			await (panel as any)._stackRefreshPromise;
+			assert.strictEqual(messages.find(message => message.pullrequest?.stackLoaded)?.pullrequest?.mergeQueueMethod, null);
+		});
+
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
 			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			sinon.stub(prModel, 'getStack').resolves({
@@ -1720,6 +1745,79 @@ describe('PullRequestOverview', function () {
 
 			assert(postMessage.notCalled);
 		});
+	});
+
+	describe('merge queue eligibility on retarget', function () {
+		for (const fails of [false, true]) {
+			it(`keeps eligibility unknown until the new base lookup ${fails ? 'fails' : 'finishes'}`, async function () {
+				const { panel, model, stackQuery, queueMethod } = await createPanel();
+				stackQuery.resolves(undefined);
+				model.item.mergeable = PullRequestMergeability.NotMergeable;
+				model.item.viewerCanMergeAsAdmin = true;
+				const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+				let finish!: (method: MergeMethod | undefined) => void;
+				let reject!: (error: Error) => void;
+				queueMethod.returns(new Promise<MergeMethod | undefined>((resolve, fail) => { finish = resolve; reject = fail; }));
+				const base = model.item.base!;
+
+				model.update({ ...model.item, base: { ...base, ref: 'queued-target' } });
+
+				const invalidation = postMessage.firstCall.args[0].pullrequest;
+				assert.strictEqual(invalidation.stackLoaded, false);
+				assert.strictEqual(invalidation.mergeQueueMethod, null);
+				assert.strictEqual((panel as any)._stackLoaded, false);
+				await new Promise(resolve => setTimeout(resolve, 0));
+				assert(queueMethod.calledWith('queued-target', model.remote.owner, model.remote.repositoryName));
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoaded === true));
+
+				if (fails) {
+					reject(new Error('Queue unavailable'));
+				} else {
+					finish('squash');
+				}
+				await (panel as any)._stackRefreshPromise;
+				assert.strictEqual((panel as any)._stackLoaded, !fails);
+				const loaded = postMessage.getCalls().find(call => call.args[0].pullrequest?.stackLoaded === true);
+				if (fails) {
+					assert.strictEqual(loaded, undefined);
+				} else {
+					assert.strictEqual(loaded?.args[0].pullrequest.mergeQueueMethod, 'squash');
+				}
+			});
+		}
+
+		for (const oldLookupFails of [false, true]) {
+			it(`ignores a previous base lookup that ${oldLookupFails ? 'fails' : 'finishes'} after retargeting`, async function () {
+				const { panel, model, stackQuery, queueMethod } = await createPanel();
+				stackQuery.resolves(undefined);
+				const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+				let finishOld!: (method: MergeMethod | undefined) => void;
+				let rejectOld!: (error: Error) => void;
+				let finishNew!: (method: MergeMethod | undefined) => void;
+				const base = model.item.base!;
+				queueMethod.withArgs(base.ref, model.remote.owner, model.remote.repositoryName).returns(new Promise<MergeMethod | undefined>((resolve, reject) => { finishOld = resolve; rejectOld = reject; }));
+				queueMethod.withArgs('queued-target', model.remote.owner, model.remote.repositoryName).returns(new Promise<MergeMethod | undefined>(resolve => { finishNew = resolve; }));
+				const oldLookup = (panel as any).loadStack(model, (panel as any)._updateSequence);
+
+				model.update({ ...model.item, base: { ...base, ref: 'queued-target' } });
+				await new Promise(resolve => setTimeout(resolve, 0));
+				if (oldLookupFails) {
+					rejectOld(new Error('Obsolete queue lookup failed'));
+				} else {
+					finishOld(undefined);
+				}
+				await oldLookup;
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoadError === true));
+
+				assert.strictEqual((panel as any)._stackLoaded, false);
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoaded === true));
+				finishNew('merge');
+				await (panel as any)._stackRefreshPromise;
+				const loaded = postMessage.getCalls().filter(call => call.args[0].pullrequest?.stackLoaded === true);
+				assert.strictEqual(loaded.length, 1);
+				assert.strictEqual(loaded[0].args[0].pullrequest.mergeQueueMethod, 'merge');
+			});
+		}
 	});
 
 	describe('branch status changes', function () {
