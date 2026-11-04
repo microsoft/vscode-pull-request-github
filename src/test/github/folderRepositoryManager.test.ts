@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { Octokit } from '@octokit/rest';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
@@ -21,7 +22,7 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { IGit, Repository } from '../../api/api';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
-import { LoggingOctokit } from '../../github/loggingOctokit';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { commands, env, EventEmitter, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
@@ -343,6 +344,65 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', secondRepo), undefined);
 			firstRepo.dispose();
 			secondRepo.dispose();
+		});
+	});
+
+	describe('account preferences for inaccessible repositories', function () {
+		let request: SinonStub;
+		let preferences: SinonStub;
+
+		beforeEach(function () {
+			const octokit = new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false));
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+			sinon.stub(GitHubRepository.prototype, 'hub').get(() => ({ octokit }));
+			request = sinon.stub(LoggingOctokit.prototype, 'call').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			// Leave the prompt open to ensure callers do not wait for it.
+			preferences = sinon.stub(manager.credentialStore, 'showAccountPreferencesForInaccessibleRepository').returns(new Promise<void>(() => { }));
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('offers them when a workspace remote returns 404', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.deepStrictEqual(preferences.args, [[AuthProvider.github, 'owner/missing']]);
+		});
+
+		it('does not offer them when the owner-wide pull request template repository is missing', async function () {
+			assert.strictEqual(await manager.getPullRequestTemplateBody('owner'), undefined);
+
+			assert.deepStrictEqual(request.firstCall.args[1], { owner: 'owner', repo: '.github' });
+			assert.strictEqual(preferences.called, false);
+		});
+
+		it('does not offer them when the folder closes while its remotes are resolving', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+			request.callsFake(async () => {
+				manager.dispose();
+				throw Object.assign(new Error('Not Found'), { status: 404 });
+			});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(request.calledOnce, true);
+			assert.strictEqual(preferences.called, false);
 		});
 	});
 

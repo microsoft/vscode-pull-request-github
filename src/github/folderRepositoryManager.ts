@@ -610,6 +610,10 @@ export class FolderRepositoryManager extends Disposable {
 				if (index > -1) {
 					repositories.splice(index, 1);
 				}
+				// The folder may have been closed while its remotes were resolving.
+				if (!this.isDisposed) {
+					void this._credentialStore.showAccountPreferencesForInaccessibleRepository(inaccessible.remote.authProviderId, `${inaccessible.remote.owner}/${inaccessible.remote.repositoryName}`);
+				}
 				inaccessible.dispose();
 			}
 			if (missingSaml.length > 0) {
