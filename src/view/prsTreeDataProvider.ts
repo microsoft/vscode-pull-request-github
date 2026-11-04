@@ -14,8 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { EXPERIMENTAL_STACKS, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
-import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
+import { AUTO_REFRESH_QUERIES, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -26,7 +25,7 @@ import { PRType } from '../github/interface';
 import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
-import { addPullRequestsToStack, orderStackablePullRequests } from '../github/pullRequestStack';
+import { addPullRequestsToStack, getStackAutoMergeWarning, getStackCandidateForPullRequests, orderStackablePullRequests, refreshPullRequestsForStack } from '../github/pullRequestStack';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -54,6 +53,15 @@ export function getEnterpriseAuthenticationMessage(remotes: readonly Remote[], i
 	return messages.length ? messages.join('\n\n') : undefined;
 }
 
+function hasConfiguredEnterpriseInstances(): boolean {
+	try {
+		return getEnterpriseUris().length > 0;
+	} catch {
+		// Invalid configuration also has to be fixed in the settings.
+		return true;
+	}
+}
+
 function enterpriseSettingsMessage(text: string | undefined, actions: { github: boolean; githubEnterprise: boolean; configure: boolean }): vscode.MarkdownString | undefined {
 	if (!text) {
 		return undefined;
@@ -73,7 +81,8 @@ function enterpriseSettingsMessage(text: string | undefined, actions: { github: 
 	return message;
 }
 
-export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate): { message: string; detail: string; action: string } {
+export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate,
+	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string } {
 	const existing = candidate.stackNumber !== undefined;
 	const additions = ordered.slice(1);
 	const message = existing
@@ -81,9 +90,11 @@ export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], 
 			? vscode.l10n.t('Add 1 pull request to an existing stack?')
 			: vscode.l10n.t('Add {0} pull requests to an existing stack?', additions.length)
 		: vscode.l10n.t('Create a stack with {0} pull requests?', ordered.length);
-	const detail = existing
+	const pullRequests = existing
 		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
 		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
+	const autoMergeWarning = getStackAutoMergeWarning(autoMerge);
+	const detail = autoMergeWarning ? `${pullRequests}\n\n${autoMergeWarning}` : pullRequests;
 	return { message, detail, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
 }
 
@@ -103,6 +114,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	private _notificationsProvider?: NotificationsManager;
 	private _notificationClearTimeout: NodeJS.Timeout | undefined;
+	private _autoRefreshInterval: ReturnType<typeof setInterval> | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -131,7 +143,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-			canSelectMany: areStacksEnabled(),
+			canSelectMany: true,
 			manageCheckboxStateManually: true
 		}));
 		this._loginView = this._register(vscode.window.createTreeView('github:login', {
@@ -147,11 +159,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		void commands.setContext(contexts.CAN_ADD_TO_STACK, false);
 		this._register(this._view.onDidChangeSelection(() => this.updateCanAddToStack()));
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`)) {
-				this.updateCanAddToStack();
-			}
-		}));
 		this._register({ dispose: () => { void commands.setContext(contexts.CAN_ADD_TO_STACK, false); } });
 		this._register(vscode.commands.registerCommand('pr.addToStack',
 			(clicked: PRNode, selected: TreeNode[]) => this.addSelectedPullRequestsToStack(clicked, selected)));
@@ -168,6 +175,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register({
 			dispose: () => {
+				clearInterval(this._autoRefreshInterval);
 				if (this._notificationClearTimeout) {
 					clearTimeout(this._notificationClearTimeout);
 					this._notificationClearTimeout = undefined;
@@ -223,6 +231,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`)) {
+				this.updateAutoRefresh();
+			}
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)
 				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)
@@ -231,6 +242,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this.refreshAll();
 			}
 		}));
+		this.updateAutoRefresh();
 		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.refreshAll()));
 
 		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
@@ -243,9 +255,17 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 	}
 
+	private updateAutoRefresh(): void {
+		clearInterval(this._autoRefreshInterval);
+		this._autoRefreshInterval = undefined;
+		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH_QUERIES, 0);
+		if (Number.isFinite(interval) && interval > 0) {
+			this._autoRefreshInterval = setInterval(() => this.prsTreeModel.forceClearCache(), Math.min(interval * 1000, 2147483647));
+		}
+	}
+
 	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
 		try {
-			assertStacksEnabled();
 			const selection = selected ?? this._view.selection;
 			if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
 				|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
@@ -257,19 +277,18 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
 				return;
 			}
-			const bottom = ordered[0];
-			const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
-			if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
-				throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
-			}
-			const confirmation = getAddToStackConfirmation(ordered, candidate);
+			const candidate = await getStackCandidateForPullRequests(ordered);
+			// Pull request lists don't include auto-merge, which stacking disables, so get it before confirming.
+			const autoMerge = (await refreshPullRequestsForStack(ordered[0].githubRepository, ordered.map(pr => pr.number)))
+				.filter(pr => pr.autoMerge);
+			const confirmation = getAddToStackConfirmation(ordered, candidate, autoMerge);
 			const approved = await vscode.window.showInformationMessage(
 				confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action,
 			);
 			if (approved !== confirmation.action) {
 				return;
 			}
-			await addPullRequestsToStack(ordered, candidate);
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number));
 			this.refreshAll(true);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {
@@ -281,7 +300,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private updateCanAddToStack(): void {
 		const selection = this._view.selection;
 		const selectedPRs = selection.filter((node): node is PRNode => node instanceof PRNode);
-		const stackable = areStacksEnabled() && selectedPRs.length === selection.length
+		const stackable = selectedPRs.length === selection.length
 			&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
 		void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
 	}
@@ -655,8 +674,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
+		const folderManagers = this._reposManager?.folderManagers ?? [];
+		// Unrecognized hosts may be GitHub Enterprise instances that have not been configured yet.
+		const hasUnrecognizedRemotes = folderManagers.some(manager => manager.unrecognizedRemotes.length > 0);
+		const onlyUnrecognizedRemotes = hasUnrecognizedRemotes && folderManagers.every(manager => manager.unrecognizedRemotes.length > 0);
 		let actions: PRCategoryActionNode[];
-		if (remotesSetting) {
+		if (remotesSetting && !onlyUnrecognizedRemotes) {
 			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
@@ -666,7 +689,13 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		if (remotes.some(remote => remote.isEnterprise) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		const enterpriseSignedIn = !!this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
+		// Enterprise sign-in only offers to add a host when no instances are configured.
+		const mustConfigureEnterprise = hasUnrecognizedRemotes && (enterpriseSignedIn || hasConfiguredEnterpriseInstances());
+		if (mustConfigureEnterprise) {
+			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.ConfigureEnterprise));
+		}
+		if (!enterpriseSignedIn && ((hasUnrecognizedRemotes && !mustConfigureEnterprise) || remotes.some(remote => remote.isEnterprise))) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 

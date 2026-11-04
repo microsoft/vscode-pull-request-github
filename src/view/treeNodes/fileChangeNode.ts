@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
-import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toGitHubUri, toResourceUri } from '../../common/uri';
+import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toGitHubUri, toPRUri, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -282,7 +282,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async resolve(): Promise<void> {
-		if (this.status === GitChangeType.ADD) {
+		if (this.status === GitChangeType.ADD && !this.changeModel.submoduleChange) {
 			this.command = openFileCommand(this.changeModel.filePath);
 		} else {
 			this.command = await openDiffCommand(
@@ -329,6 +329,32 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 	private _useViewChangesCommand = false;
 	public useViewChangesCommand() {
 		this._useViewChangesCommand = true;
+	}
+
+	/**
+	 * The file at the pull request's base or head commit. Submodule pointers are embedded so that a content provider
+	 * registered before a later push can't supply stale pointers.
+	 */
+	public toPullRequestUri(isBase: boolean): vscode.Uri {
+		const submoduleChange = this.changeModel.submoduleChange;
+		return toPRUri(
+			this.resourceUri,
+			this.pullRequest,
+			this.pullRequest.base.sha,
+			this.pullRequest.head.sha,
+			this.fileName,
+			isBase,
+			this.status,
+			undefined,
+			isBase ? submoduleChange?.base : submoduleChange?.head,
+		);
+	}
+
+	/**
+	 * The local version of the file. Submodules have no file content, so their pointer document is used instead.
+	 */
+	get localUri(): vscode.Uri {
+		return this.changeModel.submoduleChange ? this.changeModel.filePath : this.resourceUri;
 	}
 
 	private async alternateCommand(): Promise<vscode.Command> {
@@ -399,7 +425,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			this.command = await this.alternateCommand();
 		} else {
 			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
-			if (openDiff && this.status !== GitChangeType.ADD) {
+			if (this.changeModel.submoduleChange || (openDiff && this.status !== GitChangeType.ADD)) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,
 					this.changeModel.parentFilePath,

@@ -59,8 +59,28 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
 	}
 
+	private toRepositoryQuery(query: string, owner?: string, name?: string) {
+		if (!owner || !name) {
+			return query;
+		}
+
+		const repositoryQualifier = `repo:${owner}/${name}`;
+		// The model sometimes puts a different `repo:owner/name` (or `repo:"owner/name"`) qualifier in the query than the repo it passed.
+		// Rewrite every standalone qualifier (at the start, or after whitespace or `(`) to the explicit repo, keeping the preceding character,
+		// because issue search returns results from all listed repositories when there are several `repo:` qualifiers.
+		// Quoted text, such as phrases and values like `label:"needs repo:owner/name"`, is matched as a whole and left unchanged.
+		// The explicit repo is then appended rather than ANDed, since the issue search API doesn't support parentheses or AND/OR.
+		const scopedQuery = query.replace(
+			/(?<quoted>"[^"]*")|(?<prefix>^|[\s(])repo:(?<repository>"[\w.-]+\/[\w.-]+"|[\w.-]+\/[\w.-]+)(?=\s|\)|$)/gi,
+			(_match, quoted: string | undefined, prefix: string | undefined) => {
+				return quoted ?? `${prefix}${repositoryQualifier}`;
+			},
+		);
+		return `${scopedQuery} ${repositoryQualifier}`;
+	}
+
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
-		const parameterQuery = options.input.query;
+		const parameterQuery = this.toRepositoryQuery(options.input.query, options.input.repo?.owner, options.input.repo?.name);
 		const message = new vscode.MarkdownString();
 		message.appendText(vscode.l10n.t('Searching for issues with "{0}".', parameterQuery));
 		message.appendMarkdown(vscode.l10n.t(' [Open on GitHub.com]({0})', escapeMarkdown(this.toGitHubUrl(parameterQuery))));
@@ -71,19 +91,19 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
+		const { owner, name, folderManager } = await this.getExactRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 
-		const parameterQuery = options.input.query;
+		const parameterQuery = this.toRepositoryQuery(options.input.query, owner, name);
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
 
-		const searchResult = await folderManager.getIssues(parameterQuery);
+		const githubRepository = folderManager.findExistingGitHubRepository({ owner, repositoryName: name });
+		const searchResult = await githubRepository?.getIssues(undefined, parameterQuery);
 		if (!searchResult) {
-			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
+			throw new Error(`Unable to search issues in ${owner}/${name}. Make sure the repository is accessible and the query is valid.`);
 		}
 		const cutoff = 30;
 		const result: SearchToolResult = {
-			arrayOfIssues: searchResult.items.slice(0, cutoff).map(i => {
-				const item = i.item;
+			arrayOfIssues: searchResult.items.slice(0, cutoff).map(item => {
 				return {
 					title: item.title,
 					url: item.url,

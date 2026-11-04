@@ -5,13 +5,16 @@
 
 import { strictEqual, deepStrictEqual } from 'assert';
 import { Octokit } from '@octokit/rest';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { ApolloClient, ApolloLink, InMemoryCache } from 'apollo-boost';
+import { createSandbox, match, SinonSandbox, SinonStub } from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
 import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from '../../github/credentials';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { commands } from '../../common/executeCommands';
+import { EXTENSION_ID } from '../../constants';
 
 const oldestScopes = ['read:user', 'user:email', 'repo'];
 const defaultScopes = [...oldestScopes, 'workflow'];
@@ -30,6 +33,16 @@ function createSession(id: string, accountId: string, scopes: string[]): vscode.
 			label: accountId,
 		},
 		scopes,
+	};
+}
+
+function createTestHub(telemetry: MockTelemetry, session: vscode.AuthenticationSession): GitHub {
+	const rateLogger = new RateLogger(telemetry, false);
+	return {
+		serverUri: vscode.Uri.parse('https://github.com'),
+		session,
+		octokit: new LoggingOctokit(new Octokit(), rateLogger),
+		graphql: new LoggingApolloClient(new ApolloClient({ link: ApolloLink.empty(), cache: new InMemoryCache() }), rateLogger),
 	};
 }
 
@@ -163,6 +176,232 @@ describe('CredentialStore', function () {
 			strictEqual(hasAccountChanged('old-account', undefined), true);
 		});
 	});
+
+	describe('account preferences for inaccessible repositories', function () {
+		let telemetry: MockTelemetry;
+		let credentialStore: CredentialStore;
+		let getHub: SinonStub;
+
+		beforeEach(function () {
+			telemetry = new MockTelemetry();
+			credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+			getHub = sinon.stub(credentialStore, 'getHub').returns(createTestHub(telemetry, createSession('session', 'personal', defaultScopes)));
+		});
+
+		afterEach(function () {
+			credentialStore.dispose();
+		});
+
+		it('offers a warning that opens GitHub.com account preferences', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
+			const execute = sinon.stub(commands, 'executeCommand').resolves();
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			deepStrictEqual(getAccounts.firstCall.args, [AuthProvider.github]);
+			strictEqual(warning.firstCall.args[0].includes('owner/repo'), true);
+			deepStrictEqual(warning.firstCall.args.slice(1), [manageAccounts]);
+			deepStrictEqual(execute.firstCall.args, [commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github]);
+		});
+
+		it('does not open preferences on dismissal and suppresses concurrent and repeated prompts', async function () {
+			sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const execute = sinon.stub(commands, 'executeCommand').resolves();
+
+			await Promise.all([
+				credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo'),
+				credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/other'),
+			]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+			strictEqual(execute.called, false);
+		});
+
+		it('does not prompt for GitHub Enterprise', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'octocat - host-a.example' },
+				{ id: 'work', label: 'octocat - host-b.example' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.githubEnterprise, 'owner/repo');
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+		});
+
+		it('does not prompt when GITHUB_OAUTH_TOKEN supplies the credential', async function () {
+			getHub.callThrough();
+			sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: 'environment-token' });
+			// Answers the current user request made when the hub is created.
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({ data: { login: 'octocat', node_id: 'MDQ6VXNlcjE=', html_url: 'https://github.com/octocat', avatar_url: '', type: 'User' } });
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const hub = await credentialStore.login(AuthProvider.github);
+			strictEqual(!!hub && !hub.session, true);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
+		});
+
+		it('does not prompt without multiple accounts, but can prompt after another account is added', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.called, false);
+
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+		});
+
+		it('does not propagate account lookup or command failures', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').rejects(new Error('Provider unavailable'));
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }]);
+			sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
+			const execute = sinon.stub(commands, 'executeCommand').rejects(new Error('Command unavailable'));
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(execute.calledOnce, true);
+		});
+
+		it('does not show a dialog if disposed during account lookup', async function () {
+			sinon.stub(vscode.authentication, 'getAccounts').callsFake(async () => {
+				credentialStore.dispose();
+				return [{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }];
+			});
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			strictEqual(warning.called, false);
+		});
+	});
+
+	for (const authProvider of [AuthProvider.github, AuthProvider.githubEnterprise]) {
+		describe(`handleAuthError (${authProvider})`, function () {
+			let telemetry: MockTelemetry;
+			let credentialStore: CredentialStore;
+			let hub: GitHub;
+			let getHub: SinonStub;
+			let getSession: SinonStub;
+			let sendTelemetryEvent: SinonStub;
+			let session: vscode.AuthenticationSession;
+
+			const forcedSignIns = () => getSession.getCalls().filter(call => call.args[2]?.forceNewSession);
+
+			beforeEach(function () {
+				sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: undefined });
+				telemetry = new MockTelemetry();
+				sendTelemetryEvent = sinon.stub(telemetry, 'sendTelemetryEvent');
+				credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+				session = createSession('current-session', 'account', defaultScopes);
+				hub = createTestHub(telemetry, session);
+				getHub = sinon.stub(credentialStore, 'getHub').returns(hub);
+				getSession = sinon.stub(vscode.authentication, 'getSession').resolves(session);
+				// The user dismisses the forced sign-in, so no new hub is created.
+				getSession.withArgs(authProvider, match.any, match.has('forceNewSession')).rejects(new Error('User did not consent to login.'));
+			});
+
+			afterEach(function () {
+				credentialStore.dispose();
+			});
+
+			it('does not prompt when already signed out', async function () {
+				getHub.returns(undefined);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt for errors from a hub that is no longer in use', async function () {
+				getHub.returns(createTestHub(telemetry, session));
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(getSession.called, false);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt after the session is removed but before cached authentication is cleared', async function () {
+				getSession.resolves(undefined);
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(sendTelemetryEvent.called, false);
+				strictEqual(getSession.called, true);
+				for (const call of getSession.getCalls()) {
+					strictEqual(call.args[0], authProvider);
+					deepStrictEqual(call.args[2], { silent: true });
+				}
+			});
+
+			it('does not prompt when only another account remains signed in', async function () {
+				getSession.resolves(createSession('other-session', 'other-account', defaultScopes));
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt if sign-out finishes during the session lookup', async function () {
+				getSession.callsFake(async () => {
+					getHub.returns(undefined);
+					return session;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('does not prompt if the account is switched during the session lookup', async function () {
+				const otherSession = createSession('other-session', 'other-account', defaultScopes);
+				getSession.callsFake(async () => {
+					getHub.returns(createTestHub(telemetry, otherSession));
+					return otherSession;
+				});
+
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 0);
+				strictEqual(sendTelemetryEvent.called, false);
+			});
+
+			it('prompts once for concurrent errors on the current session and preserves the cooldown', async function () {
+				await Promise.all([
+					credentialStore.handleAuthError(authProvider, hub),
+					credentialStore.handleAuthError(authProvider, hub),
+				]);
+
+				const signIns = forcedSignIns();
+				strictEqual(signIns.length, 1);
+				strictEqual(signIns[0].args[0], authProvider);
+				strictEqual(typeof signIns[0].args[2].forceNewSession.detail, 'string');
+				strictEqual(sendTelemetryEvent.calledOnceWithExactly('auth.badCredentials'), true);
+				deepStrictEqual(await credentialStore.handleAuthError(authProvider, hub), { canceled: true });
+				strictEqual(forcedSignIns().length, 1);
+			});
+		});
+	}
 
 	it('retries the current user request after a failure', async function () {
 		const telemetry = new MockTelemetry();

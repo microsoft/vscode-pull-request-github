@@ -8,6 +8,9 @@ import * as vscode from 'vscode';
 import { StateManager } from '../../issues/stateManager';
 import { CurrentIssue } from '../../issues/currentIssue';
 import { USE_BRANCH_FOR_ISSUES, ISSUES_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { Protocol } from '../../common/protocol';
+import { GitHubRemote } from '../../common/remote';
 import { MockRepository } from '../mocks/mockRepository';
 
 // Mock classes for testing
@@ -114,6 +117,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 			repository,
 			getMaxIssue: async () => 0,
 			getIssues: async () => ({ items: [] }),
+			getActiveGitHubRemotes: () => [],
 		};
 
 		const pendingIssueData = internal.setIssueData(folderManager);
@@ -174,6 +178,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				return { items: [], hasMorePages: false, hasUnsearchedRepositories: false, totalCount: 0 };
 			},
 			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
 		};
 
 		// Mock workspace configuration with query that has trailing space
@@ -224,6 +229,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				throw new Error('Network error');
 			},
 			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
 		};
 
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
@@ -274,6 +280,7 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 				throw new Error('API error');
 			},
 			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
 		};
 
 		const originalGetConfiguration = vscode.workspace.getConfiguration;
@@ -311,5 +318,72 @@ describe('StateManager branch behavior with useBranchForIssues setting', functio
 		} finally {
 			vscode.workspace.getConfiguration = originalGetConfiguration;
 		}
+	});
+
+	describe('current user resolution for issue queries', function () {
+		// eslint-disable-next-line no-template-curly-in-string
+		const query = 'is:open assignee:${user} repo:owner/repo';
+
+		async function resolveQuery(gitRemotes: { name: string, url: string }[], githubRemotes: GitHubRemote[]): Promise<{ query: string | undefined, providers: AuthProvider[] }> {
+			const mockUri = vscode.Uri.parse('file:///test');
+			let receivedQuery: string | undefined;
+			const providers: AuthProvider[] = [];
+			const mockFolderManager = {
+				repository: {
+					rootUri: mockUri,
+					state: { HEAD: { commit: 'abc123' }, remotes: gitRemotes.map(remote => ({ name: remote.name, fetchUrl: remote.url, isReadOnly: false })) },
+					getConfigs: async () => [],
+				},
+				getIssues: async (q: string) => {
+					receivedQuery = q;
+					return { items: [], hasMorePages: false, hasUnsearchedRepositories: false };
+				},
+				getMaxIssue: async () => 0,
+				getActiveGitHubRemotes: () => githubRemotes,
+			};
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: {
+					getCurrentUser: async (provider: AuthProvider) => {
+						providers.push(provider);
+						return provider === AuthProvider.github ? { login: 'dotcom-user' } : { login: 'enterprise-user' };
+					},
+				},
+			} as any, mockContext);
+			(sm as any)._queries = [{ label: 'My Issues', query, groupBy: [] }];
+
+			await (sm as any).setIssueData(mockFolderManager);
+			await sm.getIssueCollection(mockUri).get('My Issues');
+			return { query: receivedQuery, providers };
+		}
+
+		function githubRemote(name: string, url: string, serverType: GitHubServerType): GitHubRemote {
+			return new GitHubRemote(name, url, new Protocol(url), serverType);
+		}
+
+		it('uses the github.com user when a non-GitHub remote is also configured', async function () {
+			const origin = { name: 'origin', url: 'https://github.com/owner/repo.git' };
+			const privateServer = { name: 'zefiris', url: 'ssh://git@zefiris.example.com/owner/repo.git' };
+
+			const result = await resolveQuery(
+				[origin, privateServer],
+				[githubRemote(origin.name, origin.url, GitHubServerType.GitHubDotCom)],
+			);
+
+			assert.deepStrictEqual(result.providers, [AuthProvider.github]);
+			assert.strictEqual(result.query, 'is:open assignee:dotcom-user repo:owner/repo');
+		});
+
+		it('uses the Enterprise user when an active remote is GitHub Enterprise', async function () {
+			const origin = { name: 'origin', url: 'https://ghe.example.com/owner/repo.git' };
+
+			const result = await resolveQuery(
+				[origin],
+				[githubRemote(origin.name, origin.url, GitHubServerType.Enterprise)],
+			);
+
+			assert.deepStrictEqual(result.providers, [AuthProvider.githubEnterprise]);
+			assert.strictEqual(result.query, 'is:open assignee:enterprise-user repo:owner/repo');
+		});
 	});
 });

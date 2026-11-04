@@ -1,5 +1,94 @@
 # Changelog
 
+## 0.176.0
+
+### Changes
+
+- The pull request overview timeline shows more events, including label, milestone, and title changes, review requests and dismissals, draft and ready-for-review changes, force pushes, branch restores, auto-merge changes, and merge queue updates.
+- Pull request description templates support issue variables such as `${issueTitle}`, `${issueNumber}`, and `${issueNumberLabel}`, filled in from the issue associated with the branch by "Start Working on Issue".
+- Add a "Comment and Resolve" button to review comment threads.
+- Queries in the Pull Requests view can refresh automatically. Set `"githubPullRequests.autoRefreshQueries"` to the refresh interval in seconds.
+- SAML error dialogs include a "Reauthenticate" button.
+- When you stack pull requests, you're prompted to disable auto-merge on any pull request in the stack that has it enabled.
+- Local pull request discovery reads Git config once instead of once per branch.
+
+### Fixes
+
+- The stack suggestion banner's close button doesn't stay in the upper right when resized. https://github.com/microsoft/vscode-pull-request-github/issues/9111
+- The stack suggestion banner can cause the pull request overview to flicker or jump vertically. https://github.com/microsoft/vscode-pull-request-github/issues/9102
+- The "Merge stack" action shows even when it won't merge the entire stack. https://github.com/microsoft/vscode-pull-request-github/issues/9101
+- "Open original file" isn't available for deleted files. https://github.com/microsoft/vscode-pull-request-github/issues/9030
+- Checkout Pull Request in Worktree fails for pull requests from forks. https://github.com/microsoft/vscode-pull-request-github/issues/8983
+- Opening a submodule bump in the pull request changes view fails with "Unable to read file ... that is actually a directory". https://github.com/microsoft/vscode-pull-request-github/issues/8981
+- The `activePullRequest` tool misses the open pull request for the current checked-out branch. https://github.com/microsoft/vscode-pull-request-github/issues/8965
+- Unable to convert pull request to draft: "Cannot read properties of null (reading 'pullRequest')". https://github.com/microsoft/vscode-pull-request-github/issues/8961
+- Signing out triggers a sign-in request in each window. https://github.com/microsoft/vscode-pull-request-github/issues/8951
+- GitHub search tool returns zero matching issues despite there being many. https://github.com/microsoft/vscode-pull-request-github/issues/8930
+- GitHub Enterprise sign-in prompt is missing when the repository has a GitHub-style remote but `github-enterprise.uri` is unset. https://github.com/microsoft/vscode-pull-request-github/issues/8874
+- Continuously trying to push changes when creating a pull request. https://github.com/microsoft/vscode-pull-request-github/issues/8748
+- Branches are associated with stale closed pull requests through their tracked upstream branch. https://github.com/microsoft/vscode-pull-request-github/issues/8676
+- In-progress comments are lost when review mode is cleared after a pull request is merged. https://github.com/microsoft/vscode-pull-request-github/issues/7556
+- Files in a pull request are opened by absolute path and not treated as the same file as the one in the workspace. https://github.com/microsoft/vscode-pull-request-github/issues/6712
+- "Start Working on Issue" doesn't use the right remote when checking out the topic branch. https://github.com/microsoft/vscode-pull-request-github/issues/6661
+- Copilot pull request information shows on queries that exclude Copilot, such as those using `-author:copilot`, in the Pull Requests view.
+- Orphaned stack update worktrees aren't cleaned up on macOS.
+
+**_Thank You_**
+
+* [@diptomistry (Diptajoy Mistry)](https://github.com/diptomistry): Warn before clearing review mode when unsaved comment drafts exist [PR #9043](https://github.com/microsoft/vscode-pull-request-github/pull/9043)
+* [@kinqsradio (Anh Dang)](https://github.com/kinqsradio): Fix orphan stack worktree cleanup through macOS path aliases [PR #9100](https://github.com/microsoft/vscode-pull-request-github/pull/9100)
+* [@tamird (Tamir Duberstein)](https://github.com/tamird): Batch Git config reads for branch operations [PR #8978](https://github.com/microsoft/vscode-pull-request-github/pull/8978)
+
+## 0.174.0
+
+### Changes
+
+- The "Update stack" action now uses the GitHub API to update a stacked pull request when possible, so you no longer need to have a pull request from the stack checked out.
+- The pull request overview shows a banner offering to create a stack when the pull request's branches line up with other open pull requests that aren't stacked yet.
+![PR can be stacked](./documentation/changelog/0.174.0/pull_can_stack_banner.png)
+- Polished the "Unstack", "Hide", and "Update stack" buttons in the pull request overview.
+- The changes editor opened from the pull request overview now uses the same title as the overview tab.
+- Hide redundant tools and skills in the Agents window.
+
+### Fixes
+
+- Plugin no longer gives access to GitHub issues while using personal account. https://github.com/microsoft/vscode-pull-request-github/issues/9064
+- Re-requesting a review from Copilot doesn't work. https://github.com/microsoft/vscode-pull-request-github/pull/9089
+- Checkout button doesn't work in a restored pull request overview. https://github.com/microsoft/vscode-pull-request-github/pull/9088
+- The "Update stack" button doesn't show in the pull request overview until it's refreshed. https://github.com/microsoft/vscode-pull-request-github/pull/9086
+- Comment button isn't disabled while an attestation commit is being added during approval. https://github.com/microsoft/vscode-pull-request-github/pull/9078
+
+## 0.172.0
+
+### Changes
+
+- The "Update stack" action now handles merge conflicts in stacked pull requests. When a rebase hits a conflict, you're guided to resolve it in the Source Control view, then continue or abort the rebase.
+
+### Fixes
+
+- Asked to delete remote branch manually after merging a pull request. https://github.com/microsoft/vscode-pull-request-github/issues/8966
+- Webview message reply callbacks are retained for the lifetime of the webview instead of being released when each request completes.
+
+## 0.170.0
+
+### Changes
+
+- Add an "Update stack" action to the pull request overview, which rebases the branches in a stacked pull request onto their updated bases and pushes them. Requires that one of the PRs in the stack be checked out, and is still limited only to stacks that don't contain merge conflicts.
+
+### Fixes
+
+- Copilot pull request state polling throws `RangeError: Invalid array length` while accumulating paginated results. https://github.com/microsoft/vscode-pull-request-github/issues/9023
+- Issue links in overview HTML are emitted with an extra quote in href. https://github.com/microsoft/vscode-pull-request-github/issues/9022
+- Issue links wait on redundant serial GraphQL queries. https://github.com/microsoft/vscode-pull-request-github/issues/8979
+- Clicking the pull request number opens two GitHub tabs since 0.166.0. https://github.com/microsoft/vscode-pull-request-github/issues/8955
+- Pull request overview remains stuck checking mergeability after an `UNKNOWN` response. https://github.com/microsoft/vscode-pull-request-github/issues/8953
+
+**_Thank You_**
+
+* [@L4XB (Lukas)](https://github.com/L4XB): Don't open two browser tabs when clicking the pull request number [PR #8962](https://github.com/microsoft/vscode-pull-request-github/pull/8962)
+* [@strawberry-little-bear](https://github.com/strawberry-little-bear): Fix malformed issue links in overview HTML [PR #9025](https://github.com/microsoft/vscode-pull-request-github/pull/9025)
+* [@vsharha (Viktor Sharha)](https://github.com/vsharha): Fix mergeability polling in pull request overview [PR #8954](https://github.com/microsoft/vscode-pull-request-github/pull/8954)
+
 ## 0.168.0
 
 ### Changes

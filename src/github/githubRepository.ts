@@ -5,6 +5,7 @@
 
 import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, OperationVariables, QueryOptions } from 'apollo-boost';
+import gql from 'graphql-tag';
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
@@ -33,9 +34,15 @@ import {
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
+	PullRequestStackSummariesResponse,
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
+	StackablePullRequestBranchesNode,
+	StackablePullRequestConnection,
+	StackablePullRequestNode,
+	StackablePullRequestsResponse,
+	StackBranchStatusResponse,
 	SuggestedActorsResponse,
 	UserResponse,
 	ViewerPermissionResponse,
@@ -54,6 +61,7 @@ import {
 	PullRequestCheckStatus,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
+	StackablePullRequest,
 	User,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
@@ -69,13 +77,16 @@ import {
 	getOverrideBranch,
 	GraphQLAccount,
 	isInCodespaces,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLUser,
 	parseGraphQLViewerPermission,
+	parseMergeability,
 	parseMergeMethod,
 	parseMilestone,
+	parseStackSummary,
 	restPaginate,
 } from './utils';
 import { IssuePreview, PullRequestPreview } from './views';
@@ -178,6 +189,93 @@ export enum CopilotWorkingStatus {
 export interface PullRequestChangeEvent {
 	model: IssueModel;
 	event: IssueChangeEvent;
+}
+
+/** A pull request in a stack, with the branch and commit GitHub reported for it. */
+export interface StackMemberHead {
+	number: number;
+	ref: string;
+	sha: string;
+}
+
+/** Two branches to compare, to tell whether the head is behind the base. */
+export interface StackBranchComparison {
+	/** A branch in this repository. */
+	base: string;
+	/** A branch as `owner:branch`, which can be in a fork. */
+	head: string;
+}
+
+export interface StackBranchStatus {
+	/** How many commits each head is behind its base, in the order they were compared. */
+	behindBy: (number | undefined)[];
+	mergeQueueMethod?: MergeMethod;
+}
+
+export type StackRebaseOutcome = {
+	status: 'rebased' | 'pending';
+	/** The stack's pull requests as they were before the rebase. */
+	before: StackMemberHead[];
+	/** The pull requests whose head GitHub changed, when GitHub reported them. */
+	rebasedPullRequests?: number[];
+};
+
+const STACK_API_HEADERS = { 'X-GitHub-Api-Version': '2026-03-10' };
+const STACK_REBASE_POLL_INTERVAL_MS = 3000;
+const STACK_REBASE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** GitHub's result for one pull request of a finished stack rebase. */
+interface StackRebasePullRequestResult {
+	number: number;
+	status: string;
+	before?: string;
+	after?: string;
+}
+
+type StackRebaseStatus =
+	| { state: 'pending' }
+	| { state: 'rebased'; pullRequests: StackRebasePullRequestResult[] }
+	| { state: 'failed'; message: string };
+
+/** The states, other than `done`, of a stack rebase job that is still running. Only `pending` has been observed. */
+const PENDING_STACK_REBASE_STATES = new Set(['pending', 'queued', 'running', 'in_progress']);
+
+/**
+ * Parses the status of a stack rebase job. Starting a rebase returns `{ status: 'pending', status_url }`. Polling
+ * returns `{ job_state, pull_requests: [{ pull_request_number, status, before, after }] }`; a finished job has the
+ * state `done`, and each rebased pull request has the status `succeeded`. Other values are not documented yet, so a
+ * value that is not recognized is reported rather than treated as success.
+ */
+function parseStackRebaseStatus(value: unknown): StackRebaseStatus {
+	const state = isObject(value) ? value.job_state ?? value.status : undefined;
+	if (!isObject(value) || typeof state !== 'string') {
+		throw new Error('GitHub returned an invalid stack rebase status.');
+	}
+	if (PENDING_STACK_REBASE_STATES.has(state)) {
+		return { state: 'pending' };
+	}
+	if (state !== 'done') {
+		const message = typeof value.message === 'string' ? ` (${value.message})` : '';
+		throw new Error(`GitHub returned an unknown stack rebase state: ${state}${message}`);
+	}
+	if (!Array.isArray(value.pull_requests) || !value.pull_requests.every((pr: unknown) =>
+		isObject(pr) && typeof pr.pull_request_number === 'number' && typeof pr.status === 'string')) {
+		throw new Error('GitHub returned an invalid stack rebase result.');
+	}
+	const pullRequests: StackRebasePullRequestResult[] = value.pull_requests.map((pr: Record<string, unknown>) => ({
+		number: pr.pull_request_number as number,
+		status: pr.status as string,
+		before: typeof pr.before === 'string' ? pr.before : undefined,
+		after: typeof pr.after === 'string' ? pr.after : undefined,
+	}));
+	const unsuccessful = pullRequests.filter(pr => pr.status !== 'succeeded');
+	if (unsuccessful.length) {
+		return {
+			state: 'failed',
+			message: `GitHub could not rebase every pull request in the stack: ${unsuccessful.map(pr => `#${pr.number} (${pr.status})`).join(', ')}.`,
+		};
+	}
+	return { state: 'rebased', pullRequests };
 }
 
 export class GitHubRepository extends Disposable {
@@ -628,10 +726,21 @@ export class GitHubRepository extends Disposable {
 	}
 
 	private _branchHasMergeQueue: Map<string, MergeMethod> = new Map();
+	private readonly _mergeQueueRequests = new Map<string, Promise<MergeMethod | undefined>>();
 	async mergeQueueMethodForBranch(branch: string): Promise<MergeMethod | undefined> {
 		if (this._branchHasMergeQueue.has(branch)) {
 			return this._branchHasMergeQueue.get(branch)!;
 		}
+		// The overview looks up its base branch for the merge controls and the stack at the same time, so they share a request.
+		let request = this._mergeQueueRequests.get(branch);
+		if (!request) {
+			request = this.fetchMergeQueueMethod(branch).finally(() => this._mergeQueueRequests.delete(branch));
+			this._mergeQueueRequests.set(branch, request);
+		}
+		return request;
+	}
+
+	private async fetchMergeQueueMethod(branch: string): Promise<MergeMethod | undefined> {
 		try {
 			Logger.debug('Fetch branch has merge queue - enter', this.id);
 			const { query, remote, schema } = await this.ensure();
@@ -656,6 +765,46 @@ export class GitHubRepository extends Disposable {
 		} catch (e) {
 			Logger.error(`Fetching branch has merge queue failed: ${e}`, this.id);
 		}
+	}
+
+	/**
+	 * Gets how many commits each head branch is behind its base branch, and the merge queue of a branch, in one request.
+	 * Unlike the REST comparison, this does not download the changes between the branches.
+	 * @param comparisons The base branch in this repository, and the head branch as `owner:branch`, of each comparison.
+	 * @param mergeQueueBranch A branch to look up the merge queue of.
+	 * @returns How many commits each head is behind its base, or `undefined` when the base branch does not exist.
+	 */
+	async getStackBranchStatus(comparisons: readonly StackBranchComparison[], mergeQueueBranch?: string): Promise<StackBranchStatus> {
+		if (!comparisons.length && mergeQueueBranch === undefined) {
+			return { behindBy: [] };
+		}
+		const { query, remote } = await this.ensure();
+		// Branch names are passed as variables rather than written into the query.
+		const variables: Record<string, string> = { owner: remote.owner, name: remote.repositoryName };
+		const definitions = ['$owner: String!', '$name: String!'];
+		const fields = comparisons.map((comparison, index) => {
+			variables[`base${index}`] = `refs/heads/${comparison.base}`;
+			variables[`head${index}`] = comparison.head;
+			definitions.push(`$base${index}: String!`, `$head${index}: String!`);
+			return `compare${index}: ref(qualifiedName: $base${index}) { compare(headRef: $head${index}) { behindBy } }`;
+		});
+		if (mergeQueueBranch !== undefined) {
+			variables.mergeQueueBranch = mergeQueueBranch;
+			definitions.push('$mergeQueueBranch: String!');
+			fields.push('mergeQueue(branch: $mergeQueueBranch) { configuration { mergeMethod } }');
+		}
+		const { data } = await query<StackBranchStatusResponse>({
+			query: gql(`query StackBranchStatus(${definitions.join(', ')}) { repository(owner: $owner, name: $name) { ${fields.join(' ')} } }`),
+			variables,
+		}, false, undefined, false);
+		const repository = data?.repository;
+		if (!repository) {
+			throw new Error(`Unable to compare the stack branches in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		return {
+			behindBy: comparisons.map((_, index) => repository[`compare${index}`]?.compare?.behindBy),
+			mergeQueueMethod: parseMergeMethod(repository.mergeQueue?.configuration?.mergeMethod),
+		};
 	}
 
 	async commit(branch: string, message: string, files: Map<string, Uint8Array>): Promise<boolean> {
@@ -736,6 +885,8 @@ export class GitHubRepository extends Disposable {
 				})
 				.filter(item => item !== null) as PullRequestModel[];
 
+			// The REST API does not include the stack that each pull request is in, which is shown as soon as one is opened.
+			void this.loadStackSummaries(pullRequests);
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,
@@ -753,6 +904,37 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * Loads the stack that each pull request is in, without the merge status of the pull requests in it, in one request.
+	 * This is for pull requests that were loaded without it, such as by the REST API. Failures are only logged.
+	 */
+	async loadStackSummaries(pullRequests: readonly PullRequestModel[]): Promise<void> {
+		if (!pullRequests.length) {
+			return;
+		}
+		// A pull request that is loaded again while this request is in flight already has newer stack information.
+		const items = pullRequests.map(pullRequest => pullRequest.item);
+		try {
+			const { query, schema } = await this.ensure();
+			// The stack is not loaded with pull requests from GitHub Enterprise, since not every server supports stacks.
+			if (this.areQueriesLimited) {
+				return;
+			}
+			const { data } = await query<PullRequestStackSummariesResponse>({
+				query: schema.PullRequestStackSummaries,
+				variables: { ids: pullRequests.map(pullRequest => pullRequest.graphNodeId) },
+			}, false, undefined, false);
+			data?.nodes.forEach((summary, index) => {
+				const pullRequest = pullRequests[index];
+				if (summary && pullRequest.item === items[index]) {
+					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
+				}
+			});
+		} catch (e) {
+			Logger.error(`Loading the stacks of ${pullRequests.length} pull requests failed: ${e}`, this.id);
+		}
 	}
 
 	async getPullRequestNumbers(): Promise<PullRequestNumberData[] | undefined> {
@@ -890,6 +1072,73 @@ export class GitHubRepository extends Disposable {
 		return this.addPullRequestsToStack(candidate, [number]);
 	}
 
+	/**
+	 * Gets the open pull requests whose branches line up with a chain of branches in this repository.
+	 * Pull requests from forks are skipped, and there is no pull request where more than one lines up.
+	 * @param base The branch that the bottom of the chain merges into, or `undefined` to not look below the chain.
+	 * @param head The branch at the top of the chain, or `undefined` to not look above the chain.
+	 * @returns The pull request whose head is `base`, the one whose base is `head`, and the number of the one whose
+	 * base is `base`, which should be the bottom of the chain. `undefined` if this GitHub server does not support
+	 * pull request stacks.
+	 */
+	async getStackablePullRequests(base: string | undefined, head: string | undefined): Promise<{
+		below?: StackablePullRequest;
+		targetingBase?: number;
+		above?: StackablePullRequest;
+	} | undefined> {
+		const { query, remote, schema } = await this.ensure();
+		let data: StackablePullRequestsResponse;
+		try {
+			({ data } = await query<StackablePullRequestsResponse>({
+				query: schema.StackablePullRequests,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					base: base ?? '',
+					head: head ?? '',
+					includeBelow: base !== undefined,
+					includeAbove: head !== undefined,
+				},
+			}, false, undefined, false));
+		} catch (error) {
+			if (isStacksUnsupportedError(error)) {
+				Logger.debug('Pull request stacks are not supported by this GitHub server.', this.id);
+				return;
+			}
+			throw error;
+		}
+		if (!data?.repository) {
+			throw new Error(`Unable to find pull requests to stack in ${remote.owner}/${remote.repositoryName}.`);
+		}
+		const findOnly = <T extends StackablePullRequestBranchesNode>(connection: StackablePullRequestConnection<T> | undefined): T | undefined => {
+			// Another page could hold a second pull request, so there may not be only one.
+			if (!connection || connection.pageInfo.hasNextPage) {
+				return;
+			}
+			const candidates = connection.nodes.filter(node => node.baseRefName !== node.headRefName
+				&& [node.baseRepository, node.headRepository].every(repository => repository
+					&& compareIgnoreCase(repository.owner.login, remote.owner) === 0
+					&& compareIgnoreCase(repository.name, remote.repositoryName) === 0));
+			return candidates.length === 1 ? candidates[0] : undefined;
+		};
+		const toStackable = (node: StackablePullRequestNode | undefined): StackablePullRequest | undefined => node && {
+			number: node.number,
+			title: node.title,
+			url: node.url,
+			base: node.baseRefName,
+			head: node.headRefName,
+			isDraft: node.isDraft,
+			isQueued: !!node.mergeQueueEntry,
+			mergeable: parseMergeability(node.mergeable, node.mergeStateStatus),
+			stackEntry: node.stack && node.stackEntry ? { position: node.stackEntry.position, size: node.stack.size } : undefined,
+		};
+		return {
+			below: toStackable(findOnly(data.repository.below)),
+			targetingBase: findOnly(data.repository.targetingBase)?.number,
+			above: toStackable(findOnly(data.repository.above)),
+		};
+	}
+
 	async addPullRequestsToStack(candidate: StackCandidate, numbers: number[]): Promise<number[]> {
 		if (numbers.length === 0) {
 			throw new Error('At least one pull request is required to add to a stack.');
@@ -927,15 +1176,17 @@ export class GitHubRepository extends Disposable {
 		return members;
 	}
 
-	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
+	/**
+	 * Finds the stack containing `pullRequestNumber`, and checks it still has exactly the pull requests the user acted
+	 * on, in order, so a change on GitHub since then is reported instead of acted on.
+	 */
+	private async getExpectedStack(pullRequestNumber: number, expectedPullRequests: readonly number[]):
+		Promise<{ number: number; pullRequests: { number: number; head?: { ref: string; sha: string } }[] }> {
 		const { octokit, remote } = await this.ensure();
-		const params = {
+		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
-		};
-		const { data: stacks } = await octokit.call(() => octokit.api.request('GET /repos/{owner}/{repo}/stacks', {
-			...params,
+			headers: STACK_API_HEADERS,
 			pull_request: pullRequestNumber,
 			per_page: 1,
 		}));
@@ -944,13 +1195,107 @@ export class GitHubRepository extends Disposable {
 			|| !stacks[0].pull_requests.some((pr: unknown) => isObject(pr) && pr.number === pullRequestNumber)) {
 			throw new Error(`Could not find the stack containing pull request #${pullRequestNumber}.`);
 		}
-		if (stacks[0].pull_requests.length !== expectedPullRequests.length
-			|| stacks[0].pull_requests.some((pr: unknown, index: number) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
+		const pullRequests: unknown[] = stacks[0].pull_requests;
+		if (pullRequests.length !== expectedPullRequests.length
+			|| pullRequests.some((pr, index) => !isObject(pr) || pr.number !== expectedPullRequests[index])) {
 			throw new Error('The pull request stack has changed. Refresh the view and try again.');
 		}
+		return {
+			number: stacks[0].number,
+			pullRequests: pullRequests.map(pr => {
+				const { number, head } = pr as { number: number; head?: unknown };
+				return isObject(head) && typeof head.ref === 'string' && typeof head.sha === 'string'
+					? { number, head: { ref: head.ref, sha: head.sha } }
+					: { number };
+			}),
+		};
+	}
+
+	/**
+	 * Asks GitHub to rebase every pull request in the stack onto its base, and waits for the job to finish. The stack
+	 * must still have exactly `expectedPullRequests`. Resolves to `pending` if the job is still running after a few minutes.
+	 */
+	async rebaseStack(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<StackRebaseOutcome> {
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
+		const before = stack.pullRequests.map(pr => {
+			if (!pr.head) {
+				throw new Error(`GitHub did not return the branch of pull request #${pr.number} in this stack.`);
+			}
+			return { number: pr.number, ref: pr.head.ref, sha: pr.head.sha };
+		});
+		const { octokit } = await this.ensure();
+		const { id: repositoryId } = await this.getMetadata();
+		const route = '/repositories/{repository_id}/stacks/{stack_number}/rebase';
+		const parameters = {
+			repository_id: repositoryId,
+			stack_number: stack.number,
+			headers: STACK_API_HEADERS,
+		};
+		const label = `stack ${stack.number} in repository ${repositoryId}`;
+		Logger.appendLine(`Requesting a rebase of ${label}: ${before.map(pr => `#${pr.number} ${pr.ref}@${pr.sha}`).join(', ')}`, this.id);
+		// The rebase API's responses are logged in full so its status values can be checked against what is parsed.
+		const parse = (request: string, httpStatus: unknown, body: unknown): StackRebaseStatus => {
+			let parsed: StackRebaseStatus | undefined;
+			try {
+				parsed = parseStackRebaseStatus(body);
+				return parsed;
+			} finally {
+				Logger.appendLine(`${request} for ${label} returned HTTP ${httpStatus ?? 'unknown'}, interpreted as ${parsed?.state ?? 'unrecognized'}: ${JSON.stringify(body)}`, this.id);
+			}
+		};
+		let status: StackRebaseStatus;
+		try {
+			// GitHub only rebases the stack if every pull request still has the head it had when the stack was checked.
+			const response = await octokit.call(() => octokit.api.request(`PUT ${route}`, {
+				...parameters,
+				expected_head_oid_by_pr_number: Object.fromEntries(before.map(pr => [pr.number, pr.sha])),
+			}));
+			if (response.headers?.location) {
+				Logger.appendLine(`PUT for ${label} returned the Location header ${response.headers.location}`, this.id);
+			}
+			status = parse('PUT', response.status, response.data);
+		} catch (error) {
+			// Like the async merge API, a rebase that is already running is reported as a conflict, which is then polled.
+			if (!isObject(error) || error.status !== 409 || !isObject(error.response)) {
+				if (isObject(error) && isObject(error.response)) {
+					Logger.appendLine(`PUT for ${label} failed with HTTP ${error.status}: ${JSON.stringify(error.response.data)}`, this.id);
+				}
+				throw error;
+			}
+			status = parse('PUT', error.status, error.response.data);
+			if (status.state !== 'pending') {
+				throw error;
+			}
+		}
+
+		const deadline = Date.now() + STACK_REBASE_TIMEOUT_MS;
+		while (status.state === 'pending') {
+			if (Date.now() >= deadline) {
+				Logger.appendLine(`Stopped waiting for the rebase of ${label} after ${STACK_REBASE_TIMEOUT_MS / 1000} seconds`, this.id);
+				return { status: 'pending', before };
+			}
+			await new Promise<void>(resolve => setTimeout(resolve, STACK_REBASE_POLL_INTERVAL_MS));
+			const response = await octokit.call(() => octokit.api.request(`GET ${route}`, parameters));
+			status = parse('GET', response.status, response.data);
+		}
+		if (status.state === 'failed') {
+			throw new Error(status.message);
+		}
+		return {
+			status: 'rebased',
+			before,
+			rebasedPullRequests: status.pullRequests.filter(pr => !pr.before || !pr.after || pr.before !== pr.after).map(pr => pr.number),
+		};
+	}
+
+	async unstackAll(pullRequestNumber: number, expectedPullRequests: readonly number[]): Promise<number[]> {
+		const { octokit, remote } = await this.ensure();
+		const stack = await this.getExpectedStack(pullRequestNumber, expectedPullRequests);
 		const result = await octokit.call(() => octokit.api.request('POST /repos/{owner}/{repo}/stacks/{stack_number}/unstack', {
-			...params,
-			stack_number: stacks[0].number,
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			headers: STACK_API_HEADERS,
+			stack_number: stack.number,
 		}));
 		if (result.status === 204) {
 			this.notifyStackChanged(expectedPullRequests);

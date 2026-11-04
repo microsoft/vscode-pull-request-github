@@ -15,12 +15,13 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
+import { confirmDisablingAutoMergeForStack } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
 import { RemoteInfo } from '../../common/types';
 import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, StackCandidate, TitleAndDescriptionArgs } from '../../common/views';
-import type { Branch } from '../api/api';
+import type { Branch, UpstreamRef } from '../api/api';
 import { debounce } from '../common/async';
 import { GitHubServerType } from '../common/authentication';
 import { emojify, ensureEmojis } from '../common/emoji';
@@ -32,20 +33,19 @@ import {
 	ASSIGN_TO,
 	CREATE_BASE_BRANCH,
 	DEFAULT_CREATE_OPTION,
-	EXPERIMENTAL_STACKS,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
 	PULL_REQUEST_LABELS,
 	PUSH_BRANCH,
 	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
 } from '../common/settingKeys';
-import { areStacksEnabled, assertStacksEnabled } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { getIssueForBranch } from '../issues/stateManager';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -687,21 +687,6 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (!e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_STACKS}`) || !this._view) {
-				return;
-			}
-			const sequence = ++this._stackCandidateSequence;
-			void this.getStackCandidateForView(
-				{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName }, this.model.baseBranch,
-				{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch,
-			).then(stackCandidate => {
-				if (sequence === this._stackCandidateSequence) {
-					return this._postMessage({ command: 'pr.initialize', params: { stackCandidate } });
-				}
-			});
-		}));
-
 		this._register(this.model.onDidChange(async (e) => {
 			const stackCandidateSequence = ++this._stackCandidateSequence;
 			let baseRemote: RemoteInfo | undefined;
@@ -750,12 +735,17 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async existingPRMessage(): Promise<string | undefined> {
-		const [existingPR, hasUpstream] = await Promise.all([PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch), this.model.getCompareHasUpstream()]);
+		const branchName = this.model.compareBranch;
+		const [metadata, hasUpstream] = await Promise.all([
+			PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this._folderRepositoryManager.repository, [branchName]),
+			this.model.getCompareHasUpstream(),
+		]);
+		const existingPR = metadata.get(branchName);
 		if (!existingPR || !hasUpstream) {
 			return undefined;
 		}
 
-		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(branchName)]);
 		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
@@ -862,7 +852,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				descriptionSource === 'template' ? this.getPullRequestTemplate() : undefined
+				descriptionSource === 'template' ? this.getPullRequestTemplate(name, baseBranch) : undefined
 			]);
 			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
 
@@ -932,8 +922,31 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return { title, description };
 	}
 
-	private async getPullRequestTemplate(): Promise<string | undefined> {
-		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+	private async getPullRequestTemplate(compareBranch: string | undefined, baseBranch: string): Promise<string | undefined> {
+		const template = await this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		return template === undefined ? undefined : this.resolvePullRequestTemplate(template, compareBranch, baseBranch);
+	}
+
+	private async resolvePullRequestTemplate(template: string, compareBranch: string | undefined, baseBranch: string): Promise<string> {
+		if (!template.includes('${')) {
+			return template;
+		}
+		const issue = compareBranch ? await this.lookupTemplateValue('issue', () => getIssueForBranch(this._folderRepositoryManager, compareBranch)) : undefined;
+		const user = /\$\{user\}/.test(template) ? await this.lookupTemplateValue('user', () => this._folderRepositoryManager.getCurrentUser()) : undefined;
+		return variableSubstitution(template, issue, {
+			owner: this.model.baseOwner,
+			repo: this.model.repositoryName,
+			base: baseBranch,
+		}, user?.login);
+	}
+
+	private async lookupTemplateValue<T>(name: string, lookup: () => Promise<T>): Promise<T | undefined> {
+		try {
+			return await lookup();
+		} catch (e) {
+			Logger.debug(`Unable to resolve the ${name} for pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return undefined;
+		}
 	}
 
 	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
@@ -988,7 +1001,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (selectedTemplate) {
 			const reply: ChangeTemplateReply = {
-				description: selectedTemplate.template
+				description: await this.resolvePullRequestTemplate(selectedTemplate.template, this.model.compareBranch, this.model.baseBranch)
 			};
 			return this._replyMessage(message, reply);
 		}
@@ -1088,7 +1101,8 @@ Don't forget to commit your template file to the repository so that it can be us
 				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
 				if (repo) {
 					return {
-						branch: baseFromProvider.name,
+						// A branch created from `<remote>/HEAD` is based on the branch that the remote's HEAD points to, which is the default branch.
+						branch: baseFromProvider.name === 'HEAD' ? await repo.getDefaultBranch() : baseFromProvider.name,
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName
 					};
@@ -1128,14 +1142,8 @@ Don't forget to commit your template file to the repository so that it can be us
 	}
 
 	protected async getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
-		if (!areStacksEnabled()) {
-			return;
-		}
 		try {
 			const candidate = await this.getStackCandidate(baseRemote, baseBranch, compareRemote, compareBranch);
-			if (!areStacksEnabled()) {
-				return;
-			}
 			if (!candidate || !baseRemote) {
 				return candidate;
 			}
@@ -1147,7 +1155,10 @@ Don't forget to commit your template file to the repository so that it can be us
 			return { ...candidate, url: url.toString() };
 		} catch (error) {
 			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
-			void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			// The check can finish after the view is gone, when there is nothing left to warn about.
+			if (!this.isDisposed) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			}
 			return;
 		}
 	}
@@ -1250,11 +1261,12 @@ Don't forget to commit your template file to the repository so that it can be us
 			try {
 				this.model.compareOwner = result.remote.owner;
 				await this.model.setCompareBranch(result.branch);
-				await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				const titleAndDescription = await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 				chooseResult = {
 					compareRemote: result.remote,
 					compareBranch: result.branch,
 					defaultCompareBranch: defaultBranch,
+					defaultDescription: titleAndDescription.description,
 					stackCandidate: await this.getStackCandidateForView(
 						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
 						this.model.baseBranch, result.remote, result.branch),
@@ -1387,7 +1399,7 @@ Don't forget to commit your template file to the repository so that it can be us
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
-				const templatePromise = this.getPullRequestTemplate(); // Fetch in parallel
+				const templatePromise = this.getPullRequestTemplate(this.model.compareBranch, this.model.baseBranch); // Fetch in parallel
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.model.findIssueContext(commitMessages);
 				const template = await templatePromise;
@@ -1502,6 +1514,53 @@ Don't forget to commit your template file to the repository so that it can be us
 		}
 	}
 
+	/**
+	 * Pushes the commits of the compare branch to the remote it tracks. Without permission to push to that remote,
+	 * the user is offered to fork the repository, and the commits are pushed to the fork instead.
+	 * @returns The repository that the commits were pushed to when it isn't the one the branch tracks, such as a fork,
+	 * or undefined if the commits weren't pushed.
+	 */
+	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
+		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
+		const pushRemote = trackedRemote ? await this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
+		if (!trackedRemote || !pushRemote) {
+			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
+			return {};
+		}
+
+		const pushedTo = await this._folderRepositoryManager.publishBranch(pushRemote, compareBranchName);
+		if (!pushedTo) {
+			return undefined;
+		}
+		const isTrackedRepository = (compareIgnoreCase(pushedTo.owner, trackedRemote.owner) === 0) && (compareIgnoreCase(pushedTo.repositoryName, trackedRemote.repositoryName) === 0);
+		return { headRemote: isTrackedRepository ? undefined : pushedTo };
+	}
+
+	/**
+	 * The ahead count of a branch is relative to its upstream, but the branch is pushed to the remote branch with the same name.
+	 * When the upstream is a different branch (ex. the branch was created with `git switch -c feature origin/main`),
+	 * the unpushed commits are the ones that aren't on the remote branch with the same name.
+	 */
+	private async getUnpushedCommitCount(branchName: string, branch: Branch, upstream: UpstreamRef): Promise<number> {
+		if (upstream.name === branchName) {
+			return branch.ahead ?? 0;
+		}
+		const repository = this._folderRepositoryManager.repository;
+		const remoteBranchRef = `refs/remotes/${upstream.remote}/${branchName}`;
+		try {
+			await repository.fetch(upstream.remote, branchName);
+			const remoteBranch = await repository.getBranch(remoteBranchRef);
+			if (remoteBranch.commit === branch.commit) {
+				return 0;
+			}
+			return (await repository.log({ range: `${remoteBranchRef}..refs/heads/${branchName}` })).length;
+		} catch (e) {
+			// The branch hasn't been pushed yet, so all the commits that are ahead of the upstream are unpushed.
+			Logger.debug(`Unable to compare ${branchName} with ${remoteBranchRef}: ${formatError(e)}`, CreatePullRequestViewProvider.ID);
+			return branch.ahead ?? 0;
+		}
+	}
+
 	private checkGeneratedTitleAndDescription(title: string, description: string) {
 		if (!this.lastGeneratedTitleAndDescription) {
 			return;
@@ -1561,8 +1620,8 @@ Don't forget to commit your template file to the repository so that it can be us
 				let stackAdditionFailed = false;
 				try {
 					let stackCandidate: StackCandidate | undefined;
+					let stackParentWithAutoMerge: PullRequestModel | undefined;
 					if (message.args.addToStack) {
-						assertStacksEnabled();
 						if (message.args.autoMerge) {
 							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
 						}
@@ -1573,9 +1632,20 @@ Don't forget to commit your template file to the repository so that it can be us
 							|| stackCandidate.stackNumber !== message.args.stackNumber) {
 							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
 						}
+						// The new pull request can't have auto-merge, but the one it is stacked on can.
+						const baseRepo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(message.args.owner, message.args.repo);
+						const stackParent = await baseRepo?.getPullRequest(stackCandidate.parentPullRequestNumber, 'createPullRequest');
+						if (!stackParent) {
+							throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', stackCandidate.parentPullRequestNumber));
+						}
+						if (!(await confirmDisablingAutoMergeForStack([stackParent]))) {
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
-					const compareOwner = message.args.compareOwner;
-					const compareRepositoryName = message.args.compareRepo;
+					let compareOwner = message.args.compareOwner;
+					let compareRepositoryName = message.args.compareRepo;
 					const compareBranchName = message.args.compareBranch;
 					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
 					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
@@ -1588,10 +1658,10 @@ Don't forget to commit your template file to the repository so that it can be us
 					}
 
 					// Check for unpushed commits when there's an upstream
-					if (compareBranch.upstream && compareBranch.ahead && compareBranch.ahead > 0) {
+					const commitCount = compareBranch.upstream ? await this.getUnpushedCommitCount(compareBranchName, compareBranch, compareBranch.upstream) : 0;
+					if (compareBranch.upstream && commitCount > 0) {
 						const pushCommits = vscode.l10n.t('Push Commits');
 						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
-						const commitCount = compareBranch.ahead;
 						const messageResult = await vscode.window.showInformationMessage(
 							vscode.l10n.t({
 								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',
@@ -1605,7 +1675,25 @@ Don't forget to commit your template file to the repository so that it can be us
 						if (messageResult === pushCommits) {
 							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
 							totalIncrement += 10;
-							await this._folderRepositoryManager.repository.push(compareBranch.upstream.remote, compareBranchName);
+							const pushResult = await this.pushCommits(compareBranch.upstream.remote, compareBranchName);
+							if (!pushResult) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							if (pushResult.headRemote) {
+								// The commits were pushed to another repository than the one the branch tracks, such as a fork,
+								// which becomes the head of the pull request.
+								compareOwner = pushResult.headRemote.owner;
+								compareRepositoryName = pushResult.headRemote.repositoryName;
+								// Also select it in the view, so that retrying after a failed create doesn't use the
+								// original repository, which also has this branch, as the head.
+								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
+									this.model.compareOwner = compareOwner;
+									// The model change only reaches the view after looking up existing and stacked pull requests,
+									// which a retry could beat.
+									await this._postMessage({ command: 'pr.initialize', params: { compareRemote: serializeRemoteInfo(pushResult.headRemote) } });
+								}
+							}
 						} else if (messageResult !== continueWithoutPushing) {
 							// User cancelled (clicked X or pressed Escape)
 							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
@@ -1683,7 +1771,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						}
 						if (stackCandidate) {
 							try {
-								assertStacksEnabled();
+								await stackParentWithAutoMerge?.disableAutoMerge();
 								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
 							} catch (error) {
 								stackAdditionFailed = true;

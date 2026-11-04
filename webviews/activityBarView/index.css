@@ -56,6 +56,11 @@ textarea {
 	width: 100%;
 }
 
+/* Fills the row beside the icon button. */
+#status-checks .stack-merge-buttons > button:not(.icon-button) {
+	flex: 1;
+}
+
 #status-checks .stack-merge .stack-merge-method select {
 	flex: 1;
 	min-width: 0;

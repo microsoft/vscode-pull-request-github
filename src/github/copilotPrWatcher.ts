@@ -17,9 +17,17 @@ import { DEV_MODE, PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys'
 import { formatError } from '../common/utils';
 import { PrsTreeModel } from '../view/prsTreeModel';
 
+// Only matches non-negated qualifiers: `-author:copilot` must not count as a Copilot query.
+const AUTHOR_QUALIFIER_REGEX = /(?:^|\s)author:(?<login>\S+)/gi;
+
 export function isCopilotQuery(query: string): boolean {
-	const lowerQuery = query.toLowerCase();
-	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
+	for (const match of query.matchAll(AUTHOR_QUALIFIER_REGEX)) {
+		const login = match.groups?.login.toLowerCase();
+		if (COPILOT_LOGINS.some(copilotLogin => copilotLogin.toLowerCase() === login)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export function getCopilotQuery(): string | undefined {

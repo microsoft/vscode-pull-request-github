@@ -206,8 +206,8 @@ export class MockRepository implements Repository {
 		if (this.preserveConfigOnNextBranchDelete) {
 			this.preserveConfigOnNextBranchDelete = false;
 		} else {
-			const prefix = `branch.${name}.`;
-			this._config = this._config.filter(config => !config.key.startsWith(prefix));
+			const section = `branch.${name}`;
+			this._config = this._config.filter(({ key }) => key.slice(0, key.lastIndexOf('.')) !== section);
 		}
 	}
 
@@ -272,7 +272,7 @@ export class MockRepository implements Repository {
 		this._state.HEAD = branch;
 	}
 
-	async addRemote(name: string, url: string): Promise<void> {
+	async addRemote(name: string, url: string, pushUrl: string = url): Promise<void> {
 		if (this._state.remotes.some(r => r.name === name)) {
 			throw new Error(`A remote named ${name} already exists.`);
 		}
@@ -280,7 +280,7 @@ export class MockRepository implements Repository {
 		this._state.remotes.push({
 			name,
 			fetchUrl: url,
-			pushUrl: url,
+			pushUrl,
 			isReadOnly: false,
 		});
 	}

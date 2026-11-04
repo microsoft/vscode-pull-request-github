@@ -8,12 +8,13 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
+import { getChangesSinceReview, getChangesSinceReviewUnavailableMessage, UnavailableChangesSinceReview } from './changesSinceReview';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { showEmptyCommitWebview } from './emptyCommitWebview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, StackBranchComparison } from './githubRepository';
 import {
 	AddCommentResponse,
 	AddReactionResponse,
@@ -73,11 +74,13 @@ import {
 import { IssueChangeEvent, IssueModel } from './issueModel';
 import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
+import { checkStackBranches } from './pullRequestStack';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
+	isStacksUnsupportedError,
 	parseAccount,
 	parseCombinedTimelineEvents,
 	parseGraphQLComment,
@@ -87,11 +90,13 @@ import {
 	parseGraphQLReviewThread,
 	parseMergeability,
 	parseMergeQueueEntry,
+	parseStackEntry,
 	RestAccount,
 	restPaginate,
 } from './utils';
 import { Change, Repository } from '../api/api';
 import { Status } from '../api/api1';
+import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
@@ -105,6 +110,7 @@ import { ClosedEvent, EventType, ReviewEvent, ReviewResolveInfo, TimelineEvent }
 import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant, isObject } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
+import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -294,6 +300,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		// REST pull request lists don't include these, so keep the values that are already known.
+		if (item.viewerCanUpdate === undefined) {
+			item.viewerCanUpdate = this.item.viewerCanUpdate;
+		}
+		if (item.mergeable === undefined) {
+			item.mergeable = this.item.mergeable;
+		}
+		if (item.stack === undefined) {
+			item.stack = this.item.stack;
+		}
 		const changes = super.doUpdate(item) as IssueChangeEvent;
 		if (this.isDraft !== item.isDraft) {
 			changes.draft = true;
@@ -489,7 +505,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		};
 
 		return mutate<MergePullRequestResponse>({
-			mutation: schema.MergePullRequest,
+			mutation: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.MergePullRequestAdditionalScopes : schema.MergePullRequest,
 			variables: {
 				input
 			}
@@ -545,18 +561,35 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return;
 	}
 
-	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue'): Promise<StackMergeOutcome> {
-		if (!stack.pullRequests.some(entry => entry.number === this.number && entry.state === GithubItemStateEnum.Open)) {
+	/**
+	 * Merges this pull request together with the open pull requests below it in its stack.
+	 * @param upTo The pull request at or above this one to merge the stack up to, which GitHub merges together with
+	 * every open pull request below it.
+	 */
+	async mergeStack(repository: Repository, stack: PullRequestStack, method: MergeMethod, mergeAction: 'direct_merge' | 'merge_queue',
+		upTo: number = this.number): Promise<StackMergeOutcome> {
+		const current = stack.pullRequests.find(entry => entry.number === this.number);
+		if (current?.state !== GithubItemStateEnum.Open) {
 			throw new Error(`Pull request #${this.number} is not open in this stack.`);
 		}
-		if (!isStackMergeable(stack, this.number)) {
+		const top = stack.pullRequests.find(entry => entry.number === upTo);
+		if (!top || top.position < current.position) {
+			throw new Error(`Pull request #${upTo} is not at or above #${this.number} in this stack.`);
+		}
+		if (!isStackMergeable(stack, upTo)) {
 			throw new Error(`Pull request stack for #${this.number} is not ready to merge.`);
 		}
-		const headSha = this.head?.sha;
+		const target = upTo === this.number ? this : await this.githubRepository.getPullRequest(upTo, 'mergeStack');
+		const headSha = target?.head?.sha;
 		if (!headSha) {
-			throw new Error(`Missing head commit for pull request #${this.number}.`);
+			throw new Error(`Missing head commit for pull request #${upTo}.`);
 		}
-		if (this.isActive && await this.confirmLocalChanges(repository)) {
+		// Any of the pull requests that are merged could be the one that is checked out.
+		const checkedOut = stack.pullRequests
+			.filter(entry => entry.position <= top.position && entry.state === GithubItemStateEnum.Open)
+			.map(entry => entry.number === this.number ? this : entry.number === upTo ? target : this.githubRepository.getExistingPullRequestModel(entry.number))
+			.find(model => model?.isActive);
+		if (checkedOut && await checkedOut.confirmLocalChanges(repository)) {
 			return 'cancelled';
 		}
 
@@ -565,7 +598,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const parameters = {
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			pull_number: this.number,
+			pull_number: upTo,
 			headers: { 'X-GitHub-Api-Version': '2026-03-10' },
 		};
 		let response: AsyncMergeResponse;
@@ -607,7 +640,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (response.status !== 'merged' && response.status !== 'enqueued') {
 			throw new Error('GitHub returned an unknown stack merge result.');
 		}
-		Logger.debug(`Stack merge for #${this.number}: ${response.status}`, PullRequestModel.ID);
+		Logger.debug(`Stack merge for #${this.number} up to #${upTo}: ${response.status}`, PullRequestModel.ID);
 		this.githubRepository.notifyStackChanged(stack.pullRequests.map(entry => entry.number));
 		return response.status;
 	}
@@ -1002,7 +1035,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const { query, remote, schema } = await this.githubRepository.ensure();
 			try {
 				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
+					query: this.credentialStore.isAuthenticatedWithAdditionalScopes(this.githubRepository.remote.authProviderId) ? schema.TimelineEventsAdditionalScopes : schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
@@ -1057,7 +1090,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
 			}
 
-			return parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
+			// Await so that a parsing failure is caught here instead of failing the caller's whole batch.
+			return await parseCombinedTimelineEvents(data.repository?.pullRequest.timelineItems.nodes ?? [], [], this.githubRepository);
 		} catch (e) {
 			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);
@@ -1729,10 +1763,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async getStack(): Promise<PullRequestStack | undefined> {
+		const start = performance.now();
 		const { query, remote, schema } = await this.githubRepository.ensure();
 		let stack: PullRequestStack | undefined;
 		let after: string | null = null;
-		const comparisons = new Map<number, { base: string; head: string }>();
+		const comparisons = new Map<number, StackBranchComparison>();
 
 		while (true) {
 			let data: PullRequestStackResponse;
@@ -1742,15 +1777,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					variables: { owner: remote.owner, name: remote.repositoryName, number: this.number, after },
 				}, false, undefined, false));
 			} catch (error) {
-				const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
-				if (!stack && Array.isArray(graphQLErrors) && graphQLErrors.length > 0 &&
-					graphQLErrors.every((graphQLError: unknown) => {
-						if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
-							return false;
-						}
-						const { code, typeName, fieldName } = graphQLError.extensions;
-						return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
-					})) {
+				if (!stack && isStacksUnsupportedError(error)) {
 					Logger.debug('Pull request stacks are not supported by this GitHub server.', PullRequestModel.ID);
 					return;
 				}
@@ -1780,22 +1807,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			stack.pullRequests.push(...pullRequest.stack.entries.nodes.map(entry => {
 				const pr = entry.pullRequest;
 				if (pr.state === GithubItemStateEnum.Open) {
-					if (!pr.baseRepository || !pr.headRepository || !pr.baseRefName || !pr.headRefName) {
+					if (!pr.headRepository || !pr.baseRefName || !pr.headRefName) {
 						throw new Error(`Missing branch information for pull request #${pr.number} in this stack.`);
 					}
 					comparisons.set(pr.number, {
-						base: `${pr.baseRepository.owner.login}:${pr.baseRefName}`,
+						// A pull request's base branch is always in its own repository.
+						base: pr.baseRefName,
 						head: `${pr.headRepository.owner.login}:${pr.headRefName}`,
 					});
 				}
 				return {
-					position: entry.position,
-					number: pr.number,
-					title: pr.title,
-					url: pr.url,
-					head: pr.headRefName,
-					state: pr.state,
-					isDraft: pr.isDraft,
+					...parseStackEntry(entry),
 					isQueued: !!pr.mergeQueueEntry,
 					mergeable: parseMergeability(pr.mergeable, pr.mergeStateStatus),
 				};
@@ -1804,20 +1826,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const pageInfo = pullRequest.stack.entries.pageInfo;
 			if (!pageInfo.hasNextPage) {
 				stack.pullRequests.sort((a, b) => a.position - b.position);
-				const outdated = await Promise.all(stack.pullRequests.filter(entry =>
-					entry.state === GithubItemStateEnum.Open && entry.mergeable !== PullRequestMergeability.Conflict,
-				).map(async entry => {
-					const refs = comparisons.get(entry.number)!;
-					const comparison = await this.githubRepository.compareCommits(refs.base, refs.head);
-					if (comparison?.behind_by === undefined) {
-						throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
-					}
-					if (comparison.behind_by > 0) {
-						entry.mergeable = PullRequestMergeability.Behind;
-					}
-					return comparison.behind_by > 0;
-				}));
-				stack.needsUpdate = outdated.some(Boolean);
+				const loaded = performance.now();
+				const { needsUpdate, mergeQueueMethod } = await checkStackBranches(this.githubRepository, stack.pullRequests, comparisons, true, stack.base);
+				stack.needsUpdate = needsUpdate;
+				stack.mergeQueueMethod = mergeQueueMethod;
+				Logger.debug(`Loaded the stack of #${this.number} in ${Math.round(performance.now() - start)}ms (stack: ${Math.round(loaded - start)}ms, branches: ${Math.round(performance.now() - loaded)}ms)`, PullRequestModel.ID);
 				return stack;
 			}
 			if (!pageInfo.endCursor || pageInfo.endCursor === after) {
@@ -1830,8 +1843,27 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, openToTheSide?: boolean): Promise<void> {
 		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-		for (const changeModel of changeModels) {
-			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+		if (folderManager.repository instanceof RemoteOnlyRepository) {
+			// `pr:` documents can only be resolved through a workspace repository, so read the files from GitHub instead.
+			const headCommit = pullRequestModel.head?.sha;
+			if (!headCommit) {
+				throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
+			}
+			const fileSystemProvider = getGitHubCommitFileSystemProvider();
+			if (!fileSystemProvider) {
+				throw new Error('GitHub commit file system provider is not initialized.');
+			}
+			fileSystemProvider.registerGitHubRepository(pullRequestModel.githubRepository);
+			for (const changeModel of changeModels) {
+				// Submodule `pr:` URIs carry their content, so they don't need a repository.
+				args.push(changeModel.submoduleChange
+					? [changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]
+					: this.toGitHubCommitMultiDiffEntry(pullRequestModel.githubRepository, changeModel.change, changeModel.change.baseCommit, headCommit));
+			}
+		} else {
+			for (const changeModel of changeModels) {
+				args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+			}
 		}
 
 		/* __GDPR__
@@ -1850,7 +1882,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
+	static async openReadonlyChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, title: string): Promise<void> {
 		const headCommit = pullRequestModel.head?.sha;
 		if (!headCommit) {
 			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
@@ -1885,18 +1917,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (!remoteChanges) {
 				throw new Error(`Pull request #${pullRequestModel.number} has no file changes.`);
 			}
-			const remote = pullRequestModel.githubRepository.remote;
-			args = remoteChanges.map((change): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] => {
-				const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner: remote.owner, repo: remote.repositoryName });
-				const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
-				const leftUri = toGitHubCommitUri(parentFileName, { commit: startCommit, owner: remote.owner, repo: remote.repositoryName });
-				if (change.status === GitChangeType.ADD) {
-					return [rightUri, undefined, rightUri];
-				} else if (change.status === GitChangeType.DELETE) {
-					return [rightUri, leftUri, undefined];
-				}
-				return [rightUri, leftUri, rightUri];
-			});
+			args = remoteChanges.map(change => this.toGitHubCommitMultiDiffEntry(pullRequestModel.githubRepository, change, startCommit, headCommit));
 		}
 
 		/* __GDPR__
@@ -1905,7 +1926,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		*/
 		folderManager.telemetry.sendTelemetryEvent('pr.viewChanges', { source: localChanges ? 'git' : 'github' });
-		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+		return vscode.commands.executeCommand('vscode.changes', title, args);
 	}
 
 	private static async getLocalMergeBase(repository: Repository, baseCommit: string, headCommit: string): Promise<string | undefined> {
@@ -1928,6 +1949,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Using GitHub content because the pull request commit range is not available locally: ${formatError(error)}`, PullRequestModel.ID);
 			return false;
 		}
+	}
+
+	private static toGitHubCommitMultiDiffEntry(githubRepository: GitHubRepository, change: InMemFileChange | SlimFileChange, baseCommit: string, headCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
+		const { owner, repositoryName: repo } = githubRepository.remote;
+		const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner, repo });
+		const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
+		const leftUri = toGitHubCommitUri(parentFileName, { commit: baseCommit, owner, repo });
+		if (change.status === GitChangeType.ADD) {
+			return [rightUri, undefined, rightUri];
+		} else if (change.status === GitChangeType.DELETE) {
+			return [rightUri, leftUri, undefined];
+		}
+		return [rightUri, leftUri, rightUri];
 	}
 
 	private static localChangeToMultiDiffEntry(change: Change, startCommit: string, endCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
@@ -2009,7 +2043,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		pullRequestModel: PullRequestModel,
 		comment: IComment,
 	): Promise<void> {
-		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const change = contentChanges.find(
 			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
 		);
@@ -2026,7 +2060,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	) {
-		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		if (!contentChanges.length) {
 			return;
 		}
@@ -2043,7 +2077,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		line?: number
 	): Promise<void> {
 		let headUri, baseUri: vscode.Uri;
-		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+		if ((change instanceof InMemFileChange && change.submoduleChange) || !pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			headUri = toPRUri(
@@ -2054,7 +2088,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				false,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.head : undefined,
 			);
 			baseUri = toPRUri(
 				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, parentFileName)),
@@ -2064,7 +2099,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.fileName,
 				true,
 				change.status,
-				change.previousFileName
+				change.previousFileName,
+				change instanceof InMemFileChange ? change.submoduleChange?.base : undefined,
 			);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
@@ -2109,13 +2145,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private _rawFileChangesCache: IRawFileChange[] | undefined;
+	private _changesSinceReviewWarning: string | undefined;
 	get rawFileChanges(): IRawFileChange[] | undefined {
 		return this._rawFileChangesCache;
 	}
 
-	async getFileChangesInfo() {
+	async getFileChangesInfo(repository?: Repository) {
 		this._fileChanges.clear();
-		const data = await this.getRawFileChangesInfo();
+		const data = await this.getRawFileChangesInfo(repository);
 		const mergebase = this.mergeBase || this.base.sha;
 		const parsed = await parseDiff(data, mergebase);
 		parsed.forEach(fileChange => {
@@ -2165,7 +2202,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	public static async getChangeModels(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]> {
 		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
-		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const changeModels: (RemoteFileChangeModel | InMemFileChangeModel)[] = [];
 		for (const change of changes) {
 			let changeModel;
@@ -2181,8 +2218,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	/**
 	 * List the changed files in a pull request.
+	 * @param repository The local repository, used to check the changes since the last review exactly and with fewer API calls.
 	 */
-	public async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
+	public async getRawFileChangesInfo(repository?: Repository): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
 
 		const githubRepository = this.githubRepository;
@@ -2204,7 +2242,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
 		this.hasChangesSinceLastReview = latestReview !== undefined && this.head?.sha !== latestReview.sha;
 
-		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
+		const isComparingWithReview = this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview !== undefined;
+		if (isComparingWithReview) {
 			compareWithBaseRef = latestReview.sha;
 		}
 
@@ -2223,7 +2262,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
-		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		let { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		if (isComparingWithReview) {
+			const changesSinceReview = await getChangesSinceReview(files, mergeBaseSha, {
+				remote,
+				octokit,
+				base: this.base,
+				head: this.head!,
+				reviewedSha: compareWithBaseRef,
+				prNumber: this.number,
+				repository,
+			});
+			if (changesSinceReview.kind === 'available') {
+				files = changesSinceReview.files;
+			} else {
+				this.warnChangesSinceReviewUnavailable(changesSinceReview, compareWithBaseRef);
+				({ files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, this.base.sha, this.number, PullRequestModel.ID));
+			}
+		}
 		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
@@ -2233,6 +2289,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID,);
 		this._rawFileChangesCache = files;
 		return files;
+	}
+
+	private warnChangesSinceReviewUnavailable(changesSinceReview: UnavailableChangesSinceReview, reviewedSha: string) {
+		const warning = `${reviewedSha}:${this.head?.sha}:${changesSinceReview.reason}`;
+		if (this._changesSinceReviewWarning === warning) {
+			return;
+		}
+		this._changesSinceReviewWarning = warning;
+		const message = getChangesSinceReviewUnavailableMessage(changesSinceReview, this.number);
+		Logger.warn(message, PullRequestModel.ID);
+		vscode.window.showWarningMessage(message);
 	}
 
 	get autoMerge(): boolean {
@@ -2296,6 +2363,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			const previousMergeability = this.item.mergeable;
 			this.item.mergeable = mergeability;
+			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
+			if (viewerCanUpdate !== undefined) {
+				this.item.viewerCanUpdate = viewerCanUpdate;
+			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
 			if (previousMergeability !== mergeability) {
@@ -2315,7 +2386,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+			const { data, errors } = await mutate<MarkPullRequestReadyForReviewResponse>({
 				mutation: schema.ReadyForReview,
 				variables: {
 					input: {
@@ -2324,16 +2395,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.markPullRequestReadyForReview?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.readyForReview.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
 			const result: ReadyForReview = {
-				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
-				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
+				allowAutoMerge: pullRequest.viewerCanEnableAutoMerge || pullRequest.viewerCanDisableAutoMerge
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this.item.allowAutoMerge = result.allowAutoMerge;
@@ -2355,7 +2432,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<ConvertPullRequestToDraftResponse>({
+			const { data, errors } = await mutate<ConvertPullRequestToDraftResponse>({
 				mutation: schema.ConvertToDraft,
 				variables: {
 					input: {
@@ -2364,15 +2441,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
+			const pullRequest = data?.convertPullRequestToDraft?.pullRequest;
+			if (!pullRequest) {
+				throw new Error(errors?.map(error => error.message).join(', ') || vscode.l10n.t('GitHub did not return the updated pull request. Please try again.'));
+			}
+
 			/* __GDPR__
 				"pr.convertToDraft.success" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.convertToDraft.success');
 
 			const result: ConvertToDraft = {
-				isDraft: data!.convertPullRequestToDraft.pullRequest.isDraft,
-				mergeable: parseMergeability(data!.convertPullRequestToDraft.pullRequest.mergeable, data!.convertPullRequestToDraft.pullRequest.mergeStateStatus),
+				isDraft: pullRequest.isDraft,
+				mergeable: parseMergeability(pullRequest.mergeable, pullRequest.mergeStateStatus),
 			};
+			this.isDraft = result.isDraft;
 			this.item.isDraft = result.isDraft;
 			this.item.mergeable = result.mergeable;
 			this._onDidChange.fire({ draft: true });

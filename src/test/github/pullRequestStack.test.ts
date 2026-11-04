@@ -20,7 +20,6 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { mockStackSetting } from '../mocks/mockStackSetting';
 
 describe('Pull request stack selection', function () {
 	let sinon: SinonSandbox;
@@ -29,12 +28,10 @@ describe('Pull request stack selection', function () {
 	let repository: MockGitHubRepository;
 	let remote: GitHubRemote;
 	let telemetry: MockTelemetry;
-	let setStacksEnabled: (enabled: boolean) => void;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
-		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
 		credentials = new CredentialStore(telemetry, context);
@@ -96,6 +93,17 @@ describe('Pull request stack selection', function () {
 			detail: 'Adding #2 New feature\n#3 New feature\nto #1 New feature',
 			action: 'Add to Stack',
 		});
+	});
+
+	it('warns in the confirmation only about pull requests whose auto-merge will be disabled', function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		top.item.autoMerge = true;
+
+		assert.strictEqual(getAddToStackConfirmation([bottom, top], candidate, [top]).detail,
+			'#1 New feature\n#2 New feature\n\nAuto-merge is not available for stacked pull requests, so it will be disabled for #2.');
+		assert.strictEqual(getAddToStackConfirmation([bottom, top], candidate, [bottom]).detail, '#1 New feature\n#2 New feature');
 	});
 
 	it('hides the action for unrelated, duplicate, closed and forked PRs', function () {
@@ -177,6 +185,65 @@ describe('Pull request stack selection', function () {
 		assert(add.calledOnceWithExactly(candidate, [2]));
 	});
 
+	it('disables auto-merge on the confirmed pull requests before stacking them', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const middle = pullRequest(2, 'D1', 'D2');
+		const top = pullRequest(3, 'D2', 'D3');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => [bottom, middle, top].find(pr => pr.number === number));
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(middle, 'getStack').resolves(undefined);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		bottom.item.autoMerge = true;
+		top.item.autoMerge = true;
+		const disableBottom = sinon.stub(bottom, 'disableAutoMerge').resolves();
+		const disableMiddle = sinon.stub(middle, 'disableAutoMerge').resolves();
+		const disableTop = sinon.stub(top, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+		assert.deepStrictEqual(await addPullRequestsToStack([bottom, middle, top], candidate, [1, 3]), [1, 2, 3]);
+		sinon.assert.callOrder(disableBottom, disableTop, add);
+		assert(disableMiddle.notCalled);
+	});
+
+	it('stops disabling auto-merge and does not stack when disabling it fails', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => number === bottom.number ? bottom : top);
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		bottom.item.autoMerge = true;
+		top.item.autoMerge = true;
+		sinon.stub(bottom, 'disableAutoMerge').rejects(new Error('Disable auto-merge failed.'));
+		const disableTop = sinon.stub(top, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate, [1, 2]), /Disable auto-merge failed/);
+		assert(disableTop.notCalled);
+		assert(add.notCalled);
+	});
+
+	it('rejects a pull request whose auto-merge was enabled after confirmation', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => {
+			if (number === top.number) {
+				top.item.autoMerge = true;
+			}
+			return number === bottom.number ? bottom : top;
+		});
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		const disable = sinon.stub(top, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate), /Auto-merge was enabled on pull request #2/);
+		assert(disable.notCalled);
+		assert(add.notCalled);
+	});
+
 	for (const { confirmedStackNumber, currentStackNumber } of [
 		{ confirmedStackNumber: undefined, currentStackNumber: 10 },
 		{ confirmedStackNumber: 10, currentStackNumber: undefined },
@@ -196,17 +263,6 @@ describe('Pull request stack selection', function () {
 			assert(add.notCalled);
 		});
 	}
-
-	it('rejects stack creation when the feature is disabled', async function () {
-		setStacksEnabled(false);
-		const bottom = pullRequest(1, 'main', 'D1');
-		const top = pullRequest(2, 'D1', 'D2');
-		const candidate = { parentPullRequestNumber: bottom.number, size: 1, url: bottom.html_url };
-		const add = sinon.stub(repository, 'addPullRequestsToStack');
-
-		await assert.rejects(addPullRequestsToStack([bottom, top], candidate), /stack features are disabled/);
-		assert(add.notCalled);
-	});
 
 	it('rejects stale branch chains and PRs already in another stack before writing', async function () {
 		const bottom = pullRequest(1, 'main', 'D1');

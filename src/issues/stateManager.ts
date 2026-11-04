@@ -9,7 +9,6 @@ import { CurrentIssue } from './currentIssue';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
-import { parseRepositoryRemotesAsync } from '../common/remote';
 import {
 	DEFAULT,
 	DEV_MODE,
@@ -45,6 +44,13 @@ interface TimeStampedIssueState extends IssueState {
 interface IssuesState {
 	issues: Record<string, TimeStampedIssueState>;
 	branches: Record<string, { owner: string; repositoryName: string; number: number }>;
+}
+
+export async function getIssueForBranch(folderManager: FolderRepositoryManager, branchName: string): Promise<IssueModel | undefined> {
+	const stateString = folderManager.context.workspaceState.get<string>(ISSUES_KEY);
+	const state: IssuesState | undefined = stateString ? JSON.parse(stateString) : undefined;
+	const issue = state?.branches && Object.prototype.hasOwnProperty.call(state.branches, branchName) ? state.branches[branchName] : undefined;
+	return issue ? folderManager.resolveIssue(issue.owner, issue.repositoryName, issue.number) : undefined;
 }
 
 // eslint-disable-next-line no-template-curly-in-string
@@ -341,10 +347,10 @@ export class StateManager {
 		}
 		const issueCollection = singleRepoState.issueCollection;
 		issueCollection.clear();
-		const enterpriseRemotes = (await parseRepositoryRemotesAsync(folderManager.repository)).filter(
-			remote => remote.isEnterprise
-		);
-		const user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
+		// Use the remotes that were resolved as GitHub servers (and that respect the remotes setting)
+		// so that non-GitHub remotes, such as a private SSH server, are not mistaken for Enterprise.
+		const hasEnterpriseRemote = folderManager.getActiveGitHubRemotes().some(remote => remote.isEnterprise);
+		const user = await this.getCurrentUser(hasEnterpriseRemote ? AuthProvider.githubEnterprise : AuthProvider.github);
 
 		for (let query of this._queries) {
 			let items: Promise<IssueQueryResult> | undefined;
@@ -408,24 +414,14 @@ export class StateManager {
 			return;
 		}
 
-		const state: IssuesState = this.getSavedState();
-		for (const branch in state.branches) {
-			if (branch === branchName) {
-				const issueModel = await singleRepoState.folderManager.resolveIssue(
-					state.branches[branch].owner,
-					state.branches[branch].repositoryName,
-					state.branches[branch].number,
-				);
-				if (issueModel) {
-					await this.setCurrentIssue(
-						singleRepoState,
-						new CurrentIssue(issueModel, singleRepoState.folderManager, this),
-						false,
-						silent
-					);
-				}
-				return;
-			}
+		const issueModel = await getIssueForBranch(singleRepoState.folderManager, branchName);
+		if (issueModel) {
+			await this.setCurrentIssue(
+				singleRepoState,
+				new CurrentIssue(issueModel, singleRepoState.folderManager, this),
+				false,
+				silent
+			);
 		}
 	}
 

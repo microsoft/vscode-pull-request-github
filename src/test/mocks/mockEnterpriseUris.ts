@@ -5,22 +5,22 @@
 
 import * as vscode from 'vscode';
 import { SinonSandbox } from 'sinon';
-import { EXPERIMENTAL_STACKS, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { GITHUB_ENTERPRISE, URI, URIS } from '../../common/settingKeys';
 
-export function mockStackSetting(sandbox: SinonSandbox): (enabled: boolean) => void {
-	let enabled = true;
+export function mockEnterpriseUris(sandbox: SinonSandbox, uris: string[] | undefined): void {
 	const getConfiguration = vscode.workspace.getConfiguration.bind(vscode.workspace);
 	sandbox.stub(vscode.workspace, 'getConfiguration').callsFake((section?: string, scope?: vscode.ConfigurationScope) => {
 		const configuration = getConfiguration(section, scope);
-		if (section !== PR_SETTINGS_NAMESPACE) {
+		if (section !== GITHUB_ENTERPRISE) {
 			return configuration;
 		}
 		const mock = Object.create(configuration) as vscode.WorkspaceConfiguration;
 		Object.defineProperty(mock, 'get', {
-			value: (key: string, defaultValue?: unknown) =>
-				key === EXPERIMENTAL_STACKS ? enabled : configuration.get(key, defaultValue),
+			value: (key: string, defaultValue?: unknown) => key === URIS ? (uris ?? defaultValue) : key === URI ? undefined : configuration.get(key, defaultValue),
+		});
+		Object.defineProperty(mock, 'inspect', {
+			value: (key: string) => key === URIS ? { key: `${GITHUB_ENTERPRISE}.${URIS}`, globalValue: uris } : configuration.inspect(key),
 		});
 		return mock;
 	});
-	return value => { enabled = value; };
 }

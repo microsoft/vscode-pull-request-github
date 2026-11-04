@@ -18,6 +18,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { EXTENSION_ID } from '../constants';
 import { agent } from '../env/node/net';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
@@ -141,6 +142,7 @@ export class CredentialStore extends Disposable {
 	private _handlingAuthError: Map<AuthProvider, Promise<AuthResult>> = new Map();
 	private _lastAuthErrorHandledAt: Map<AuthProvider, number> = new Map();
 	private _currentUserRequests: WeakMap<GitHub, Promise<void>> = new WeakMap();
+	private _hasOfferedAccountPreferences: boolean = false;
 	// Cooldown long enough to absorb retries from in-flight requests that were
 	// issued with the now-invalid token, but short enough that a token that
 	// is invalidated again soon after re-auth will still trigger another prompt.
@@ -375,15 +377,16 @@ export class CredentialStore extends Disposable {
 	}
 
 	/**
-	 * Handles authentication errors that surface from API calls (e.g. "Bad credentials"
-	 * or 401 Unauthorized). Triggers a re-authentication prompt for the affected
-	 * provider, deduplicating concurrent requests so we don't show multiple prompts
-	 * when many in-flight calls fail at once.
+	 * Handles authentication errors that surface from API calls made with `failedHub`
+	 * (e.g. "Bad credentials" or 401 Unauthorized). Triggers a re-authentication prompt
+	 * for the affected provider, deduplicating concurrent requests so we don't show
+	 * multiple prompts when many in-flight calls fail at once.
 	 */
-	public async handleAuthError(authProviderId: AuthProvider): Promise<AuthResult> {
-		// Only prompt if we currently believe we are authenticated for this provider.
-		// Otherwise the regular sign-in flow will handle it.
-		if (!this.isAuthenticated(authProviderId)) {
+	public async handleAuthError(authProviderId: AuthProvider, failedHub: GitHub): Promise<AuthResult> {
+		// Only prompt if the hub that failed is still the one in use for this provider.
+		// Otherwise the user signed out or the session was already replaced, and the
+		// regular session change handling takes care of it.
+		if (this.getHub(authProviderId) !== failedHub) {
 			return { canceled: true };
 		}
 		const inFlight = this._handlingAuthError.get(authProviderId);
@@ -398,14 +401,24 @@ export class CredentialStore extends Disposable {
 		if (lastHandled !== undefined && (Date.now() - lastHandled) < CredentialStore.AUTH_ERROR_COOLDOWN_MS) {
 			return { canceled: true };
 		}
-		Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
-		/* __GDPR__
-			"auth.badCredentials" : {}
-		*/
-		this._telemetry.sendTelemetryEvent('auth.badCredentials');
-		const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 		const promise = (async () => {
 			try {
+				// Sign-out can invalidate in-flight requests before the session change
+				// event clears our cached authentication state. Only prompt if the hub is
+				// unchanged and the session for its account and server still exists.
+				const existingSession = await findExistingSession(authProviderId);
+				if (!existingSession
+					|| this.getHub(authProviderId) !== failedHub
+					|| !failedHub.session
+					|| !isSameSessionAccount(failedHub.session, existingSession.session)) {
+					return { canceled: true };
+				}
+				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
+				/* __GDPR__
+					"auth.badCredentials" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.badCredentials');
+				const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
 				// Force re-auth only for the affected provider, not both. Going through
 				// recreate()/doCreate() would prompt re-auth for both GitHub.com and
 				// GitHub Enterprise when both are configured.
@@ -598,6 +611,31 @@ export class CredentialStore extends Disposable {
 		return (await this.getCurrentUser(authProviderId))?.login === username;
 	}
 
+	public async showAccountPreferencesForInaccessibleRepository(authProviderId: AuthProvider, repository: string): Promise<void> {
+		// Enterprise accounts can belong to other hosts, and account information does not identify the host.
+		// A GITHUB_OAUTH_TOKEN credential has no session, so account preferences cannot replace it.
+		if (authProviderId !== AuthProvider.github || !this.getHub(AuthProvider.github)?.session || this.isDisposed || this._hasOfferedAccountPreferences) {
+			return;
+		}
+		try {
+			const accounts = await vscode.authentication.getAccounts(AuthProvider.github);
+			if (this.isDisposed || accounts.length < 2 || this._hasOfferedAccountPreferences) {
+				return;
+			}
+			this._hasOfferedAccountPreferences = true;
+			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
+			const choice = await vscode.window.showWarningMessage(
+				vscode.l10n.t('The account selected for GitHub Pull Requests may not have access to {0}. You are signed in with multiple GitHub accounts. Would you like to choose a different account for this workspace?', repository),
+				manageAccounts,
+			);
+			if (!this.isDisposed && choice === manageAccounts) {
+				await commands.executeCommand(commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github);
+			}
+		} catch (error) {
+			Logger.error(`Unable to show account preferences: ${error}`, CredentialStore.ID);
+		}
+	}
+
 	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
 		const github = this.getHub(authProviderId);
 		await this.ensureCurrentUser(github);
@@ -713,9 +751,7 @@ export class CredentialStore extends Disposable {
 		});
 
 		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId), (_e) => {
-			if (this.getHub(authProviderId) === github) {
-				void this.handleAuthError(authProviderId);
-			}
+			void this.handleAuthError(authProviderId, github);
 		});
 		const github: GitHub = {
 			serverUri,

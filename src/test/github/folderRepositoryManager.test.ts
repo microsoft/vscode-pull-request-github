@@ -4,13 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
+import { Octokit } from '@octokit/rest';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
@@ -19,7 +22,7 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { IGit, Repository } from '../../api/api';
 import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
-import { LoggingOctokit } from '../../github/loggingOctokit';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { commands, env, EventEmitter, MessageItem, MessageOptions, Uri, window, workspace } from 'vscode';
 import { AuthProvider, GitHubServerType } from '../../common/authentication';
@@ -189,6 +192,26 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('updateRepositories', function () {
+		it('offers to reauthenticate after a SAML authorization failure', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			const showSamlMessageAndAuth = sinon.stub(manager.credentialStore, 'showSamlMessageAndAuth').resolves({ canceled: false });
+			const showErrorMessage = sinon.stub(window, 'showErrorMessage').resolves({ title: 'Reauthenticate' });
+			const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').resolves(metadata);
+			let resolveRemoteCalls = 0;
+			sinon.stub(GitHubRepository.prototype, 'resolveRemote').callsFake(async () => ++resolveRemoteCalls === 3);
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(showSamlMessageAndAuth.calledTwice, true);
+			assert.strictEqual(showErrorMessage.calledOnce, true);
+			assert.deepStrictEqual(showErrorMessage.firstCall.args[2], { title: 'Reauthenticate' });
+			assert.strictEqual(manager.gitHubRepositories.length, 1);
+		});
+
 		it('skips a repository after a 404 without affecting healthy repositories', async function () {
 			const inaccessibleUrl = 'https://github.com/owner/missing';
 			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
@@ -324,7 +347,120 @@ describe('PullRequestManager', function () {
 		});
 	});
 
+	describe('account preferences for inaccessible repositories', function () {
+		let request: SinonStub;
+		let preferences: SinonStub;
+
+		beforeEach(function () {
+			const octokit = new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false));
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+			sinon.stub(GitHubRepository.prototype, 'hub').get(() => ({ octokit }));
+			request = sinon.stub(LoggingOctokit.prototype, 'call').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			// Leave the prompt open to ensure callers do not wait for it.
+			preferences = sinon.stub(manager.credentialStore, 'showAccountPreferencesForInaccessibleRepository').returns(new Promise<void>(() => { }));
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('offers them when a workspace remote returns 404', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.deepStrictEqual(preferences.args, [[AuthProvider.github, 'owner/missing']]);
+		});
+
+		it('does not offer them when the owner-wide pull request template repository is missing', async function () {
+			assert.strictEqual(await manager.getPullRequestTemplateBody('owner'), undefined);
+
+			assert.deepStrictEqual(request.firstCall.args[1], { owner: 'owner', repo: '.github' });
+			assert.strictEqual(preferences.called, false);
+		});
+
+		it('does not offer them when the folder closes while its remotes are resolving', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+			request.callsFake(async () => {
+				manager.dispose();
+				throw Object.assign(new Error('Not Found'), { status: 404 });
+			});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(request.calledOnce, true);
+			assert.strictEqual(preferences.called, false);
+		});
+	});
+
+	describe('getLocalPullRequests', function () {
+		it('reads one fresh config snapshot across branch chunks', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry, true);
+			(manager as any)._githubRepositories = [githubRepository];
+			for (let i = 0; i < 102; i++) {
+				await repository.createBranch(`branch-${i}`, false);
+			}
+			await repository.setConfig('branch.branch-0.github-pr-owner-number', 'owner#repo#5');
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#7');
+			const first = { localBranchName: undefined } as PullRequestModel;
+			const last = { localBranchName: undefined } as PullRequestModel;
+			const updated = { localBranchName: undefined } as PullRequestModel;
+			const models = new Map([[5, first], [7, last], [11, updated]]);
+			sinon.stub(githubRepository, 'getPullRequest').callsFake(async (number: number) => models.get(number));
+			const getConfigs = sinon.spy(repository, 'getConfigs');
+
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, last]);
+			assert.strictEqual(getConfigs.calledOnce, true);
+			assert.strictEqual(first.localBranchName, 'branch-0');
+			assert.strictEqual(last.localBranchName, 'branch-101');
+
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#11');
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, updated]);
+			assert.strictEqual(getConfigs.calledTwice, true);
+			assert.strictEqual(updated.localBranchName, 'branch-101');
+		});
+	});
+
 	describe('getPullRequestDefaults', function () {
+		it('uses the configured GitHub remote when HEAD tracks a non-GitHub remote', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			await repository.addRemote('origin', 'https://example.com/owner/repo.git');
+			await repository.addRemote('github', url);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/origin/main');
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([remote]);
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				...new RepositoryBuilder().build(),
+				owner: new UserBuilder().login('owner').build(),
+				name: 'repo',
+				default_branch: 'main',
+			});
+
+			assert.deepStrictEqual(await manager.getPullRequestDefaults(), {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
+		});
+
 		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
 			const url = 'https://github.com/owner/repo.git';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
@@ -350,6 +486,260 @@ describe('PullRequestManager', function () {
 				repo: 'repo',
 				base: 'main',
 			});
+		});
+	});
+
+	describe('getMatchingPullRequestMetadataFromGitHub', function () {
+		// Like `gh pr checkout` of a fork pull request: the branch has no upstream, only a `branch.<name>.remote` URL.
+		const forkUrl = 'git@github.com:contributor/repo.git';
+		let pullRequest: PullRequestModel;
+
+		beforeEach(async function () {
+			await repository.addRemote('origin', 'git@github.com:owner/repo.git');
+			await repository.createBranch('feature', true, 'head-sha');
+			const baseRepository = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+			assert.ok(baseRepository);
+			pullRequest = new PullRequestModel(manager.credentialStore, telemetry, baseRepository, baseRepository.remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).head(h => h.ref('feature')).build(), baseRepository));
+			const baseMetadata = new RepositoryBuilder().name('repo').owner(o => o.login('owner')).build();
+			const forkMetadata = { ...new RepositoryBuilder().name('repo').owner(o => o.login('contributor')).fork(true).build(), parent: baseMetadata };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').callsFake(async function (this: GitHubRepository) {
+				return this.remote.owner === 'contributor' ? forkMetadata : baseMetadata;
+			});
+			sinon.stub(GitHubRepository.prototype, 'getPullRequestForBranch').callsFake(async function (this: GitHubRepository, branch: string, headOwner: string) {
+				return (this === baseRepository && branch === 'feature' && headOwner === 'contributor') ? pullRequest : undefined;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('tracks the head branch of the pull request matching a branch whose remote is a URL', async function () {
+			repository.expectFetch('contributor', 'feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(await repository.getBranch('feature'), undefined, forkUrl, 'feature');
+
+			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
+			assert.deepStrictEqual(repository.state.HEAD?.upstream, { remote: 'contributor', name: 'feature' });
+		});
+
+		it('still matches the pull request when fetching its head branch fails', async function () {
+			const fetch = sinon.stub(repository, 'fetch').rejects(Object.assign(new Error('Failed to execute git'), {
+				stderr: 'git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.',
+			}));
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(await repository.getBranch('feature'), undefined, forkUrl, 'feature');
+
+			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
+			assert.deepStrictEqual(fetch.args, [[{ remote: 'contributor', ref: 'feature' }]]);
+			assert.strictEqual(repository.state.HEAD?.upstream, undefined);
+		});
+	});
+
+	describe('getOrigin', function () {
+		let githubRepository: GitHubRepository;
+		let upstreamRemote: GitHubRemote;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			upstreamRemote = new GitHubRemote('upstream', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/upstream/main');
+		});
+
+		it('prefers the branch GitHub upstream over another configured remote', async function () {
+			const upstreamRepository = new GitHubRepository(2, upstreamRemote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(upstreamRepository);
+
+			assert.strictEqual(await manager.getOrigin(), upstreamRepository);
+		});
+
+		it('still discovers a GitHub upstream not listed in the remotes setting', async function () {
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([githubRepository.remote, upstreamRemote]);
+
+			const origin = await manager.getOrigin();
+
+			assert.deepStrictEqual(origin.remote, upstreamRemote);
+			assert.ok(manager.gitHubRepositories.includes(origin));
+		});
+	});
+
+	describe('createPullRequest', function () {
+		it('only offers to push once when there are still no commits after pushing', async function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = await manager.createGitHubRepository(remote, manager.credentialStore);
+			const create = sinon.stub(githubRepository, 'createPullRequest').rejects(new Error('Validation Failed: No commits between main and owner:feature'));
+			// The branch is ahead of the branch it tracks, but its commits have already been pushed to `origin/feature`.
+			sinon.stub(repository.state, 'HEAD').value({ type: RefType.Head, name: 'feature', upstream: { remote: 'origin', name: 'main' }, ahead: 1, behind: 0 });
+			const showInformationMessage: SinonStub = sinon.stub(window, 'showInformationMessage');
+			showInformationMessage.resolves('Push Commits');
+			repository.expectPush();
+
+			try {
+				await assert.rejects(
+					manager.createPullRequest({ owner: 'owner', repo: 'repo', title: 'Feature', head: 'owner:feature', base: 'main' }),
+					/No commits between main and owner:feature/,
+				);
+			} finally {
+				githubRepository.dispose();
+			}
+
+			assert(showInformationMessage.calledOnce);
+			assert(create.calledTwice);
+		});
+	});
+
+	describe('pull request lookup for branches tracking another branch', function () {
+		let githubRepository: MockGitHubRepository;
+		let closedPullRequest: PullRequestModel;
+		let openPullRequest: PullRequestModel;
+		let getPullRequestForBranch: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/octocat/reponame';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new MockGitHubRepository(remote, manager.credentialStore, telemetry, sinon);
+			manager['_githubRepositories'] = [githubRepository];
+			const createPullRequest = (number: number, state: 'open' | 'closed') => new PullRequestModel(
+				manager.credentialStore,
+				telemetry,
+				githubRepository,
+				remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).state(state).head(head => head.ref('dev')).build(), githubRepository),
+			);
+			closedPullRequest = createPullRequest(1, 'closed');
+			openPullRequest = createPullRequest(2, 'open');
+			getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+
+			// Like `git checkout -b my-feature origin/dev` or `git worktree add -b my-feature <path> origin/dev`
+			await repository.createBranch('my-feature', false);
+			await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+			await repository.createBranch('feature', false);
+			await repository.setBranchUpstream('feature', 'refs/remotes/origin/feature');
+		});
+
+		afterEach(function () {
+			closedPullRequest.dispose();
+			openPullRequest.dispose();
+			githubRepository.dispose();
+		});
+
+		function checkOut(mainWorktreeBranch: string, ...linkedWorktreeBranches: string[]) {
+			repository.setWorktrees([
+				{ name: 'root', path: '/root', ref: `refs/heads/${mainWorktreeBranch}`, main: true, detached: false },
+				...linkedWorktreeBranches.map(branchName => ({ name: branchName, path: `/root.worktrees/${branchName}`, ref: `refs/heads/${branchName}`, main: false, detached: false })),
+			]);
+		}
+
+		it('does not look up a pull request by the upstream of a worktree branch tracking another branch', async function () {
+			checkOut('main', 'my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.strictEqual(getPullRequestForBranch.called, false);
+		});
+
+		it('does not match a closed pull request to a main worktree branch tracking another branch', async function () {
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches an open pull request to a main worktree branch tracking another branch', async function () {
+			getPullRequestForBranch.resolves(openPullRequest);
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, openPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('looks up a pull request by the upstream of a worktree branch tracking its own name', async function () {
+			checkOut('main', 'feature');
+			const branch = await repository.getBranch('feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'feature');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+		});
+
+		async function createPullRequestBranch() {
+			// Like fork pull requests checked out as `pr/<author>/<number>`
+			await repository.createBranch('pr/octocat/1', false);
+			await repository.setBranchUpstream('pr/octocat/1', 'refs/remotes/origin/dev');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, closedPullRequest, 'pr/octocat/1');
+			return repository.getBranch('pr/octocat/1');
+		}
+
+		it('matches a closed pull request to a main worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches a closed pull request to a worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('main', 'pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('only associates worktree branches tracking their own name on first activation', async function () {
+			checkOut('main', 'my-feature', 'feature');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('does not associate a closed pull request with a main worktree branch tracking another branch on first activation', async function () {
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledWithExactly('dev', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('associates an open pull request with a main worktree branch tracking another branch on first activation', async function () {
+			getPullRequestForBranch.withArgs('dev', 'octocat').resolves(openPullRequest);
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			const configs = (await repository.getConfigs()).sort((a, b) => a.key.localeCompare(b.key));
+			assert.deepStrictEqual(configs, [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
+			]);
 		});
 	});
 
@@ -436,12 +826,39 @@ describe('PullRequestManager', function () {
 			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
 			repository.preserveConfigOnNextBranchDelete = true;
 
+			await repository.createBranch('feature.preview', false, 'commit-hash');
+			await repository.createBranch('feature.preview.local', false, 'commit-hash');
+			await repository.setConfig('branch.feature.preview.local.remote', 'origin');
+			const createBranch = sinon.spy(repository, 'createBranch');
+			const getConfigs = sinon.spy(repository, 'getConfigs');
 			const nonExistant = new Set<string>();
-			await (manager as any).deleteBranches([{ label: 'feature' }], nonExistant, noopProgress, 1, 0, []);
+			await (manager as any).deleteBranches([{ label: 'feature' }, { label: 'feature.preview' }], nonExistant, noopProgress, 2, 0, []);
 
-			const configs = await repository.getConfigs();
-			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.feature.')).length, 0);
+			assert.strictEqual(getConfigs.callCount, 2);
+			assert.deepStrictEqual(createBranch.args.map(([name]) => name), ['feature']);
+			assert.deepStrictEqual(await repository.getConfigs(), [{ key: 'branch.feature.preview.local.remote', value: 'origin' }]);
 			assert.strictEqual(nonExistant.has('feature'), false);
+		});
+
+		it('clears associations even when refreshing leftover config fails', async function () {
+			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.other.github-pr-owner-number', 'owner#repo#2');
+			repository.preserveConfigOnNextBranchDelete = true;
+			sinon.stub(repository, 'createBranch').rejects(new Error('Cannot recreate branch'));
+			const error = new Error('Cannot read config');
+			sinon.stub(repository, 'getConfigs').callThrough().onSecondCall().rejects(error);
+
+			await assert.rejects(
+				(manager as any).deleteBranches([{ label: 'feature' }], new Set<string>(), noopProgress, 1, 0, []),
+				error,
+			);
+
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.other.github-pr-owner-number', value: 'owner#repo#2' },
+			]);
 		});
 
 		it('removes leftover branch config for a branch that no longer exists', async function () {
@@ -541,6 +958,71 @@ describe('PullRequestManager', function () {
 			await PullRequestReviewCommon.deleteBranch(manager, pr);
 
 			assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+		});
+
+		describe('after merge', function () {
+			let getMetadata: SinonStub;
+
+			beforeEach(function () {
+				getMetadata = sinon.stub(pr.githubRepository, 'getMetadata').resolves({ delete_branch_on_merge: true } as any);
+				const configuration = { ...workspace.getConfiguration('githubPullRequests') };
+				sinon.stub(configuration, 'get').callThrough().withArgs('deleteBranchAfterMerge', false).returns(false);
+				sinon.stub(workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
+			});
+
+			it('only deletes the local branch when GitHub deletes the remote branch', async function () {
+				showWarningMessage.callsFake(async (_message, _options, ...items: MessageItem[]) => items[0]);
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Local Branch']);
+				assert.strictEqual((showWarningMessage.firstCall.args[1] as MessageOptions).detail, [
+					'Choose an action below to clean up the resources associated with this pull request.',
+					'',
+					'Local branch: local-feature',
+				].join('\n'));
+				assert.deepStrictEqual(result, { command: 'pr.deleteBranch', branchTypes: ['local'] });
+				sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('does not prompt when only the automatically deleted remote branch remains', async function () {
+				getBranchInfo.resolves(undefined);
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.strictEqual(result, undefined);
+				sinon.assert.notCalled(showWarningMessage);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('still offers remote branch deletion for a fork', async function () {
+				pr.head!.repositoryCloneUrl = new Protocol('https://github.com/contributor/fork');
+				getBranchInfo.resolves(undefined);
+
+				await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title), ['Delete Remote Branch']);
+			});
+
+			it('preserves manual remote branch cleanup when automatic deletion is enabled', async function () {
+				await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(showWarningMessage.firstCall.args.slice(2).map((item: MessageItem) => item.title),
+					['Delete All', 'Delete Remote Branch', 'Delete Local Branch']);
+			});
+
+			for (const deleteBranchOnMerge of [false, undefined]) {
+				it(`does not add a post-merge prompt when delete_branch_on_merge is ${deleteBranchOnMerge}`, async function () {
+					getMetadata.resolves({ delete_branch_on_merge: deleteBranchOnMerge });
+
+					await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+					sinon.assert.notCalled(showWarningMessage);
+					sinon.assert.notCalled(deleteRemoteBranch);
+				});
+			}
 		});
 
 		it('treats a local branch that no longer exists as deleted', async function () {

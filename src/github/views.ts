@@ -17,6 +17,7 @@ import {
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	PullRequestStack,
+	PullRequestStackRecommendation,
 	Reaction,
 	ReviewState,
 	StateReason,
@@ -86,12 +87,16 @@ export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHT
 export type OverviewItemPreview = IssuePreview | PullRequestPreview;
 
 export interface PullRequest extends Issue {
-	/** Use null to clear a previous value in serialized webview updates. */
+	/**
+	 * `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 * Until `stackLoaded`, the merge status of the pull requests in it is not known.
+	 */
 	stack?: PullRequestStack | null;
 	canUpdateStack?: boolean;
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
+	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
@@ -106,6 +111,7 @@ export interface PullRequest extends Issue {
 	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	pendingReviewSummaryText?: string;
+	pendingAttestation?: boolean;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
@@ -192,6 +198,15 @@ export interface MergeResult {
 	events?: TimelineEvent[];
 }
 
+export interface MergeStackArgs {
+	method: MergeMethod;
+	/**
+	 * The pull request at or above this one to merge the stack up to, as the user confirmed it. Every open pull request
+	 * below it is merged with it. Defaults to this pull request.
+	 */
+	upTo?: number;
+}
+
 export interface StackMergeResult {
 	status: StackMergeOutcome;
 	state?: GithubItemStateEnum;
@@ -204,6 +219,11 @@ export interface UnstackAllResult {
 
 export interface UpdateStackResult {
 	updatedPullRequests: number[];
+}
+
+export interface CreateRecommendedStackArgs {
+	/** The previewed stack's pull requests from bottom to top, so a stale preview is not confirmed. */
+	pullRequests: number[];
 }
 
 export interface DeleteReviewResult {

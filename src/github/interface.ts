@@ -28,6 +28,8 @@ export interface PullRequestStack {
 	size: number;
 	base: string;
 	needsUpdate?: boolean;
+	/** The merge method of the merge queue for the stack's base branch, if it has one. */
+	mergeQueueMethod?: MergeMethod;
 	pullRequests: {
 		position: number;
 		number: number;
@@ -39,6 +41,28 @@ export interface PullRequestStack {
 		isQueued?: boolean;
 		mergeable: PullRequestMergeability;
 	}[];
+}
+
+/** Open pull requests that could form a stack with a pull request that is not in one yet. */
+export interface PullRequestStackRecommendation {
+	/** The stack the pull requests would form, in the same shape as an existing stack. */
+	stack: PullRequestStack;
+	/** The size of the existing stack that the pull requests would be added to, if they extend one. */
+	existingStackSize?: number;
+}
+
+/** An open pull request whose branches line up with another pull request, so they could be stacked. */
+export interface StackablePullRequest {
+	number: number;
+	title: string;
+	url: string;
+	base: string;
+	head: string;
+	isDraft: boolean;
+	isQueued: boolean;
+	mergeable: PullRequestMergeability;
+	/** Where the pull request is in its stack, if it is already in one. */
+	stackEntry?: { position: number; size: number };
 }
 
 export enum PullRequestMergeability {
@@ -60,8 +84,7 @@ export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestSt
 	}
 	const firstClosed = stack.pullRequests.findIndex(entry => entry.state === GithubItemStateEnum.Closed);
 	const entries = firstClosed < 0 ? stack.pullRequests : stack.pullRequests.slice(0, firstClosed);
-	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued
-		|| entry.mergeable === PullRequestMergeability.Conflict || entry.mergeable === PullRequestMergeability.Unknown)
+	if (!entries.length || entries.some(entry => entry.state !== GithubItemStateEnum.Open || entry.isQueued)
 		|| stack.pullRequests.slice(entries.length).some(entry => entry.state !== GithubItemStateEnum.Closed)) {
 		return;
 	}
@@ -72,17 +95,34 @@ export function isStackUpdatable(stack: PullRequestStack): boolean {
 	return !!stack.needsUpdate && !!getUpdatableStackEntries(stack);
 }
 
+/**
+ * Whether an open pull request in the stack has conflicts. Updating such a stack needs a local rebase, where the user
+ * can resolve them; GitHub can rebase other stacks itself. Closed pull requests are skipped when updating a stack.
+ */
+export function hasConflictingStackEntry(stack: PullRequestStack | null | undefined): boolean {
+	return !!stack?.pullRequests.some(entry =>
+		entry.state === GithubItemStateEnum.Open && entry.mergeable === PullRequestMergeability.Conflict);
+}
+
+/** Whether a pull request and the open pull requests below it in its stack are all ready to be merged together. */
 export function isStackMergeable(stack: PullRequestStack, number: number): boolean {
-	const current = stack.pullRequests.find(entry => entry.number === number);
-	if (!current || current.position !== stack.position || current.state !== GithubItemStateEnum.Open
-		|| current.isDraft || current.mergeable !== PullRequestMergeability.Mergeable) {
-		return false;
-	}
-	return stack.pullRequests.every(entry =>
-		entry.position > stack.position ||
+	const target = stack.pullRequests.find(entry => entry.number === number);
+	return target?.state === GithubItemStateEnum.Open && stack.pullRequests.every(entry =>
+		entry.position > target.position ||
 		entry.state === GithubItemStateEnum.Merged ||
 		(entry.state === GithubItemStateEnum.Open && !entry.isDraft && entry.mergeable === PullRequestMergeability.Mergeable)
 	);
+}
+
+/**
+ * Gets the open pull request at the top of the stack if it is above the given pull request and every open pull request
+ * in the stack is ready to be merged. Merging the top pull request merges all of them.
+ */
+export function getStackMergeAllTarget(stack: PullRequestStack, number: number): PullRequestStack['pullRequests'][number] | undefined {
+	const current = stack.pullRequests.find(entry => entry.number === number);
+	const top = stack.pullRequests.reduce<PullRequestStack['pullRequests'][number] | undefined>((highest, entry) =>
+		entry.state === GithubItemStateEnum.Open && (!highest || entry.position > highest.position) ? entry : highest, undefined);
+	return current && top && top.position > current.position && isStackMergeable(stack, top.number) ? top : undefined;
 }
 
 export enum MergeQueueState {
@@ -298,7 +338,8 @@ export interface PullRequest extends Issue {
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
 	mergeQueueEntry?: MergeQueueEntry | null;
-	viewerCanUpdate: boolean;
+	/** Undefined when the pull request was loaded through the REST API, which doesn't report it. */
+	viewerCanUpdate?: boolean;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;
@@ -306,6 +347,11 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	closingIssues?: IssueReference[];
+	/**
+	 * The stack the pull request is in, without the merge status of the pull requests in it, which `getStack` loads.
+	 * `null` when it is not in a stack, and `undefined` when that was not loaded with the pull request.
+	 */
+	stack?: PullRequestStack | null;
 	hasComments?: boolean;
 	additions?: number;
 	deletions?: number;

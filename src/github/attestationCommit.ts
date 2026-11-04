@@ -80,10 +80,20 @@ export function getAttestationCommitSetting(): false | string {
 }
 
 /**
- * Whether the attestation commit feature is enabled by the user setting.
+ * Whether the current environment can create signed commits. When running in the
+ * browser without a remote (e.g. vscode.dev, github.dev) there is no local git or
+ * signing tooling available.
+ */
+export function isAttestationCommitsSupported(): boolean {
+	return !(vscode.env.uiKind === vscode.UIKind.Web && !vscode.env.remoteName);
+}
+
+/**
+ * Whether the attestation commit feature is enabled by the user setting and
+ * supported in the current environment.
  */
 export function isAttestationCommitsEnabled(): boolean {
-	return getAttestationCommitSetting() !== false;
+	return isAttestationCommitsSupported() && getAttestationCommitSetting() !== false;
 }
 
 /**
@@ -99,6 +109,11 @@ export async function addAttestationCommit(
 	folderRepositoryManager: FolderRepositoryManager,
 	pullRequestModel: PullRequestModel,
 ): Promise<{ sha: string; event: CommitEvent } | undefined> {
+	if (!isAttestationCommitsSupported()) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Attestation commits are not supported in this environment because commit signing is not available.'));
+		return undefined;
+	}
+
 	const message = getAttestationCommitSetting();
 	if (message === false) {
 		vscode.window.showWarningMessage(vscode.l10n.t('Attestation commits are not enabled. Enable them via the `githubPullRequests.enableAttestationCommits` setting.'));

@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { CommentControllerBase } from './commentControllBase';
+import { CommentControllerBase, COPILOT_COMMENT_MENTION } from './commentControllBase';
 import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
@@ -781,7 +781,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		input: string,
 		isSingleComment: boolean,
 		inDraft?: boolean,
-	): Promise<void> {
+	): Promise<boolean> {
 		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment without an active pull request.');
 		}
@@ -830,11 +830,16 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._folderRepoManager.activePullRequest.createCommentReply(
+					// The model has already warned the user if the reply couldn't be created.
+					const reply = await this._folderRepoManager.activePullRequest.createCommentReply(
 						input,
 						comment.rawComment.graphNodeId,
 						isSingleComment,
 					);
+					if (!reply) {
+						this.reopenTemporaryComment(thread, temporaryCommentId);
+						return false;
+					}
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
@@ -843,6 +848,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			if (isSingleComment) {
 				await this._folderRepoManager.activePullRequest.submitReview();
 			}
+			return true;
 		} catch (e) {
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
@@ -854,13 +860,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 			}
 
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
+			this.reopenTemporaryComment(thread, temporaryCommentId);
+			return false;
 		}
 	}
 
@@ -884,18 +885,18 @@ ${suggestionInformation.suggestionContent}
 		);
 	}
 
-	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<boolean> {
 		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment on resolve without an active pull request.');
 		}
 		const pendingReviewId = await this._folderRepoManager.activePullRequest.getPendingReviewId();
-		await this.createOrReplyComment(thread, input, !pendingReviewId);
+		return this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
 	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this._folderRepoManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
@@ -906,8 +907,8 @@ ${suggestionInformation.suggestionContent}
 
 	async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
 		try {
-			if (input) {
-				await this.createCommentOnResolve(thread, input);
+			if (input && !await this.createCommentOnResolve(thread, input)) {
+				return;
 			}
 
 			await this._folderRepoManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);
@@ -1027,6 +1028,24 @@ ${suggestionInformation.suggestionContent}
 		}
 		await editor.edit(builder => {
 			builder.replace(range.with(undefined, editor.document.lineAt(range.end.line).range.end), suggestion);
+		});
+	}
+
+	/**
+	 * Returns true when a file-comment widget for this controller has unsaved draft text.
+	 * Used to warn before disposing the controller (e.g. when a PR is merged).
+	 */
+	public hasUnsavedCommentDrafts(): boolean {
+		const controllerId = this._commentController.id;
+		const autoMention = COPILOT_COMMENT_MENTION.trim();
+		return vscode.workspace.textDocuments.some(document => {
+			// Comment input URIs use the controller id as the authority, exactly.
+			if (document.uri.scheme !== Schemes.Comment || document.uri.authority !== controllerId) {
+				return false;
+			}
+			const text = document.getText().trim();
+			// tryAddCopilotMention inserts this into empty boxes; it is not a user draft.
+			return text.length > 0 && text !== autoMention;
 		});
 	}
 

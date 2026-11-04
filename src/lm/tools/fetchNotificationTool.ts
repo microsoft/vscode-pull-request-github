@@ -100,7 +100,7 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			itemType
 		};
 		if (issueOrPR instanceof PullRequestModel) {
-			const fileChanges = await issueOrPR.getFileChangesInfo();
+			const fileChanges = await issueOrPR.getFileChangesInfo(folderManager.repository);
 			const fetchedFileChanges: FileChange[] = [];
 			for (const fileChange of fileChanges) {
 				if (fileChange instanceof InMemFileChange) {

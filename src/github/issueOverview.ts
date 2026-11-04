@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { CloseResult, OpenLocalFileArgs } from '../../common/views';
+import { RemoteOnlyRepository } from '../api/remoteOnlyRepository';
 import { openItemOnGitHub } from '../commands';
 import { decodeBase64, guessExtensionFromMime, pickFilesForUpload, placeholdersForNames, runFileUploads, runPendingUploads } from './fileUpload';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -14,6 +15,7 @@ import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, Repo
 import { IssueModel } from './issueModel';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
+import type { RepositoriesManager } from './repositoriesManager';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
 import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, IssuePreview, OverviewItemPreview, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -36,16 +38,48 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 * All open panels, keyed by "owner/repo#number".
 	 */
 	protected static _panels: Map<string, IssueOverviewPanel> = new Map();
+	protected static _repositoriesManager: RepositoriesManager | undefined;
 
 	public static readonly viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _item: TItem;
 	protected _identity: UnresolvedIdentity;
-	protected _folderRepositoryManager: FolderRepositoryManager;
+	protected readonly _initialFolderRepositoryManager: FolderRepositoryManager;
+	protected _localFolderRepositoryManager: FolderRepositoryManager | undefined;
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _identityUpdateSequence = 0;
 	protected readonly previewLog = { label: 'Issue', id: IssueOverviewPanel.ID };
+
+	protected get _folderRepositoryManager(): FolderRepositoryManager {
+		if (this._localFolderRepositoryManager) {
+			return this._localFolderRepositoryManager;
+		}
+		const manager = this._initialFolderRepositoryManager;
+		if (!this.isDisposed && manager.repository instanceof RemoteOnlyRepository && this._identity) {
+			const localManager = IssueOverviewPanel._repositoriesManager?.getManagerForRepository(this._identity.owner, this._identity.repo);
+			if (localManager && !(localManager.repository instanceof RemoteOnlyRepository)) {
+				this._localFolderRepositoryManager = localManager;
+				this.registerPrListeners();
+				Logger.debug(`Upgraded remote-only manager for ${this._identity.owner}/${this._identity.repo} to ${localManager.repository.rootUri.toString()}`, this.previewLog.id);
+				return localManager;
+			}
+		}
+		return manager;
+	}
+
+	protected static registerRepositoriesManager(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager): void {
+		IssueOverviewPanel._repositoriesManager = repositoriesManager;
+		context.subscriptions.push(
+			{
+				dispose: () => {
+					if (IssueOverviewPanel._repositoriesManager === repositoriesManager) {
+						IssueOverviewPanel._repositoriesManager = undefined;
+					}
+				}
+			},
+		);
+	}
 
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
 		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
@@ -90,7 +124,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._panels.set(key, panel);
 		}
 
-		await panel.updateWithIdentity(folderRepositoryManager, identity, issue);
+		await panel.updateWithIdentity(identity, issue);
 	}
 
 	public static refresh(owner: string, repo: string, number: number): void {
@@ -167,7 +201,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 	) {
 		super();
-		this._folderRepositoryManager = folderRepositoryManager;
+		this._initialFolderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
 		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
@@ -191,17 +225,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		// Listen for when the panel is disposed
 		// This happens when the user closes the panel or when the panel is closed programmatically
 		this._register(this._panel.onDidDispose(() => this.dispose()));
-
-		this._register(this._folderRepositoryManager.onDidChangeActiveIssue(
-			_ => {
-				if (this._folderRepositoryManager && this._item) {
-					const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activeIssue);
-					this._postMessage({
-						command: 'pr.update-checkout-status',
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					});
-				}
-			}));
 
 		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
 			this.updateItem(this._item);
@@ -344,6 +367,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				Logger.debug('Issue overview preview loaded from model', IssueOverviewPanel.ID);
 			}
 
+			const timelineSequence = ++this._timelineFetchSequence;
 			const [
 				issue,
 				timelineEvents,
@@ -357,7 +381,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(),
+				this.fetchTimelineEvents(issueModel),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -375,7 +399,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this.setPanelTitle(this.buildPanelTitle(issueModel.number, issueModel.title));
 
 			// Process permalinks in bodyHTML before sending to webview
-			const context = await this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			const context = await this.getInitializeContext(currentUser, issue, timelineEvents ?? [], repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []);
+			context.events = this.freshestTimeline(this._item, timelineSequence, context.events);
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
@@ -418,13 +443,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	/**
 	 * Update the panel with an unresolved identity and optional model.
 	 * If no model is provided, it will be resolved from the identity.
+	 * Repository manager selection is handled by the panel, not by updates.
 	 */
-	public async updateWithIdentity(foldersManager: FolderRepositoryManager, identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
+	public async updateWithIdentity(identity: UnresolvedIdentity, issueModel?: TItem | Promise<TItem | undefined>, progressLocation?: string): Promise<void> {
 		const updateSequence = ++this._identityUpdateSequence;
 		let loading = true;
 		const isLoading = () => loading && !this.isDisposed && updateSequence === this._identityUpdateSequence;
 		this._identity = identity;
-		this._folderRepositoryManager = foldersManager;
 
 		this._postMessage({
 			command: 'set-scroll',
@@ -442,7 +467,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			void (async () => {
 				try {
 					const start = Date.now();
-					const repository = await foldersManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
+					const repository = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(identity.owner, identity.repo, false);
 					if (!isLoading()) {
 						return;
 					}
@@ -639,6 +664,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
+		let labelsChanged = false;
 		try {
 			let newLabels: DisplayLabel[] = [];
 
@@ -667,6 +693,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				await this._replyMessage(message, {
 					added: addedLabels,
 				});
+				labelsChanged = true;
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
@@ -674,12 +701,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.hide();
 			quickPick.dispose();
 		}
+		// Refresh after the quick pick is closed so that it doesn't stay open while the timeline loads.
+		if (labelsChanged) {
+			await this.refreshTimeline();
+		}
 	}
 
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.removeLabel(message.args);
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
+			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -772,11 +804,16 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	/**
 	 * Process code reference links in timeline events (comments, reviews, commits).
-	 * Updates bodyHTML fields for all events that contain them.
+	 * Updates bodyHTML fields for all events that contain them, and emoji in label names.
 	 */
 	protected async processTimelineEvents(events: TimelineEvent[] | undefined): Promise<TimelineEvent[]> {
 		if (!events) {
 			return [];
+		}
+		const hasLabelEvents = events.some(event => event.event === EventType.Labeled || event.event === EventType.Unlabeled);
+		if (hasLabelEvents) {
+			// The emoji map may not have been loaded yet when the timeline events were parsed.
+			await ensureEmojis(this._folderRepositoryManager.context);
 		}
 		return Promise.all(events.map(async (event) => {
 			// Create a shallow copy to avoid mutating the original
@@ -791,6 +828,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						bodyHTML: await this.processLinksInBodyHtml(comment.bodyHTML)
 					})));
 				}
+			} else if (processedEvent.event === EventType.Labeled || processedEvent.event === EventType.Unlabeled) {
+				processedEvent.label = { ...processedEvent.label, displayName: emojify(processedEvent.label.name) };
 			}
 			return processedEvent;
 		}));
@@ -809,8 +848,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		return this._item
 			.edit({ title: message.args.text })
-			.then(result => {
-				return this._replyMessage(message, { titleHTML: result.titleHTML });
+			.then(async result => {
+				await this._replyMessage(message, { titleHTML: result.titleHTML });
+				await this.refreshTimeline();
 			})
 			.catch(e => {
 				this._throwError(message, e);
@@ -818,9 +858,61 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	protected async _getTimeline(): Promise<TimelineEvent[]> {
-		const events = await this._item.getIssueTimelineEvents();
-		return this.processTimelineEvents(events);
+	protected fetchTimelineEvents(item: TItem): Promise<TimelineEvent[] | undefined> {
+		return item.getIssueTimelineEvents();
+	}
+
+	private _timelineFetchSequence = 0;
+	private _freshestTimeline: { item: IssueModel; sequence: number; events: TimelineEvent[] } | undefined;
+
+	/**
+	 * Fetches the timeline of `item` and returns the freshest one known, see {@link freshestTimeline}.
+	 * Send the result to the webview right away, so that a fresher timeline can't be sent before it.
+	 */
+	protected async _getTimeline(item: TItem = this._item): Promise<TimelineEvent[]> {
+		const sequence = ++this._timelineFetchSequence;
+		const events = await this.processTimelineEvents(await this.fetchTimelineEvents(item));
+		return this.freshestTimeline(item, sequence, events);
+	}
+
+	/**
+	 * Timeline fetches can finish in any order, and the webview shows the timeline it was sent last. To keep it from going
+	 * back to an older timeline, every timeline sent to the webview goes through here: a fetch that finishes after a fetch
+	 * that started later gets that fresher timeline instead of its own.
+	 * @param sequence When the fetch started, from `_timelineFetchSequence`, or 0 for a cached timeline.
+	 */
+	protected freshestTimeline(item: TItem, sequence: number, events: TimelineEvent[]): TimelineEvent[] {
+		// An empty timeline is more likely a failed query than a real one, so it's left to the caller.
+		if (events.length === 0) {
+			return events;
+		}
+		const freshest = this._freshestTimeline;
+		if (freshest?.item === item && freshest.sequence > sequence) {
+			return freshest.events;
+		}
+		this._freshestTimeline = { item, sequence, events };
+		return events;
+	}
+
+	/**
+	 * Re-fetches the timeline after a change made from the overview so that the events it creates
+	 * (labels, milestones, title changes, ...) show up without waiting for the next poll.
+	 * Call it after replying so that the change itself isn't delayed by the timeline query.
+	 */
+	protected async refreshTimeline(): Promise<void> {
+		const item = this._item;
+		try {
+			const events = await this._getTimeline(item);
+			if (this.isDisposed || item !== this._item || events.length === 0) {
+				return;
+			}
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: { events } satisfies Partial<Issue>,
+			});
+		} catch (e) {
+			Logger.error(`Failed to refresh the timeline: ${formatError(e)}`, IssueOverviewPanel.ID);
+		}
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
@@ -871,15 +963,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			return this.removeMilestone(message);
 		}
 		await this._item.updateMilestone(milestone.id);
-		this._replyMessage(message, {
+		await this._replyMessage(message, {
 			added: milestone,
 		});
+		await this.refreshTimeline();
 	}
 
 	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
 		try {
 			await this._item.updateMilestone('null');
-			this._replyMessage(message, {});
+			await this._replyMessage(message, {});
+			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}

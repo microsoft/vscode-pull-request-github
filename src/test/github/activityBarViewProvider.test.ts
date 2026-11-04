@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 import { GitApiImpl } from '../../api/api1';
 import { GitHubServerType } from '../../common/authentication';
+import { GitHubRef } from '../../common/githubRef';
 import Logger from '../../common/logger';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote } from '../../common/remote';
@@ -27,7 +28,6 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockRepository } from '../mocks/mockRepository';
-import { mockStackSetting } from '../mocks/mockStackSetting';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
@@ -69,7 +69,6 @@ describe('Active pull request stack changes', function () {
 	let model: PullRequestModel;
 	let stackQuery: SinonStub<[], Promise<PullRequestStack | undefined>>;
 	let queueMethod: SinonStub;
-	let setStacksEnabled: (enabled: boolean) => void;
 	const stack: PullRequestStack = {
 		position: 2, size: 3, base: 'main',
 		pullRequests: [999, 1000, 1001].map((number, index) => ({
@@ -113,7 +112,6 @@ describe('Active pull request stack changes', function () {
 		sinon.stub(vscode.window, 'showErrorMessage').callsFake(message => {
 			assert.fail(message);
 		});
-		setStacksEnabled = mockStackSetting(sinon);
 		context = new MockExtensionContext();
 		context.extensionUri = vscode.extensions.getExtension(EXTENSION_ID)!.extensionUri;
 		const telemetry = new MockTelemetry();
@@ -157,6 +155,19 @@ describe('Active pull request stack changes', function () {
 		sinon.restore();
 	});
 
+	it('shows the stack loaded with the pull request until the merge status of its pull requests is loaded', async function () {
+		const summary = { ...stack, pullRequests: stack.pullRequests.map(entry => ({ ...entry, mergeable: PullRequestMergeability.Unknown })) };
+		model.update({ ...model.item, stack: summary });
+
+		await provider.updatePullRequest(model);
+		await settleUpdates();
+
+		const initialize = provider.messages.find(message => message.command === 'pr.initialize');
+		assert.deepStrictEqual(initialize?.pullrequest?.stack, summary);
+		assert.strictEqual(initialize?.pullrequest?.stackLoaded, false);
+		assert.deepStrictEqual(latestStackUpdate().stack, stack);
+	});
+
 	it('clears a three-pull-request stack from the sidebar after unstacking', async function () {
 		await initialize();
 		stackQuery.resolves(undefined);
@@ -165,7 +176,7 @@ describe('Active pull request stack changes', function () {
 
 		assert(stackQuery.calledOnce);
 		assert.deepStrictEqual(latestStackUpdate(), {
-			stack: null, stackLoaded: true, stackLoadError: false, mergeQueueMethod: null,
+			stack: null, stackLoaded: true, stackLoadError: false, canUpdateStack: false, mergeQueueMethod: null,
 		});
 	});
 
@@ -189,9 +200,20 @@ describe('Active pull request stack changes', function () {
 		assert.deepStrictEqual(latestStackUpdate().stack, stack);
 	});
 
+	it('uses the merge queue of the stack base for a stacked pull request', async function () {
+		queueMethod.resolves('merge');
+		await initialize();
+		stackQuery.resolves({ ...stack, mergeQueueMethod: 'squash' });
+		repo.notifyStackChanged([1000]);
+		await settleUpdates();
+
+		assert.strictEqual(latestStackUpdate().mergeQueueMethod, 'squash');
+	});
+
 	for (const method of [undefined, 'merge'] as (MergeMethod | undefined)[]) {
 		it(`restores the pull request base branch queue method (${method ?? 'none'}) after unstacking`, async function () {
-			queueMethod.callsFake(async branch => branch === stack.base ? 'squash' : method);
+			stackQuery.resolves({ ...stack, mergeQueueMethod: 'squash' });
+			queueMethod.resolves(method);
 			await initialize();
 			stackQuery.resolves(undefined);
 			repo.notifyStackChanged([1000]);
@@ -217,16 +239,6 @@ describe('Active pull request stack changes', function () {
 		} finally {
 			other.dispose();
 		}
-	});
-
-	it('does not load stacks when the feature is disabled', async function () {
-		setStacksEnabled(false);
-		await initialize();
-		repo.notifyStackChanged([1000]);
-		await settleUpdates();
-
-		assert(stackQuery.notCalled);
-		assert.strictEqual(provider.messages.length, 0);
 	});
 
 	it('ignores an older stack load that completes after unstacking', async function () {
@@ -292,5 +304,101 @@ describe('Active pull request stack changes', function () {
 
 		assert(stackQuery.calledOnce);
 		assert.strictEqual(provider.messages.length, 0);
+	});
+
+	describe('Update stack', function () {
+		const behind: PullRequestStack = { ...stack, needsUpdate: true };
+		const conflicting: PullRequestStack = {
+			...behind,
+			pullRequests: [{ ...behind.pullRequests[0], mergeable: PullRequestMergeability.Conflict }, ...behind.pullRequests.slice(1)],
+		};
+
+		/** Makes the sidebar's pull request checked out in a local repository that can rewrite its stack. */
+		async function checkOutWithStackGit(): Promise<void> {
+			const url = `https://github.com/${repo.remote.owner}/${repo.remote.repositoryName}.git`;
+			model.head = new GitHubRef('D2', `${repo.remote.owner}:D2`, 'a'.repeat(40), url, repo.remote.owner, repo.remote.repositoryName, false);
+			Object.assign(folderManager.repository, {
+				rebase: async () => undefined,
+				rebaseAbort: async () => undefined,
+				pushRefWithLease: async () => undefined,
+				getRemoteRefs: async () => [],
+				updateRef: async () => undefined,
+				resetKeep: async () => undefined,
+				createWorktree: async () => '',
+				deleteWorktree: async () => undefined,
+			});
+			await folderManager.repository.addRemote('origin', url);
+			folderManager.activePullRequest = model;
+		}
+
+		it('offers to update a checked-out stack that needs an update', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(behind);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('offers to update a stack without conflicts without a checkout, since GitHub rebases it', async function () {
+			stackQuery.resolves(behind);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('does not offer to update a stack that is current, has conflicts without a checkout, or is not writable', async function () {
+			await checkOutWithStackGit();
+			const ineligible: [string, () => void][] = [
+				['up to date', () => stackQuery.resolves(stack)],
+				['conflicts without a checkout', () => {
+					stackQuery.resolves(conflicting);
+					folderManager.activePullRequest = undefined;
+				}],
+				['read-only', () => {
+					(folderManager.getPullRequestRepositoryAccessAndMergeMethods as SinonStub).resolves({
+						hasWritePermission: false,
+						mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+						viewerCanAutoMerge: false,
+					});
+				}],
+			];
+			for (const [reason, makeIneligible] of ineligible) {
+				stackQuery.resolves(behind);
+				folderManager.activePullRequest = model;
+				makeIneligible();
+				await initialize();
+				repo.notifyStackChanged([1000]);
+				await settleUpdates();
+				assert.strictEqual(latestStackUpdate().canUpdateStack, false, reason);
+			}
+		});
+
+		it('offers to resolve the conflicts of a checked-out stack', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(conflicting);
+			await initialize();
+			repo.notifyStackChanged([1000]);
+			await settleUpdates();
+
+			assert.strictEqual(latestStackUpdate().canUpdateStack, true);
+		});
+
+		it('updates the stack when asked by the webview', async function () {
+			await checkOutWithStackGit();
+			stackQuery.resolves(behind);
+			await initialize();
+			const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const reply = sinon.stub(provider as any, '_replyMessage').resolves();
+			const message = { req: 'update', command: 'pr.update-stack' };
+
+			await (provider as any)._onDidReceiveMessage(message);
+
+			assert.match(confirm.firstCall.args[0], /Rebase and push 3 pull requests in this stack\?/);
+			assert(reply.calledOnceWithExactly(message, { updatedPullRequests: [] }));
+		});
 	});
 });
