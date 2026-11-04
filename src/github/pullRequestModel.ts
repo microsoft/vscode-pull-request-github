@@ -321,6 +321,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		if (this.base && item.base && (this.base.ref !== item.base.ref || this.base.sha !== item.base.sha)) {
 			changes.base = true;
+			// The cached file changes were compared against the old base.
+			this._fileChanges.clear();
+			this._rawFileChangesCache = undefined;
 		}
 
 		this.suggestedReviewers = item.suggestedReviewers;

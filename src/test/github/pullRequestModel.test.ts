@@ -6,13 +6,13 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { Status } from '../../api/api1';
+import { GitApiImpl, Status } from '../../api/api1';
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import { EventType } from '../../common/timelineEvent';
 import { CredentialStore } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
+import { getStackMergeAllTarget, GithubItemStateEnum, IRawFileChange, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -27,6 +27,9 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
 import { mergeQuerySchemaWithShared } from '../../github/common';
 import { GitHubRepository } from '../../github/githubRepository';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { LoggingApolloClient, LoggingOctokit } from '../../github/loggingOctokit';
 import Logger from '../../common/logger';
 import { GraphQLError } from 'graphql';
@@ -169,6 +172,49 @@ describe('PullRequestModel', function () {
 
 		model.update({ ...model.item, base: { ...base, ref: 'updated-base' } });
 		assert(changes.lastCall.args[0][0].event.base);
+	});
+
+	it('compares the file changes against the new base after the base changes', async function () {
+		const model = repo.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794)
+			.base(ref => ref.sha('old-base-sha'))
+			.head(ref => ref.sha('head-sha'))
+			.build(), repo));
+		sinon.stub(model, 'getViewerLatestReviewCommit').resolves(undefined);
+		const { base, head } = model.item;
+		assert(base && head);
+		const file = (filename: string, status: IRawFileChange['status'], previous_filename?: string): IRawFileChange => ({
+			sha: 'file-sha', filename, previous_filename, additions: 0, deletions: 0, changes: 0, status,
+			raw_url: '', blob_url: `https://github.com/github/test/blob/head/${filename}`, contents_url: '',
+		});
+		const compareWithBase = (baseSha: string, files: IRawFileChange[]) => repo.queryProvider.expectOctokitRequest(['repos', 'compareCommits'], [{
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${base.repo.owner}:${baseSha}`,
+			head: `${head.repo.owner}:${head.sha}`,
+		}], { files, merge_base_commit: { sha: baseSha } });
+		compareWithBase('old-base-sha', [file('old.ts', 'removed'), file('new.ts', 'added')]);
+		compareWithBase('new-base-sha', [file('new.ts', 'renamed', 'old.ts')]);
+		const repositoriesManager = new RepositoriesManager(credentials, telemetry);
+		const git = new GitApiImpl(repositoriesManager);
+		const createPullRequestHelper = new CreatePullRequestHelper();
+		const themeWatcher = new MockThemeWatcher();
+		const manager = new FolderRepositoryManager(0, context, new MockRepository(), telemetry, git, credentials, createPullRequestHelper, themeWatcher);
+		const changedFiles = async () => (await PullRequestModel.getChangeModels(manager, model)).map(change => [change.fileName, change.status]);
+		try {
+			assert.deepStrictEqual(await changedFiles(), [['old.ts', GitChangeType.DELETE], ['new.ts', GitChangeType.ADD]]);
+
+			// The base branch is changed outside VS Code, and a refresh updates the model.
+			model.update({ ...model.item, base: { ...base, ref: 'new-base', sha: 'new-base-sha' } });
+
+			assert.deepStrictEqual(await changedFiles(), [['new.ts', GitChangeType.RENAME]]);
+			assert.strictEqual(model.mergeBase, 'new-base-sha');
+		} finally {
+			manager.dispose();
+			themeWatcher.dispose();
+			createPullRequestHelper.dispose();
+			git.dispose();
+			repositoriesManager.dispose();
+		}
 	});
 
 	it('emits a mergeability change when fetching mergeability changes the model in place', async function () {
