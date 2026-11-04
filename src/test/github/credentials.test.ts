@@ -13,6 +13,8 @@ import { CredentialStore, findExistingSession, GitHub, hasAccountChanged } from 
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { commands } from '../../common/executeCommands';
+import { EXTENSION_ID } from '../../constants';
 
 const oldestScopes = ['read:user', 'user:email', 'repo'];
 const defaultScopes = [...oldestScopes, 'workflow'];
@@ -172,6 +174,127 @@ describe('CredentialStore', function () {
 
 			strictEqual(hasAccountChanged('old-account', session), true);
 			strictEqual(hasAccountChanged('old-account', undefined), true);
+		});
+	});
+
+	describe('account preferences for inaccessible repositories', function () {
+		let telemetry: MockTelemetry;
+		let credentialStore: CredentialStore;
+		let getHub: SinonStub;
+
+		beforeEach(function () {
+			telemetry = new MockTelemetry();
+			credentialStore = new CredentialStore(telemetry, new MockExtensionContext());
+			getHub = sinon.stub(credentialStore, 'getHub').returns(createTestHub(telemetry, createSession('session', 'personal', defaultScopes)));
+		});
+
+		afterEach(function () {
+			credentialStore.dispose();
+		});
+
+		it('offers a warning that opens GitHub.com account preferences', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
+			const execute = sinon.stub(commands, 'executeCommand').resolves();
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			deepStrictEqual(getAccounts.firstCall.args, [AuthProvider.github]);
+			strictEqual(warning.firstCall.args[0].includes('owner/repo'), true);
+			deepStrictEqual(warning.firstCall.args.slice(1), [manageAccounts]);
+			deepStrictEqual(execute.firstCall.args, [commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github]);
+		});
+
+		it('does not open preferences on dismissal and suppresses concurrent and repeated prompts', async function () {
+			sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const execute = sinon.stub(commands, 'executeCommand').resolves();
+
+			await Promise.all([
+				credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo'),
+				credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/other'),
+			]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+			strictEqual(execute.called, false);
+		});
+
+		it('does not prompt for GitHub Enterprise', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'octocat - host-a.example' },
+				{ id: 'work', label: 'octocat - host-b.example' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.githubEnterprise, 'owner/repo');
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+		});
+
+		it('does not prompt when GITHUB_OAUTH_TOKEN supplies the credential', async function () {
+			getHub.callThrough();
+			sinon.stub(process, 'env').value({ ...process.env, GITHUB_OAUTH_TOKEN: 'environment-token' });
+			// Answers the current user request made when the hub is created.
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({ data: { login: 'octocat', node_id: 'MDQ6VXNlcjE=', html_url: 'https://github.com/octocat', avatar_url: '', type: 'User' } });
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([
+				{ id: 'personal', label: 'Personal' },
+				{ id: 'work', label: 'Work' },
+			]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const hub = await credentialStore.login(AuthProvider.github);
+			strictEqual(!!hub && !hub.session, true);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			strictEqual(getAccounts.called, false);
+			strictEqual(warning.called, false);
+		});
+
+		it('does not prompt without multiple accounts, but can prompt after another account is added', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').resolves([]);
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.called, false);
+
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }]);
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(warning.callCount, 1);
+		});
+
+		it('does not propagate account lookup or command failures', async function () {
+			const getAccounts = sinon.stub(vscode.authentication, 'getAccounts').rejects(new Error('Provider unavailable'));
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			getAccounts.resolves([{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }]);
+			sinon.stub(vscode.window, 'showWarningMessage').resolvesArg(1);
+			const execute = sinon.stub(commands, 'executeCommand').rejects(new Error('Command unavailable'));
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+			strictEqual(execute.calledOnce, true);
+		});
+
+		it('does not show a dialog if disposed during account lookup', async function () {
+			sinon.stub(vscode.authentication, 'getAccounts').callsFake(async () => {
+				credentialStore.dispose();
+				return [{ id: 'personal', label: 'Personal' }, { id: 'work', label: 'Work' }];
+			});
+			const warning = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+			await credentialStore.showAccountPreferencesForInaccessibleRepository(AuthProvider.github, 'owner/repo');
+
+			strictEqual(warning.called, false);
 		});
 	});
 

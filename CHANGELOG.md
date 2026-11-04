@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.176.0
+
+### Changes
+
+- The pull request overview timeline shows more events, including label, milestone, and title changes, review requests and dismissals, draft and ready-for-review changes, force pushes, branch restores, auto-merge changes, and merge queue updates.
+- Pull request description templates support issue variables such as `${issueTitle}`, `${issueNumber}`, and `${issueNumberLabel}`, filled in from the issue associated with the branch by "Start Working on Issue".
+- Add a "Comment and Resolve" button to review comment threads.
+- Queries in the Pull Requests view can refresh automatically. Set `"githubPullRequests.autoRefreshQueries"` to the refresh interval in seconds.
+- SAML error dialogs include a "Reauthenticate" button.
+- When you stack pull requests, you're prompted to disable auto-merge on any pull request in the stack that has it enabled.
+- Local pull request discovery reads Git config once instead of once per branch.
+
+### Fixes
+
+- The stack suggestion banner's close button doesn't stay in the upper right when resized. https://github.com/microsoft/vscode-pull-request-github/issues/9111
+- The stack suggestion banner can cause the pull request overview to flicker or jump vertically. https://github.com/microsoft/vscode-pull-request-github/issues/9102
+- The "Merge stack" action shows even when it won't merge the entire stack. https://github.com/microsoft/vscode-pull-request-github/issues/9101
+- "Open original file" isn't available for deleted files. https://github.com/microsoft/vscode-pull-request-github/issues/9030
+- Checkout Pull Request in Worktree fails for pull requests from forks. https://github.com/microsoft/vscode-pull-request-github/issues/8983
+- Opening a submodule bump in the pull request changes view fails with "Unable to read file ... that is actually a directory". https://github.com/microsoft/vscode-pull-request-github/issues/8981
+- The `activePullRequest` tool misses the open pull request for the current checked-out branch. https://github.com/microsoft/vscode-pull-request-github/issues/8965
+- Unable to convert pull request to draft: "Cannot read properties of null (reading 'pullRequest')". https://github.com/microsoft/vscode-pull-request-github/issues/8961
+- Signing out triggers a sign-in request in each window. https://github.com/microsoft/vscode-pull-request-github/issues/8951
+- GitHub search tool returns zero matching issues despite there being many. https://github.com/microsoft/vscode-pull-request-github/issues/8930
+- GitHub Enterprise sign-in prompt is missing when the repository has a GitHub-style remote but `github-enterprise.uri` is unset. https://github.com/microsoft/vscode-pull-request-github/issues/8874
+- Continuously trying to push changes when creating a pull request. https://github.com/microsoft/vscode-pull-request-github/issues/8748
+- Branches are associated with stale closed pull requests through their tracked upstream branch. https://github.com/microsoft/vscode-pull-request-github/issues/8676
+- In-progress comments are lost when review mode is cleared after a pull request is merged. https://github.com/microsoft/vscode-pull-request-github/issues/7556
+- Files in a pull request are opened by absolute path and not treated as the same file as the one in the workspace. https://github.com/microsoft/vscode-pull-request-github/issues/6712
+- "Start Working on Issue" doesn't use the right remote when checking out the topic branch. https://github.com/microsoft/vscode-pull-request-github/issues/6661
+- Copilot pull request information shows on queries that exclude Copilot, such as those using `-author:copilot`, in the Pull Requests view.
+- Orphaned stack update worktrees aren't cleaned up on macOS.
+
+**_Thank You_**
+
+* [@diptomistry (Diptajoy Mistry)](https://github.com/diptomistry): Warn before clearing review mode when unsaved comment drafts exist [PR #9043](https://github.com/microsoft/vscode-pull-request-github/pull/9043)
+* [@kinqsradio (Anh Dang)](https://github.com/kinqsradio): Fix orphan stack worktree cleanup through macOS path aliases [PR #9100](https://github.com/microsoft/vscode-pull-request-github/pull/9100)
+* [@tamird (Tamir Duberstein)](https://github.com/tamird): Batch Git config reads for branch operations [PR #8978](https://github.com/microsoft/vscode-pull-request-github/pull/8978)
+
 ## 0.174.0
 
 ### Changes

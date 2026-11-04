@@ -419,7 +419,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private getDiffLinkHashMap(): Promise<Record<string, string>> {
 		this._diffLinkHashMapPromise ??= (async () => {
-			const rawFileChanges = this._item.rawFileChanges ?? await this._item.getRawFileChangesInfo();
+			const rawFileChanges = this._item.rawFileChanges ?? await this._item.getRawFileChangesInfo(this._folderRepositoryManager.repository);
 			const hashMap: Record<string, string> = {};
 			rawFileChanges.forEach(file => {
 				const hash = crypto.createHash('sha256').update(file.filename).digest('hex');
@@ -1230,7 +1230,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openDiffFromLink(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
 		try {
 			const { file, startLine } = message.args;
-			const fileChanges = await this._item.getFileChangesInfo();
+			const fileChanges = await this._item.getFileChangesInfo(this._folderRepositoryManager.repository);
 			const change = fileChanges.find(
 				fileChange => fileChange.fileName === file || fileChange.previousFileName === file,
 			);
@@ -1831,7 +1831,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			// Get commits and raw file changes for the PR
 			const [commits, rawFileChanges] = await Promise.all([
 				this._item.getCommits(),
-				this._item.getRawFileChangesInfo()
+				this._item.getRawFileChangesInfo(this._folderRepositoryManager.repository)
 			]);
 
 			const commitMessages = commits.map(commit => commit.commit.message);

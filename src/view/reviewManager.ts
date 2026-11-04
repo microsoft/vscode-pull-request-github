@@ -1248,7 +1248,7 @@ export class ReviewManager extends Disposable {
 
 	private async initializePullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			const contentChanges = await pr.getFileChangesInfo();
+			const contentChanges = await pr.getFileChangesInfo(this._folderRepoManager.repository);
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewThreadCacheAndReviewComments(), pr.initializePullRequestFileViewState()]);
 			this._folderRepoManager.setFileViewedContext();
@@ -1319,7 +1319,7 @@ export class ReviewManager extends Disposable {
 			if (!pr) {
 				return;
 			}
-			const rawChanges = await pr.getFileChangesInfo();
+			const rawChanges = await pr.getFileChangesInfo(this._folderRepoManager.repository);
 			const mergeBase = pr.mergeBase;
 			if (!mergeBase) {
 				return;

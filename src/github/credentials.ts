@@ -18,6 +18,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { EXTENSION_ID } from '../constants';
 import { agent } from '../env/node/net';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
@@ -141,6 +142,7 @@ export class CredentialStore extends Disposable {
 	private _handlingAuthError: Map<AuthProvider, Promise<AuthResult>> = new Map();
 	private _lastAuthErrorHandledAt: Map<AuthProvider, number> = new Map();
 	private _currentUserRequests: WeakMap<GitHub, Promise<void>> = new WeakMap();
+	private _hasOfferedAccountPreferences: boolean = false;
 	// Cooldown long enough to absorb retries from in-flight requests that were
 	// issued with the now-invalid token, but short enough that a token that
 	// is invalidated again soon after re-auth will still trigger another prompt.
@@ -607,6 +609,31 @@ export class CredentialStore extends Disposable {
 
 	public async isCurrentUser(authProviderId: AuthProvider, username: string): Promise<boolean> {
 		return (await this.getCurrentUser(authProviderId))?.login === username;
+	}
+
+	public async showAccountPreferencesForInaccessibleRepository(authProviderId: AuthProvider, repository: string): Promise<void> {
+		// Enterprise accounts can belong to other hosts, and account information does not identify the host.
+		// A GITHUB_OAUTH_TOKEN credential has no session, so account preferences cannot replace it.
+		if (authProviderId !== AuthProvider.github || !this.getHub(AuthProvider.github)?.session || this.isDisposed || this._hasOfferedAccountPreferences) {
+			return;
+		}
+		try {
+			const accounts = await vscode.authentication.getAccounts(AuthProvider.github);
+			if (this.isDisposed || accounts.length < 2 || this._hasOfferedAccountPreferences) {
+				return;
+			}
+			this._hasOfferedAccountPreferences = true;
+			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
+			const choice = await vscode.window.showWarningMessage(
+				vscode.l10n.t('The account selected for GitHub Pull Requests may not have access to {0}. You are signed in with multiple GitHub accounts. Would you like to choose a different account for this workspace?', repository),
+				manageAccounts,
+			);
+			if (!this.isDisposed && choice === manageAccounts) {
+				await commands.executeCommand(commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github);
+			}
+		} catch (error) {
+			Logger.error(`Unable to show account preferences: ${error}`, CredentialStore.ID);
+		}
 	}
 
 	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {

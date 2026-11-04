@@ -8,6 +8,7 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
+import { getChangesSinceReview, getChangesSinceReviewUnavailableMessage, UnavailableChangesSinceReview } from './changesSinceReview';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
@@ -2025,7 +2026,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		pullRequestModel: PullRequestModel,
 		comment: IComment,
 	): Promise<void> {
-		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const change = contentChanges.find(
 			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
 		);
@@ -2042,7 +2043,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	) {
-		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		if (!contentChanges.length) {
 			return;
 		}
@@ -2127,13 +2128,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private _rawFileChangesCache: IRawFileChange[] | undefined;
+	private _changesSinceReviewWarning: string | undefined;
 	get rawFileChanges(): IRawFileChange[] | undefined {
 		return this._rawFileChangesCache;
 	}
 
-	async getFileChangesInfo() {
+	async getFileChangesInfo(repository?: Repository) {
 		this._fileChanges.clear();
-		const data = await this.getRawFileChangesInfo();
+		const data = await this.getRawFileChangesInfo(repository);
 		const mergebase = this.mergeBase || this.base.sha;
 		const parsed = await parseDiff(data, mergebase);
 		parsed.forEach(fileChange => {
@@ -2183,7 +2185,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	public static async getChangeModels(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]> {
 		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
-		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const changeModels: (RemoteFileChangeModel | InMemFileChangeModel)[] = [];
 		for (const change of changes) {
 			let changeModel;
@@ -2199,8 +2201,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	/**
 	 * List the changed files in a pull request.
+	 * @param repository The local repository, used to check the changes since the last review exactly and with fewer API calls.
 	 */
-	public async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
+	public async getRawFileChangesInfo(repository?: Repository): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
 
 		const githubRepository = this.githubRepository;
@@ -2222,7 +2225,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
 		this.hasChangesSinceLastReview = latestReview !== undefined && this.head?.sha !== latestReview.sha;
 
-		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
+		const isComparingWithReview = this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview !== undefined;
+		if (isComparingWithReview) {
 			compareWithBaseRef = latestReview.sha;
 		}
 
@@ -2241,7 +2245,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
-		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		let { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		if (isComparingWithReview) {
+			const changesSinceReview = await getChangesSinceReview(files, mergeBaseSha, {
+				remote,
+				octokit,
+				base: this.base,
+				head: this.head!,
+				reviewedSha: compareWithBaseRef,
+				prNumber: this.number,
+				repository,
+			});
+			if (changesSinceReview.kind === 'available') {
+				files = changesSinceReview.files;
+			} else {
+				this.warnChangesSinceReviewUnavailable(changesSinceReview, compareWithBaseRef);
+				({ files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, this.base.sha, this.number, PullRequestModel.ID));
+			}
+		}
 		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
@@ -2251,6 +2272,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID,);
 		this._rawFileChangesCache = files;
 		return files;
+	}
+
+	private warnChangesSinceReviewUnavailable(changesSinceReview: UnavailableChangesSinceReview, reviewedSha: string) {
+		const warning = `${reviewedSha}:${this.head?.sha}:${changesSinceReview.reason}`;
+		if (this._changesSinceReviewWarning === warning) {
+			return;
+		}
+		this._changesSinceReviewWarning = warning;
+		const message = getChangesSinceReviewUnavailableMessage(changesSinceReview, this.number);
+		Logger.warn(message, PullRequestModel.ID);
+		vscode.window.showWarningMessage(message);
 	}
 
 	get autoMerge(): boolean {

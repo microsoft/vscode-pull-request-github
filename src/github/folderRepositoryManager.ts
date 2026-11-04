@@ -39,7 +39,7 @@ import { stripCoAuthoredByTrailers, unwrapCommitMessageBody } from '../common/gi
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync, Remote, resolveGitUrl } from '../common/remote';
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
@@ -610,22 +610,39 @@ export class FolderRepositoryManager extends Disposable {
 				if (index > -1) {
 					repositories.splice(index, 1);
 				}
+				// The folder may have been closed while its remotes were resolving.
+				if (!this.isDisposed) {
+					void this._credentialStore.showAccountPreferencesForInaccessibleRepository(inaccessible.remote.authProviderId, `${inaccessible.remote.owner}/${inaccessible.remote.repositoryName}`);
+				}
 				inaccessible.dispose();
 			}
 			if (missingSaml.length > 0) {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
 				// Make a test call to see if the user has SAML enabled.
 				const samlTest = result.canceled ? [] : await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
-				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+				let stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
 				// Make a test call to see if the user has SAML enabled.
 				if (stillMissing.length > 0) {
-					if (stillMissing.length === repositories.length) {
-						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
-						this.dispose();
-						return true;
+					const reauthenticate = { title: vscode.l10n.t('Reauthenticate') };
+					const errorMessage = stillMissing.length === repositories.length
+						? vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.')
+						: vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.');
+					const choice = await vscode.window.showErrorMessage(errorMessage, { modal: true }, reauthenticate);
+					if (choice?.title === reauthenticate.title) {
+						const retryResult = await this._credentialStore.showSamlMessageAndAuth(stillMissing.map(repo => repo.remote.owner));
+						if (!retryResult.canceled) {
+							const retryTest = await Promise.all(stillMissing.map(repo => repo.resolveRemote()));
+							stillMissing = retryTest.map((result, index) => !result ? stillMissing[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+						}
 					}
-					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
-					cleanUpMissingSaml(stillMissing);
+
+					if (stillMissing.length > 0) {
+						if (stillMissing.length === repositories.length) {
+							this.dispose();
+							return true;
+						}
+						await cleanUpMissingSaml(stillMissing);
+					}
 				}
 			}
 
@@ -1157,6 +1174,10 @@ export class FolderRepositoryManager extends Disposable {
 					// Try to find a matching PR on GitHub
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
+					const upstreamMatch = await this.getUpstreamPullRequestMatch(branchName, upstreamBranchName);
+					if (upstreamMatch === 'none') {
+						return false;
+					}
 
 					const githubRepo = githubRepositories.find(
 						repo => repo.remote.remoteName === remoteName,
@@ -1175,7 +1196,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Search for a PR with this head branch
 					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
 
-					if (matchingPR) {
+					if (matchingPR && (upstreamMatch === 'all' || matchingPR.isOpen)) {
 						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
 						await PullRequestGitHelper.associateBranchWithPullRequest(
 							this.repository,
@@ -1783,27 +1804,19 @@ export class FolderRepositoryManager extends Disposable {
 		if (upstreamRef && upstreamRef.remote !== '.') {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+			if (upstream) {
+				return upstream;
+			}
 
 			// If the upstream wasn't listed in the remotes setting, create a GitHubRepository
 			// object for it if is does point to GitHub.
-			if (!upstream) {
-				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
-				if (remote) {
-					return this.createAndAddGitHubRepository(remote, this._credentialStore);
-				}
-
-				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`, this.id);
-
-				// No GitHubRepository? We currently won't try pushing elsewhere,
-				// so fail.
-				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
+			const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
+			if (remote) {
+				return this.createAndAddGitHubRepository(remote, this._credentialStore);
 			}
-
-			// Otherwise, we'll push upstream.
-			return upstream;
 		}
 
-		// If no upstream is set, let's go digging.
+		// If no GitHub upstream is set, let's go digging.
 		const [first, ...rest] = this._githubRepositories;
 		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
@@ -1833,7 +1846,7 @@ export class FolderRepositoryManager extends Disposable {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel | undefined> {
+	async createPullRequest(params: OctokitCommon.PullsCreateParams, isRetryAfterPush: boolean = false): Promise<PullRequestModel | undefined> {
 		const repo = this._githubRepositories.find(
 			r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo,
 		);
@@ -1857,7 +1870,8 @@ export class FolderRepositoryManager extends Disposable {
 			this.telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
-			if (e.message.indexOf('No commits between ') > -1) {
+			// If there are still no commits after pushing, then pushing again won't help.
+			if (!isRetryAfterPush && e.message.indexOf('No commits between ') > -1) {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
@@ -1869,7 +1883,7 @@ export class FolderRepositoryManager extends Disposable {
 					);
 					if (shouldPush === pushCommits) {
 						await this._repository.push();
-						return this.createPullRequest(params);
+						return this.createPullRequest(params, true);
 					} else {
 						return;
 					}
@@ -1887,7 +1901,7 @@ export class FolderRepositoryManager extends Disposable {
 						await this._repository.add(this._repository.state.indexChanges.map(change => change.uri.fsPath));
 						await this.repository.commit(`${params.title}${params.body ? `\n${params.body}` : ''}`);
 						await this._repository.push();
-						return this.createPullRequest(params);
+						return this.createPullRequest(params, true);
 					} else {
 						return;
 					}
@@ -2591,17 +2605,22 @@ export class FolderRepositoryManager extends Disposable {
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		try {
-			if (remoteName) {
-				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
+			const upstreamMatch = await this.getUpstreamPullRequestMatch(branch.name, upstreamBranchName);
+			if (upstreamMatch === 'none') {
+				return null;
 			}
-			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
+			const openOnly = upstreamMatch === 'open';
+			if (remoteName) {
+				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName, openOnly);
+			}
+			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName, openOnly);
 		} catch (e) {
 			Logger.error(`Unable to get matching pull request metadata from GitHub: ${e}`, this.id);
 			return null;
 		}
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteUrl}`, this.id);
@@ -2617,18 +2636,24 @@ export class FolderRepositoryManager extends Disposable {
 				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
-		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
-		if (matchingPR && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
-			const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo?.remote, protocol);
-			const trackedBranchName = `refs/remotes/${newRemote}/${matchingPR.model.head?.name}`;
-			await this.repository.fetch({ remote: newRemote, ref: matchingPR.model.head?.name });
-			await this.repository.setBranchUpstream(branch.name, trackedBranchName);
+		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
+		const headBranchName = matchingPR?.model.head?.ref;
+		if (matchingPR && headBranchName && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
+			// Setting up the upstream is best effort: a failed fetch (for example, an SSH key that needs a passphrase)
+			// must not prevent the branch from being recognized as the pull request's branch.
+			try {
+				const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo.remote, protocol);
+				await this.repository.fetch({ remote: newRemote, ref: headBranchName });
+				await this.repository.setBranchUpstream(branch.name, `refs/remotes/${newRemote}/${headBranchName}`);
+			} catch (e) {
+				Logger.warn(`Unable to set the upstream of branch ${branch.name} for pull request #${matchingPR.prNumber}: ${formatError(e)}`, this.id);
+			}
 		}
 
 		return matchingPR;
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteName}`, this.id);
@@ -2653,10 +2678,10 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 
-		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
+		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
 	}
 
-	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string): Promise<
+	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		if (!headGitHubRepo || !upstreamBranchName) {
@@ -2679,7 +2704,9 @@ export class FolderRepositoryManager extends Disposable {
 		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of parentRepos) {
 			const matchingPullRequest = await repo.getPullRequestForBranch(upstreamBranchName, headRepoMetadata.owner.login);
-			if (matchingPullRequest) {
+			if (matchingPullRequest && openOnly && !matchingPullRequest.isOpen) {
+				Logger.debug(`Pull request #${matchingPullRequest.number} for ${upstreamBranchName} is not open, not matching it to a branch that tracks ${upstreamBranchName} under another name`, this.id);
+			} else if (matchingPullRequest) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,
@@ -2713,6 +2740,29 @@ export class FolderRepositoryManager extends Disposable {
 			return ref === branchName;
 		});
 		return worktree ? vscode.Uri.file(worktree.path) : undefined;
+	}
+
+	/**
+	 * A branch created from a base branch (e.g. `git checkout -b my-feature origin/dev`) tracks that base branch, so its
+	 * upstream name isn't the branch's own name on the remote and matches pull requests from the base branch instead.
+	 * Such a branch is only matched to an open pull request by its upstream, since tracking another pull request's branch
+	 * under a different name is a legitimate setup, and isn't matched at all when it's checked out in a worktree.
+	 * Branches created for a pull request (e.g. fork pull requests checked out as `pr/<author>/<number>`) also track a
+	 * branch with another name, but they're associated with the pull request when they're created.
+	 */
+	private async getUpstreamPullRequestMatch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<'all' | 'open' | 'none'> {
+		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName) {
+			return 'all';
+		}
+		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName]);
+		if (metadata.has(branchName)) {
+			return 'all';
+		}
+		if (this.getWorktreeForBranch(branchName)) {
+			Logger.debug(`Branch ${branchName} is checked out in a worktree and tracks ${upstreamBranchName}, not looking for a pull request by its upstream`, this.id);
+			return 'none';
+		}
+		return 'open';
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {
@@ -3271,14 +3321,75 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	/**
+	 * Git pushes to a remote's push URL, which can point to a different repository than its fetch URL, such as a fork.
+	 * @param remote The GitHub remote of the Git remote with the same name.
+	 * @returns The remote for the repository that `git push` sends commits to, or undefined if there is no Git remote
+	 * with this name or its push URL is on another server.
+	 */
+	public async getPushRemote(remote: GitHubRemote): Promise<GitHubRemote | undefined> {
+		const gitRemote = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName);
+		const pushUrl = gitRemote?.pushUrl ?? gitRemote?.fetchUrl;
+		if (!gitRemote || !pushUrl) {
+			return undefined;
+		}
+		if (pushUrl === gitRemote.fetchUrl) {
+			return remote;
+		}
+		const pushRemote = parseRemote(remote.remoteName, await resolveGitUrl(pushUrl, this.repository));
+		if (!pushRemote || !isOnServerOf(pushRemote, remote)) {
+			return undefined;
+		}
+		return new GitHubRemote(remote.remoteName, pushRemote.url, pushRemote.gitProtocol, remote.githubServerType);
+	}
+
+	/** Whether the Git remote with the name of `remote` fetches from the repository of `remote`. */
+	private async fetchesFrom(remote: GitHubRemote): Promise<boolean> {
+		const fetchUrl = this.repository.state.remotes.find(candidate => candidate.name === remote.remoteName)?.fetchUrl;
+		const fetchRemote = fetchUrl ? parseRemote(remote.remoteName, await resolveGitUrl(fetchUrl, this.repository)) : null;
+		return !!fetchRemote && isOnServerOf(fetchRemote, remote) && isSameRepository(fetchRemote, remote);
+	}
+
+	/**
+	 * Finds the remote of a fork of `githubRepository` that the user can push to, such as one created by an earlier attempt
+	 * whose push failed. Only forks on the same server with a Git remote that fetches from and pushes to the fork are considered.
+	 */
+	private async findPushableFork(githubRepository: GitHubRepository): Promise<GitHubRemote | undefined> {
+		const { owner, repositoryName } = githubRepository.remote;
+		for (const candidate of this.gitHubRepositories) {
+			// A repository that is only known through the API has its name as remote name, which an unrelated Git remote can also have.
+			if ((candidate === githubRepository) || !isOnServerOf(candidate.remote, githubRepository.remote) || !(await this.fetchesFrom(candidate.remote))) {
+				continue;
+			}
+			const pushRemote = await this.getPushRemote(candidate.remote);
+			if (!pushRemote || !isSameRepository(pushRemote, candidate.remote)) {
+				continue;
+			}
+			const forkDetails = await candidate.getRepositoryForkDetails();
+			if (!forkDetails?.isFork || (compareIgnoreCase(forkDetails.parent.owner.login, owner) !== 0) || (compareIgnoreCase(forkDetails.parent.name, repositoryName) !== 0)) {
+				continue;
+			}
+			const permission = await candidate.getViewerPermission();
+			if ((permission === ViewerPermission.Admin) || (permission === ViewerPermission.Maintain) || (permission === ViewerPermission.Write)) {
+				return candidate.remote;
+			}
+		}
+		return undefined;
+	}
+
 	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
 		const githubRepo = await this.createGitHubRepository(
 			pushRemote,
 			this.credentialStore,
 		);
-		let permission: ViewerPermission;
+		let needsFork: boolean;
+		let existingFork: GitHubRemote | undefined;
 		try {
-			permission = await githubRepo.getViewerPermission();
+			const permission = await githubRepo.getViewerPermission();
+			needsFork = permission === ViewerPermission.Read || permission === ViewerPermission.Triage || permission === ViewerPermission.Unknown;
+			if (needsFork) {
+				existingFork = await this.findPushableFork(githubRepo);
+			}
 		} catch (e) {
 			if (isRateLimitError(e)) {
 				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'), { modal: true });
@@ -3287,11 +3398,9 @@ export class FolderRepositoryManager extends Disposable {
 			throw e;
 		}
 		let selectedRemote: GitHubRemote | undefined;
-		if (
-			permission === ViewerPermission.Read ||
-			permission === ViewerPermission.Triage ||
-			permission === ViewerPermission.Unknown
-		) {
+		if (existingFork) {
+			selectedRemote = existingFork;
+		} else if (needsFork) {
 			// No permission to publish the branch to the chosen remote. Offer to fork.
 			const fork = await this.tryOfferToFork(githubRepo);
 			if (!fork) {
@@ -3300,7 +3409,9 @@ export class FolderRepositoryManager extends Disposable {
 
 			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === fork);
 		} else {
-			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === pushRemote.remoteName);
+			// Keep the repository that the permission was checked for: a remote's push URL can point to a different
+			// repository than its fetch URL, so looking the remote up by name could return the wrong one.
+			selectedRemote = githubRepo.remote;
 		}
 
 		if (!selectedRemote) {
@@ -3410,6 +3521,16 @@ const ownedByMe: AsyncPredicate<GitHubRepository> = async repo => {
 
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
+
+/** Whether `remote` is on the same server as `githubRemote`, which for GitHub.com includes its SSH host. */
+function isOnServerOf(remote: Remote, githubRemote: GitHubRemote): boolean {
+	const serverUri = githubRemote.githubServerType === GitHubServerType.GitHubDotCom ? 'https://github.com' : githubRemote.normalizedHost;
+	return remote.matchesServerUri(vscode.Uri.parse(serverUri));
+}
+
+function isSameRepository(remote: Remote, other: Remote): boolean {
+	return (compareIgnoreCase(remote.owner, other.owner) === 0) && (compareIgnoreCase(remote.repositoryName, other.repositoryName) === 0);
+}
 
 export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
 	const message = await promise;
