@@ -507,6 +507,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._postMessage({
 					command: 'pr.update',
 					pullrequest: {
+						base: item.base ? `${item.base.owner}/${item.remote.repositoryName}:${item.base.ref}` : '',
+						head: item.head ? `${item.head.owner}/${item.remote.repositoryName}:${item.head.ref}` : '',
 						mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
 						viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
 					} satisfies Partial<PullRequest>,
@@ -521,6 +523,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await this._postMessage({
 				command: 'pr.update',
 				pullrequest: {
+					base: item.base ? `${item.base.owner}/${item.remote.repositoryName}:${item.base.ref}` : '',
+					head: item.head ? `${item.head.owner}/${item.remote.repositoryName}:${item.head.ref}` : '',
 					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
 					viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
 					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),

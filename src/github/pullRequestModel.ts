@@ -299,21 +299,39 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return newState;
 	}
 
-	protected override doUpdate(item: PullRequest): IssueChangeEvent {
-		// Updates supersede in-flight refreshes, but initial construction must not
-		// invalidate a newer full fetch that is still waiting for its response.
-		if (this.base) {
+	private refsChanged(item: PullRequest): boolean {
+		return (['base', 'head'] as const).some(key => {
+			const previous = this.item[key];
+			const next = item[key];
+			return !!next && (previous?.ref !== next.ref || previous?.sha !== next.sha
+				|| previous?.repo.owner !== next.repo.owner || previous?.repo.name !== next.repo.name);
+		});
+	}
+
+	// Stack enrichment and full snapshots with superseded permissions must not
+	// cancel a fresh permission lookup. Ref changes always invalidate that lookup.
+	override update(item: PullRequest, authoritativePermissions: boolean = true): void {
+		if (this.base && (authoritativePermissions || this.refsChanged(item))) {
 			this.githubRepository.beginPullRequestRefresh(item.number);
 		}
+		super.update(item);
+	}
+
+	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		const refsChanged = this.refsChanged(item);
+		// Bypass capability belongs to the base branch, not a particular commit.
+		// Commit changes still supersede in-flight lookups via update above.
+		const baseBranchChanged = !!item.base && (this.item.base?.ref !== item.base.ref
+			|| this.item.base?.repo.owner !== item.base.repo.owner || this.item.base?.repo.name !== item.base.repo.name);
 		// REST pull request lists don't include these, so keep the values that are already known.
 		if (item.viewerCanUpdate === undefined) {
 			item.viewerCanUpdate = this.item.viewerCanUpdate;
 		}
 		if (item.viewerCanMergeAsAdmin === undefined) {
-			item.viewerCanMergeAsAdmin = this.item.viewerCanMergeAsAdmin;
+			item.viewerCanMergeAsAdmin = baseBranchChanged ? undefined : this.item.viewerCanMergeAsAdmin;
 		}
 		if (item.mergeable === undefined) {
-			item.mergeable = this.item.mergeable;
+			item.mergeable = refsChanged ? PullRequestMergeability.Unknown : this.item.mergeable;
 		}
 		if (item.stack === undefined) {
 			item.stack = this.item.stack;
@@ -1478,18 +1496,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			if (data?.updateIssue?.issue) {
-				// Update the local base branch reference by creating a new GitHubRef instance
-				const cloneUrl = this.base.repositoryCloneUrl.toString() || '';
-				this.base = new GitHubRef(
-					newBaseBranch,
-					`${this.base.owner}:${newBaseBranch}`,
-					this.base.sha,
-					cloneUrl,
-					this.base.owner,
-					this.base.name,
-					this.base.isInOrganization
-				);
-				this._onDidChange.fire({ base: true });
+				// The mutation confirms the branch, but not its tip or permissions.
+				// Use the normal update path to keep item.base in sync and supersede
+				// permission lookups that were started against the previous base.
+				this.update({
+					...this.item,
+					base: {
+						ref: newBaseBranch,
+						label: `${this.base.owner}:${newBaseBranch}`,
+						sha: '',
+						repo: {
+							cloneUrl: this.base.repositoryCloneUrl.toString() || '',
+							owner: this.base.owner,
+							name: this.base.name,
+							isInOrganization: this.base.isInOrganization,
+						},
+					},
+					viewerCanMergeAsAdmin: undefined,
+					mergeable: PullRequestMergeability.Unknown,
+				});
 			}
 			Logger.debug(`Updating base branch to ${newBaseBranch} - done`, PullRequestModel.ID);
 		} catch (e) {
@@ -2342,7 +2367,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * verifies those requirements when merging.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
-		const version = this.githubRepository.beginPullRequestRefresh(this.number);
+		const version = this.githubRepository.beginPullRequestMergeabilityRefresh(this.number);
 		const currentResult = (): PullRequestMergeabilityResult => ({
 			mergeability: this.item.mergeable ?? PullRequestMergeability.Unknown,
 			viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin === true,
@@ -2400,7 +2425,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				this.item.viewerCanUpdate = viewerCanUpdate;
 			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
-			this.update(this.item);
+			this.update(this.item, false);
 			if (previousMergeability !== mergeability || previousCanMergeAsAdmin !== this.item.viewerCanMergeAsAdmin) {
 				this._onDidChange.fire({ mergeability: true });
 			}

@@ -167,6 +167,22 @@ describe('Merge status and actions', function () {
 		assert.strictEqual((view.getByLabelText(bypassLabel) as HTMLInputElement).checked, false);
 	});
 
+	for (const ref of ['base', 'head'] as const) {
+		it(`discards bypass consent when the ${ref} identity changes with capability still granted`, function () {
+			const pr = blockedPR();
+			const context = new PRContext(pr);
+			const content = (value: PullRequest) => <PullRequestContext.Provider value={context}><PrActions pr={value} isSimple={false} /></PullRequestContext.Provider>;
+			const view = render(content(pr));
+			fireEvent.click(view.getByLabelText(bypassLabel));
+			assert(view.getByText('Merge Pull Request'));
+
+			view.rerender(content({ ...pr, [ref]: 'owner/repo:retargeted-branch' }));
+
+			assert.strictEqual((view.getByLabelText(bypassLabel) as HTMLInputElement).checked, false);
+			assert.strictEqual(view.queryByText('Merge Pull Request'), null);
+		});
+	}
+
 	it('keeps normal merges unchanged and without a bypass checkbox', function () {
 		const pr = new PullRequestBuilder().viewerCanMergeAsAdmin(true).build();
 		const view = render(<PullRequestContext.Provider value={new PRContext(pr)}><PrActions pr={pr} isSimple={false} /></PullRequestContext.Provider>);

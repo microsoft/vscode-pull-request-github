@@ -347,6 +347,7 @@ export class GitHubRepository extends Disposable {
 
 	private _pullRequestRefreshSequence = 0;
 	private readonly _pullRequestRefreshVersions = new Map<number, number>();
+	private readonly _pullRequestSnapshotVersions = new Map<number, number>();
 	private readonly _parsedPullRequestVersions = new WeakMap<PullRequest, number>();
 
 	// Branch queries reserve a version before the PR numbers are known. Parsing
@@ -355,6 +356,16 @@ export class GitHubRepository extends Disposable {
 		if (number !== undefined && version > (this._pullRequestRefreshVersions.get(number) ?? 0)) {
 			this._pullRequestRefreshVersions.set(number, version);
 		}
+		if (number !== undefined && version > (this._pullRequestSnapshotVersions.get(number) ?? 0)) {
+			this._pullRequestSnapshotVersions.set(number, version);
+		}
+		return version;
+	}
+
+	// Lightweight lookups supersede permissions, not unrelated full-snapshot fields.
+	beginPullRequestMergeabilityRefresh(number: number): number {
+		const version = ++this._pullRequestRefreshSequence;
+		this._pullRequestRefreshVersions.set(number, version);
 		return version;
 	}
 
@@ -951,7 +962,7 @@ export class GitHubRepository extends Disposable {
 			data?.nodes.forEach((summary, index) => {
 				const pullRequest = pullRequests[index];
 				if (summary && pullRequest.item === items[index]) {
-					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
+					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) }, false);
 				}
 			});
 		} catch (e) {
@@ -1747,11 +1758,23 @@ export class GitHubRepository extends Disposable {
 	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		const version = this._parsedPullRequestVersions.get(pullRequest);
-		if (model && version !== undefined && !this.isCurrentPullRequestRefresh(pullRequest.number, version)) {
+		if (model && version !== undefined && this._pullRequestSnapshotVersions.get(pullRequest.number) !== version) {
 			return model;
 		}
 		if (model) {
-			model.update(pullRequest);
+			if (version !== undefined && !this.isCurrentPullRequestRefresh(pullRequest.number, version)) {
+				// A newer lightweight lookup owns permissions. Still apply the full
+				// snapshot (title, body, state, refs, etc.). Ref changes invalidate the
+				// retained capability in doUpdate and supersede that lookup as well.
+				model.update({
+					...pullRequest,
+					viewerCanMergeAsAdmin: undefined,
+					viewerCanUpdate: model.item.viewerCanUpdate,
+					mergeable: undefined,
+				}, false);
+			} else {
+				model.update(pullRequest);
+			}
 		} else {
 			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;

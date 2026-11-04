@@ -1756,6 +1756,28 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(update?.mergeable, PullRequestMergeability.Mergeable);
 		});
 
+		for (const ref of ['base', 'head'] as const) {
+			it(`publishes a changed ${ref} identity before comparison completes while bypass remains granted`, async function () {
+				const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
+				model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: true });
+				await new Promise(resolve => setTimeout(resolve, 0));
+				let finishComparison!: (value: boolean) => void;
+				upToDate.returns(new Promise<boolean>(resolve => { finishComparison = resolve; }));
+				const previousRef = model.item[ref];
+				assert(previousRef);
+
+				model.update({ ...model.item, [ref]: { ...previousRef, ref: 'retargeted-branch' } });
+				await new Promise(resolve => setTimeout(resolve, 0));
+
+				const update = lastBranchStatusUpdate();
+				assert.strictEqual(update?.[ref], `${model[ref]!.owner}/${model.remote.repositoryName}:retargeted-branch`);
+				assert.strictEqual(update?.viewerCanMergeAsAdmin, true);
+				assert.strictEqual(update?.mergeable, PullRequestMergeability.NotMergeable);
+				finishComparison(false);
+				await new Promise(resolve => setTimeout(resolve, 0));
+			});
+		}
+
 		it('publishes a mergeability change that GitHub reports after loading', async function () {
 			const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
 			upToDate.resolves(false);
