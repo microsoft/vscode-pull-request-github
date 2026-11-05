@@ -543,7 +543,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async processPendingUpdates(): Promise<void> {
-		while (this._pendingUpdate) {
+		// An update that was queued before the panel was closed cannot be shown.
+		while (this._pendingUpdate && !this.isDisposed) {
 			const pullRequestModel = this._pendingUpdate;
 			this._pendingUpdate = undefined;
 			await this.updateItemNow(pullRequestModel);
@@ -959,12 +960,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	public override async refreshPanel(): Promise<void> {
-		if (!this._panel.visible || this._refreshing) {
+		if (this.isDisposed || !this._panel.visible || this._refreshing) {
 			return;
 		}
 		this._refreshing = true;
 		try {
 			const pullRequest = await this.resolveModel(this._identity);
+			// The panel can be closed while the pull request is resolved, such as when merging it checks out the default branch.
+			if (this.isDisposed) {
+				return;
+			}
 			if (!pullRequest) {
 				throw new Error(
 					`Failed to resolve Pull Request #${this._identity.number} in ${this._identity.owner}/${this._identity.repo}`,
@@ -972,7 +977,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 			await this.updateItem(pullRequest);
 		} catch (error) {
-			vscode.window.showErrorMessage(`Error refreshing pull request description: ${formatError(error)}`);
+			if (this.isDisposed) {
+				Logger.debug(`Pull request description closed while refreshing: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			} else {
+				vscode.window.showErrorMessage(`Error refreshing pull request description: ${formatError(error)}`);
+			}
 		} finally {
 			this._refreshing = false;
 		}

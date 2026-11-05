@@ -1457,6 +1457,55 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('refreshing a closed panel', function () {
+		it('does not report an error when merging closes the panel while the pull request is reloaded', async function () {
+			const { model, resolvePullRequest, showError, webviewPanel } = await createPanel();
+			let reloadPullRequest!: (model: PullRequestModel) => void;
+			resolvePullRequest.resetHistory();
+			resolvePullRequest.callsFake(() => new Promise(resolve => reloadPullRequest = resolve));
+
+			// Merging the pull request refreshes the panel.
+			model.update({ ...model.item, state: 'MERGED', merged: true });
+			sinon.assert.calledOnce(resolvePullRequest);
+			// Checking out the default branch after the merge closes the panel before the refresh finishes.
+			webviewPanel.dispose();
+			reloadPullRequest(model);
+			await new Promise(resolve => setImmediate(resolve));
+
+			sinon.assert.notCalled(showError);
+		});
+
+		it('does nothing when the panel is refreshed after it is closed', async function () {
+			const { panel, resolvePullRequest, showError, webviewPanel } = await createPanel();
+			resolvePullRequest.resetHistory();
+			webviewPanel.dispose();
+
+			await panel.refreshPanel();
+
+			sinon.assert.notCalled(resolvePullRequest);
+			sinon.assert.notCalled(showError);
+		});
+
+		it('does not apply an update that was queued before the panel closed', async function () {
+			const { panel, model, defaultBranch, showError, webviewPanel } = await createPanel();
+			let finishUpdate!: (defaultBranch: string) => void;
+			defaultBranch.returns(new Promise<string>(resolve => finishUpdate = resolve));
+			defaultBranch.resetHistory();
+			const refreshing = panel.refreshPanel();
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledOnce(defaultBranch);
+
+			const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
+			const reopening = PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, identity, model, false, true, webviewPanel);
+			webviewPanel.dispose();
+			finishUpdate('main');
+			await Promise.all([refreshing, reopening]);
+
+			sinon.assert.calledOnce(defaultBranch);
+			sinon.assert.notCalled(showError);
+		});
+	});
+
 	describe('mergeStack', function () {
 		const stack: PullRequestStack = {
 			position: 2,
@@ -1532,7 +1581,7 @@ describe('PullRequestOverview', function () {
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
 			viewerCanAutoMerge: false,
 		});
-		sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
+		const defaultBranch = sinon.stub(pullRequestManager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
 		const currentUser = sinon.stub(pullRequestManager, 'getCurrentUser').callsFake(async () => {
 			const model = models.values().next().value;
 			assert(model);
@@ -1549,7 +1598,7 @@ describe('PullRequestOverview', function () {
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const stackablePullRequests = sinon.stub(repo, 'getStackablePullRequests').resolves({});
 		const query = sinon.spy(repo, 'query');
-		return { models, access, currentUser, branch, queueMethod, resolvePullRequest, externalUri, showError, stackablePullRequests, query };
+		return { models, access, defaultBranch, currentUser, branch, queueMethod, resolvePullRequest, externalUri, showError, stackablePullRequests, query };
 	}
 
 	/** A pull request whose branches are both in the test repository, so it can be stacked. */
@@ -1625,7 +1674,7 @@ describe('PullRequestOverview', function () {
 				{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		});
-		return { ...services, panel, model, stackQuery, webviewPostMessage, received, onDidPost: posted.event };
+		return { ...services, panel, model, stackQuery, webviewPanel, webviewPostMessage, received, onDidPost: posted.event };
 	}
 
 	describe('stack panel fixture', function () {
