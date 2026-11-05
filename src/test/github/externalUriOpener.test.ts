@@ -193,6 +193,60 @@ describe('GitHubIssueOrPullRequestExternalUriOpener', () => {
 				assert.strictEqual(panel.findPanel('aaa', 'bbb', 1000), undefined);
 			});
 
+			it('creates the tab beside the active editor when requested', async () => {
+				const createWebviewPanel = sandbox.spy(vscode.window, 'createWebviewPanel');
+				const opening = opener.openExternalUri(uri, { sourceUri: uri, viewColumn: vscode.ViewColumn.Beside }, cancellation.token);
+				try {
+					sandbox.assert.calledOnce(createWebviewPanel);
+					assert.strictEqual(createWebviewPanel.firstCall.args[2], vscode.ViewColumn.Beside);
+					assert.ok(panel.findPanel('aaa', 'bbb', 1000));
+				} finally {
+					cancellation.cancel();
+					resolveModel(undefined);
+					await opening;
+				}
+				sandbox.assert.notCalled(openExternal);
+			});
+
+			it('reveals an existing tab beside the active editor when requested', async () => {
+				const createWebviewPanel = sandbox.spy(vscode.window, 'createWebviewPanel');
+				const openings = [opener.openExternalUri(uri, { sourceUri: uri }, cancellation.token)];
+				try {
+					sandbox.assert.calledOnce(createWebviewPanel);
+					const reveal = sandbox.spy(createWebviewPanel.firstCall.returnValue, 'reveal');
+					openings.push(opener.openExternalUri(uri, { sourceUri: uri, viewColumn: vscode.ViewColumn.Beside }, cancellation.token));
+					sandbox.assert.calledOnce(createWebviewPanel);
+					sandbox.assert.calledOnce(reveal);
+					sandbox.assert.calledWithExactly(reveal, vscode.ViewColumn.Beside, true);
+				} finally {
+					cancellation.cancel();
+					resolveModel(undefined);
+					await Promise.all(openings);
+				}
+				sandbox.assert.notCalled(openExternal);
+			});
+
+			for (const viewColumn of [undefined, vscode.ViewColumn.Active]) {
+				it(`keeps the default placement when the requested column is ${viewColumn === undefined ? 'missing' : 'active'}`, async () => {
+					const activeColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
+					const createWebviewPanel = sandbox.spy(vscode.window, 'createWebviewPanel');
+					const openings = [opener.openExternalUri(uri, { sourceUri: uri, viewColumn }, cancellation.token)];
+					try {
+						sandbox.assert.calledOnce(createWebviewPanel);
+						assert.strictEqual(createWebviewPanel.firstCall.args[2], activeColumn);
+						const reveal = sandbox.spy(createWebviewPanel.firstCall.returnValue, 'reveal');
+						openings.push(opener.openExternalUri(uri, { sourceUri: uri, viewColumn }, cancellation.token));
+						sandbox.assert.calledOnce(createWebviewPanel);
+						sandbox.assert.calledOnce(reveal);
+						sandbox.assert.calledWithExactly(reveal, undefined, true);
+					} finally {
+						cancellation.cancel();
+						resolveModel(undefined);
+						await Promise.all(openings);
+					}
+				});
+			}
+
 			it('does not create a tab for an already-cancelled request', async () => {
 				const createWebviewPanel = sandbox.spy(vscode.window, 'createWebviewPanel');
 				cancellation.cancel();
