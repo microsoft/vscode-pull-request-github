@@ -645,7 +645,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		pullRequestReviewId: comment.pullRequestReview && comment.pullRequestReview.databaseId,
 		diffHunk: comment.diffHunk,
 		position: comment.position,
-		commitId: comment.commit.oid,
+		commitId: comment.commit?.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
 		user: comment.author ? parseAccount(comment.author, githubRepository) : undefined,
