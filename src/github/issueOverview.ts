@@ -81,6 +81,14 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		);
 	}
 
+	/**
+	 * Whether the workspace has more than one GitHub repository folder, in which case the repository is shown with branch names.
+	 */
+	protected static isMultiRepoWorkspace(): boolean {
+		const folderManagers = IssueOverviewPanel._repositoriesManager?.folderManagers ?? [];
+		return folderManagers.filter(manager => manager.gitHubRepositories.length > 0).length > 1;
+	}
+
 	protected static _getViewColumn(toTheSide: boolean, panel?: IssueOverviewPanel): number | undefined {
 		const tabViewColumn = vscode.window.tabGroups.activeTabGroup.viewColumn;
 		const activeColumn = toTheSide

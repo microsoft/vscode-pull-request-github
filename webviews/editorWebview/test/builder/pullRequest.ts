@@ -29,6 +29,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isRemoteHeadDeleted: { default: false },
 	isLocalHeadDeleted: { default: false },
 	head: { default: 'my-fork:my-branch' },
+	qualifiedHead: { default: 'my-fork/name:my-branch' },
 	stack: { default: undefined },
 	canUpdateStack: { default: false },
 	stackLoaded: { default: true },

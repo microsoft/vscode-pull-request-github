@@ -104,6 +104,8 @@ export interface PullRequest extends Issue {
 	isRemoteHeadDeleted?: boolean;
 	isLocalHeadDeleted?: boolean;
 	head: string;
+	/** The head branch with its owner and repository (`owner/repo:branch`), used in the default merge commit title. */
+	qualifiedHead: string;
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	repositoryDefaultBranch: string;

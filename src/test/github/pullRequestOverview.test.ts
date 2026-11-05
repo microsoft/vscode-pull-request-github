@@ -18,6 +18,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { Repository } from '../../api/api';
@@ -161,7 +162,7 @@ describe('PullRequestOverview', function () {
 	function previewLoadingTests<TItem extends IssueModel, TPreview extends OverviewItemPreview>(fixture: () => {
 		model: TItem;
 		preview: TPreview;
-		getPreview: SinonStub<[number], Promise<TPreview>>;
+		getPreview: SinonStub<[number, boolean?], Promise<TPreview>>;
 		getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
@@ -918,7 +919,7 @@ describe('PullRequestOverview', function () {
 		let usersPromise: Promise<{ [key: string]: IAccount[] }>;
 		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
 		let getReviewRequests: SinonStub<[], ReturnType<PullRequestModel['getReviewRequests']>>;
-		let getPreview: SinonStub<[number], Promise<PullRequestPreview>>;
+		let getPreview: SinonStub<Parameters<GitHubRepository['getPullRequestPreview']>, Promise<PullRequestPreview>>;
 		let getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		let getMergeQueueMethod: SinonStub;
@@ -985,6 +986,62 @@ describe('PullRequestOverview', function () {
 		});
 
 		previewLoadingTests(() => ({ model: prModel, preview, getPreview, getRepository, getRepositoryAccess, getAssignableUsers, openPanel, messages, webviewPanel }));
+
+		describe('branch labels', function () {
+			const initialized = () => messages.find(message => message.command === 'pr.initialize')?.pullrequest;
+			const branchLabels = () => [initialized()?.base, initialized()?.head];
+
+			beforeEach(function () {
+				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => [repo]);
+				repositoriesManager.insertFolderManager(pullRequestManager);
+				PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, repositoriesManager);
+			});
+
+			function insertOtherFolder(gitHubRepositories: GitHubRepository[]): void {
+				const otherRepository = new MockRepository();
+				otherRepository.rootUri = vscode.Uri.file('/other');
+				const otherManager = new FolderRepositoryManager(1, context, otherRepository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+				context.subscriptions.push(otherManager);
+				sinon.stub(otherManager, 'gitHubRepositories').get(() => gitHubRepositories);
+				repositoriesManager.insertFolderManager(otherManager);
+			}
+
+			it('shows only the branch names in a single-repo workspace', async function () {
+				await openPanel(Promise.resolve(prModel));
+
+				assert.deepStrictEqual(branchLabels(), ['new-feature', 'new-feature']);
+				assert.strictEqual(initialized()?.qualifiedHead, 'octocat/bbb:new-feature', 'the merge commit title keeps the owner and repository');
+				sinon.assert.calledWithExactly(getPreview, 1000, false);
+			});
+
+			it('shows the repository name in a multi-repo workspace', async function () {
+				insertOtherFolder([repo]);
+
+				await openPanel(Promise.resolve(prModel));
+
+				assert.deepStrictEqual(branchLabels(), ['bbb:new-feature', 'bbb:new-feature']);
+				sinon.assert.calledWithExactly(getPreview, 1000, true);
+			});
+
+			it('does not count a workspace folder without a GitHub repository', async function () {
+				insertOtherFolder([]);
+
+				await openPanel();
+
+				assert.deepStrictEqual(branchLabels(), ['new-feature', 'new-feature']);
+			});
+
+			it('shows the owners when the pull request is from a fork', async function () {
+				prModel.update(convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000)
+					.head(h => h.ref('feature').repo((r: RepositoryBuilder) => r.owner(o => o.login('contributor'))))
+					.build(), repo));
+
+				await openPanel();
+
+				assert.deepStrictEqual(branchLabels(), ['octocat:new-feature', 'contributor:feature']);
+				assert.strictEqual(initialized()?.qualifiedHead, 'contributor/bbb:feature');
+			});
+		});
 
 		it('loads the stack while the rest of the page loads, and shows it after the page', async function () {
 			const getStack = sinon.stub(prModel, 'getStack').resolves(undefined);

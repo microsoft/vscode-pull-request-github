@@ -57,7 +57,7 @@ import { Remote } from '../common/remote';
 import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
+import { compareIgnoreCase, escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -1029,6 +1029,24 @@ export function parseStackSummary(summary: GraphQL.PullRequestStackSummary): Pul
 		base: stack.baseRefName,
 		pullRequests: stack.entries.nodes.map(parseStackEntry).sort((a, b) => a.position - b.position),
 	};
+}
+
+/**
+ * The base and head branch labels shown in the pull request overview. The owner is only shown when
+ * the base and head owners differ, and the repository name only when the workspace has multiple repositories.
+ */
+export function getPullRequestBranchLabels(
+	repositoryName: string,
+	base: { owner: string; ref: string },
+	head: { owner: string; ref: string } | undefined,
+	showRepositoryName: boolean,
+): { base: string; head: string } {
+	const showOwner = !!head && compareIgnoreCase(base.owner, head.owner) !== 0;
+	const label = ({ owner, ref }: { owner: string; ref: string }): string => {
+		const prefix = [showOwner ? owner : undefined, showRepositoryName ? repositoryName : undefined].filter(part => !!part).join('/');
+		return prefix ? `${prefix}:${ref}` : ref;
+	};
+	return { base: label(base), head: head ? label(head) : '' };
 }
 
 function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {

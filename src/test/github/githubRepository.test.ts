@@ -140,11 +140,13 @@ describe('GitHubRepository', function () {
 			assert.deepStrictEqual(await repo.getPullRequestPreview(1347), {
 				...content,
 				author: parseAccount(author, repo),
-				base: 'owner/repo:main',
-				head: 'contributor/repo:feature',
+				base: 'owner:main',
+				head: 'contributor:feature',
 			});
+			const multiRepoPreview = await repo.getPullRequestPreview(1347, true);
+			assert.deepStrictEqual([multiRepoPreview.base, multiRepoPreview.head], ['owner/repo:main', 'contributor/repo:feature']);
 			assert.strictEqual(repo.getExistingPullRequestModel(1347), undefined);
-			sinon.assert.calledOnce(query);
+			sinon.assert.calledTwice(query);
 			assert.strictEqual(query.firstCall.args[0].query, repo.schema.PullRequestPreview);
 			assert.deepStrictEqual(query.firstCall.args[0].variables, { owner: 'owner', name: 'repo', number: 1347 });
 			const fields: string[] = [];
@@ -161,6 +163,7 @@ describe('GitHubRepository', function () {
 			});
 			const deletedAuthorPreview = await repo.getPullRequestPreview(1347);
 			assert.deepStrictEqual(deletedAuthorPreview.author, parseAccount(null, repo));
+			assert.strictEqual(deletedAuthorPreview.base, 'main');
 			assert.strictEqual(deletedAuthorPreview.head, '');
 		});
 
