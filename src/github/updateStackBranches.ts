@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { Repository } from '../api/api';
 import Logger from '../common/logger';
 import { generateUuid } from '../common/uuid';
+import { realpath } from '../env/node/fs';
 
 const STACK_WORKTREE_PREFIX = 'vscode-pr-stack-';
 // Worktree names record the owning process so another window's in-progress update is never removed.
@@ -29,10 +29,9 @@ function normalizeWorktreePath(worktreePath: string): string {
 function temporaryDirectories(): Set<string> {
 	const directory = tmpdir();
 	const forms = [directory];
-	try {
-		forms.push(realpathSync.native(directory));
-	} catch {
-		// Match the reported form only.
+	const canonical = realpath(directory);
+	if (canonical) {
+		forms.push(canonical);
 	}
 	return new Set(forms.map(normalizeWorktreePath));
 }
