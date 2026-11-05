@@ -437,7 +437,7 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
+	const renderedBody = <div className="markdown-body" dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
 	const applyPatchButton =
