@@ -16,12 +16,25 @@ export abstract class FileChangeModel {
 	private static readonly ID = 'FileChangeModel';
 	protected _filePath: vscode.Uri;
 	get filePath(): vscode.Uri {
-		return this._filePath;
+		return this.submoduleUri(this._filePath, false);
 	}
 
 	protected _parentFilePath: vscode.Uri;
 	get parentFilePath(): vscode.Uri {
-		return this._parentFilePath;
+		return this.submoduleUri(this._parentFilePath, true);
+	}
+
+	get submoduleChange(): { base: string; head: string } | undefined {
+		return this.change instanceof InMemFileChange ? this.change.submoduleChange : undefined;
+	}
+
+	private submoduleUri(uri: vscode.Uri, isBase: boolean): vscode.Uri {
+		if (!(this.change instanceof InMemFileChange) || !this.submoduleChange) {
+			return uri;
+		}
+		return toPRUri(uri, this.pullRequest, this.change.baseCommit, this.sha ?? this.pullRequest.head!.sha,
+			this.fileName, isBase, this.status, this.change.previousFileName,
+			isBase ? this.submoduleChange.base : this.submoduleChange.head);
 	}
 
 	get status(): GitChangeType {
@@ -118,6 +131,9 @@ export class GitFileChangeModel extends FileChangeModel {
 
 	private _show: Promise<string | undefined>;
 	async showBase(): Promise<string | undefined> {
+		if (this.submoduleChange) {
+			return this.submoduleChange.base;
+		}
 		if (!this._show && this.change.status !== GitChangeType.ADD) {
 			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha!);
 			const fileName = (this.change.status === GitChangeType.RENAME) &&

@@ -13,7 +13,6 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"agentSessionsWorkspace",
-		"agentsWindowActivation",
 		"authIssuers",
 		"chatContextProvider",
 		"chatParticipantAdditions",
@@ -45,11 +44,11 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.166.1",
+	"version": "0.176.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
-		"vscode": "^1.141.0"
+		"vscode": "^1.145.0"
 	},
 	"categories": [
 		"Other",
@@ -261,6 +260,12 @@
 						}
 					]
 				},
+				"githubPullRequests.autoRefreshQueries": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"markdownDescription": "%githubPullRequests.autoRefreshQueries.description%"
+				},
 				"githubPullRequests.labelCreated": {
 					"type": "array",
 					"items": {
@@ -359,7 +364,7 @@
 				},
 				"githubPullRequests.openPullLinks": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"markdownDescription": "%githubPullRequests.openPullLinks.description%",
 					"tags": [
@@ -1345,6 +1350,12 @@
 				"enablement": "!(comment =~ /temporary/)"
 			},
 			{
+				"command": "pr.commentAndResolveReviewThread",
+				"title": "%command.pr.commentAndResolveReviewThread.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!commentIsEmpty"
+			},
+			{
 				"command": "pr.resolveReviewThread",
 				"title": "%command.pr.resolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
@@ -2167,7 +2178,7 @@
 				},
 				{
 					"command": "pr.addAttestationCommit",
-					"when": "(config.githubPullRequests.enableAttestationCommits) && !isSessionsWindow"
+					"when": "(config.githubPullRequests.enableAttestationCommits && (!isWeb || remoteName)) && !isSessionsWindow"
 				},
 				{
 					"command": "pr.configureRemotes",
@@ -2503,6 +2514,10 @@
 				},
 				{
 					"command": "pr.resolveReviewThread",
+					"when": "false"
+				},
+				{
+					"command": "pr.commentAndResolveReviewThread",
 					"when": "false"
 				},
 				{
@@ -3141,12 +3156,12 @@
 				},
 				{
 					"command": "pr.revealFileInOS",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:ADD)/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(?!:(ADD|DELETE))/) && !isSessionsWindow",
 					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/) && !isSessionsWindow",
+					"when": "(view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:(MODIFY|DELETE)/) && !isSessionsWindow",
 					"group": "0_open@2"
 				},
 				{
@@ -3388,6 +3403,11 @@
 				}
 			],
 			"comments/commentThread/context": [
+				{
+					"command": "pr.commentAndResolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+				},
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",
@@ -3955,10 +3975,12 @@
 				"path": "./src/lm/skills/show-github-search-result/SKILL.md"
 			},
 			{
-				"path": "./src/lm/skills/address-pr-comments/SKILL.md"
+				"path": "./src/lm/skills/address-pr-comments/SKILL.md",
+				"when": "!isSessionsWindow"
 			},
 			{
-				"path": "./src/lm/skills/create-pull-request/SKILL.md"
+				"path": "./src/lm/skills/create-pull-request/SKILL.md",
+				"when": "!isSessionsWindow"
 			}
 		],
 		"languageModelTools": [
@@ -4128,7 +4150,7 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_currentActivePullRequest.description%",
-				"when": "config.githubPullRequests.experimental.chat",
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow",
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4183,7 +4205,7 @@
 					]
 				},
 				"userDescription": "%languageModelTools.github-pull-request_pullRequestStatusChecks.description%",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow"
 			},
 			{
 				"name": "github-pull-request_pullRequestInViewport",
@@ -4258,7 +4280,7 @@
 						"head"
 					]
 				},
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow"
 			},
 			{
 				"name": "github-pull-request_resolveReviewThread",
@@ -4273,7 +4295,7 @@
 				"icon": "$(pass)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_resolveReviewThread.description%",
-				"when": "config.githubPullRequests.experimental.chat",
+				"when": "config.githubPullRequests.experimental.chat && !isSessionsWindow",
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -4410,7 +4432,7 @@
 		"js-yaml": "^4.3.2",
 		"jsonc-parser": "^3.3.1",
 		"lru-cache": "6.0.0",
-		"markdown-it": "^14.3.1",
+		"markdown-it": "^14.3.3",
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

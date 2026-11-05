@@ -15,7 +15,7 @@ import { FILE_LIST_LAYOUT, HIDE_VIEWED_FILES, PR_SETTINGS_NAMESPACE } from './co
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { SessionLinkInfo } from './common/timelineEvent';
-import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
+import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { addAttestationCommit } from './github/attestationCommit';
@@ -193,7 +193,7 @@ export function registerCommands(
 ) {
 	const logId = 'RegisterCommands';
 
-	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry);
+	PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, reposManager);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -925,7 +925,7 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
 			}
 
-			return checkoutPRInWorktree(telemetry, folderManager, pullRequestModel, repository);
+			return checkoutPRInWorktree(telemetry, repository ?? folderManager.repository, pullRequestModel);
 		}),
 	);
 
@@ -937,7 +937,7 @@ export function registerCommands(
 		if (!resolved) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
-		return checkoutPRInWorktree(telemetry, resolved.folderManager, resolved.pr, undefined);
+		return checkoutPRInWorktree(telemetry, resolved.folderManager.repository, resolved.pr);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutOnVscodeDevFromDescription', async (context: BaseContext | undefined) => {
@@ -1323,7 +1323,7 @@ export function registerCommands(
 		return { thread, text };
 	}
 
-	const resolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment | undefined, resolve: boolean, focusReply?: boolean) => {
+	const resolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment | undefined, resolve: boolean, focusReply?: boolean, commentText?: string) => {
 		if (resolve) {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
@@ -1351,7 +1351,7 @@ export function registerCommands(
 
 		if (handler) {
 			if (resolve) {
-				await handler.resolveReviewThread(thread, text);
+				await handler.resolveReviewThread(thread, commentText ?? text);
 			} else {
 				await handler.unresolveReviewThread(thread, text);
 				if (focusReply) {
@@ -1360,6 +1360,10 @@ export function registerCommands(
 			}
 		}
 	};
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.commentAndResolveReviewThread', (reply: CommentReply) => resolve(reply, true, false, reply.text))
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, true))
@@ -2202,37 +2206,16 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.diffWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
-			let parentURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				true,
-				fileChangeNode.status);
-			let headURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				false,
-				fileChangeNode.status);
+			const parentURI = fileChangeNode.toPullRequestUri(true);
+			const headURI = fileChangeNode.toPullRequestUri(false);
 			return vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${fileName} (Pull Request Compare Base with Head)`);
 		}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.diffLocalWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
-			let headURI = toPRUri(
-				fileChangeNode.resourceUri,
-				fileChangeNode.pullRequest,
-				fileChangeNode.pullRequest.base.sha,
-				fileChangeNode.pullRequest.head.sha,
-				fileChangeNode.fileName,
-				false,
-				fileChangeNode.status);
-			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.resourceUri, `${fileName} (Pull Request Compare Head with Local)`);
+			const headURI = fileChangeNode.toPullRequestUri(false);
+			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.localUri, `${fileName} (Pull Request Compare Head with Local)`);
 		}));
 
 	async function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {

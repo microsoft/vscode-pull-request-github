@@ -55,17 +55,18 @@ function Section({
 
 const collapsedPullRequestSections = 'Reviewers, Assignees, Labels, Project, and Milestone';
 
-export function SidebarPreview({ isSingleColumnLayout }: { isSingleColumnLayout: boolean }) {
+export function SidebarPreview({ isSingleColumnLayout, isIssue }: { isSingleColumnLayout: boolean, isIssue: boolean }) {
+	const sectionTitles = isIssue ? ['Assignees', 'Labels', 'Project', 'Milestone'] : ['Reviewers', 'Assignees', 'Labels', 'Project', 'Milestone'];
 	if (isSingleColumnLayout) {
 		return <div className="collapsible-sidebar overview-preview-sidebar" aria-hidden="true">
 			<div className="collapsible-sidebar-header">
-				<span className="collapsible-sidebar-title"><span className="collapsed-label">{collapsedPullRequestSections}</span></span>
+				<span className="collapsible-sidebar-title"><span className="collapsed-label">{isIssue ? 'Assignees, Labels, Project, and Milestone' : collapsedPullRequestSections}</span></span>
 			</div>
 			<span className="collapsible-label-see-more"><span className="overview-placeholder" /></span>
 		</div>;
 	}
 	return <div id="sidebar" className="overview-preview-sidebar" aria-hidden="true">
-		{['Reviewers', 'Assignees', 'Labels', 'Project', 'Milestone'].map(title => (
+		{sectionTitles.map(title => (
 			<Section key={title} id={`preview-${title.toLowerCase()}`} title={title} hasWritePermission={false}>
 				<div className="section-placeholder"><span className="overview-placeholder" /></div>
 			</Section>

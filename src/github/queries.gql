@@ -263,6 +263,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	additions
 	deletions
+	...PullRequestStackSummary
 }
 
 query Issue($owner: String!, $name: String!, $number: Int!) {

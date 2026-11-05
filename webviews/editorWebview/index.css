@@ -16,12 +16,12 @@ html {
 #title {
 	grid-column-start: 1;
 	grid-column-end: 3;
-	grid-row: 1;
+	grid-row: 2;
 }
 
 #main {
 	grid-column: 1;
-	grid-row: 2;
+	grid-row: 3;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -32,7 +32,13 @@ html {
 	flex-direction: column;
 	gap: 16px;
 	grid-column: 2;
-	grid-row: 2;
+	grid-row: 3;
+}
+
+/* The stack recommendation is above the title. Its grid row takes no space when there is no recommendation. */
+.stack-recommendation {
+	grid-column: 1 / 3;
+	grid-row: 1;
 }
 
 #project a {
@@ -380,8 +386,9 @@ body .comment-container .review-comment-header {
 	gap: 4px;
 }
 
+.status-check .icon-button,
 .view-check-logs-placeholder {
-	width: 20px;
+	flex: 0 0 22px;
 }
 
 #merge-on-github {
@@ -700,40 +707,65 @@ body button .icon {
 }
 
 .stack-badge .icon svg,
-.stack-section summary .icon svg,
+.stack-header .icon svg,
+.stack-recommendation-banner .icon svg,
 .stack-entry-readiness svg {
 	width: 16px;
 	height: 16px;
 }
 
-.stack-section summary {
+.stack-section {
+	scroll-margin-top: 64px;
+	/* Whether the Unstack all button fits beside the heading depends on the section's width, not the page's. */
+	container: stack-section / inline-size;
+}
+
+.stack-header {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon heading actions toggle";
+	gap: 8px;
 	cursor: pointer;
 }
 
-.stack-section {
-	position: relative;
-	scroll-margin-top: 64px;
+.stack-header > .icon {
+	grid-area: icon;
 }
 
 .stack-heading-text {
-	flex: 1;
-	min-width: 0;
+	grid-area: heading;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
-.stack-section summary > .icon {
-	flex-shrink: 0;
+.stack-actions {
+	grid-area: actions;
+	display: flex;
+	gap: 8px;
 }
 
-.stack-chevron {
-	margin-left: auto;
+.stack-header .stack-chevron {
+	grid-area: toggle;
+	margin: 0;
 }
 
-.stack-section[open].has-actions .stack-heading-text {
-	padding-right: 128px;
-}
-
-.stack-section:not([open]) .stack-chevron {
+.stack-chevron[aria-expanded="false"] .icon {
 	transform: rotate(-90deg);
+}
+
+/* Too narrow for the button to sit beside the heading, so it goes below it, still in the header. */
+@container stack-section (max-width: 400px) {
+	.stack-header {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon heading toggle"
+			". actions .";
+	}
+
+	.stack-actions {
+		justify-self: start;
+	}
 }
 
 .stack-description,
@@ -746,7 +778,7 @@ body button .icon {
 .stack-entries {
 	list-style: none;
 	margin: 0;
-	padding: 8px 16px;
+	padding: 12px 20px 4px 20px;
 }
 
 .stack-entry,
@@ -755,23 +787,33 @@ body button .icon {
 	grid-template-columns: 20px minmax(0, 1fr);
 	column-gap: 8px;
 	position: relative;
-	padding: 8px;
+	padding: 6px 8px 12px 8px;
 }
 
 .stack-entry::before {
 	content: '';
 	position: absolute;
 	left: 17px;
-	top: 30px;
-	bottom: 0;
+	top: 28px;
+	bottom: 6px;
 	border-left: 1px solid var(--vscode-descriptionForeground);
-	opacity: 0.65;
+	opacity: 0.5;
 }
 
 .stack-entry.current {
 	background: var(--vscode-panel-background);
 	border-radius: 4px;
-	box-shadow: inset 3px 0 var(--vscode-focusBorder);
+}
+
+.stack-entry.current::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 3px;
+	border-radius: 2px 0 0 2px;
+	background: var(--vscode-focusBorder);
 }
 
 .stack-entry-readiness {
@@ -844,9 +886,20 @@ body button .icon {
 	fill: var(--vscode-list-warningForeground);
 }
 
+.stack-entry-readiness.conflict {
+	color: var(--vscode-errorForeground);
+}
+
+.stack-entry-readiness.conflict svg path {
+	fill: var(--vscode-errorForeground);
+}
+
 .stack-entry-details {
 	min-width: 0;
 	overflow-wrap: anywhere;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .stack-base {
@@ -866,32 +919,127 @@ body button .icon {
 	width: fit-content;
 }
 
-.stack-actions {
-	position: absolute;
-	top: 16px;
-	right: 48px;
+.stack-recommendation {
+	margin-top: 20px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 6px;
+	/* Keeps the banner's background inside the rounded corners. */
+	overflow: hidden;
+	/* Whether the Preview stack button fits beside the message depends on the recommendation's width, not the page's. */
+	container: stack-recommendation / inline-size;
 }
 
-.stack-section:not([open]) .stack-actions {
-	display: none;
+.stack-recommendation-banner {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon message toggle dismiss";
+	align-items: center;
+	gap: 8px;
+	padding: 8px 8px 8px 12px;
+	background: var(--vscode-textBlockQuote-background);
 }
 
-@media (max-width: 480px) {
-	.stack-section[open].has-actions .stack-heading-text {
-		padding-right: 0;
+.stack-recommendation-banner > .icon {
+	grid-area: icon;
+	color: var(--vscode-textLink-foreground);
+}
+
+.stack-recommendation-message {
+	grid-area: message;
+}
+
+.stack-recommendation-toggle {
+	grid-area: toggle;
+}
+
+.stack-recommendation-dismiss {
+	grid-area: dismiss;
+}
+
+/* Too narrow for the button to sit beside the message, so it goes below it. Dismiss stays in the top right corner. */
+@container stack-recommendation (max-width: 400px) {
+	.stack-recommendation-banner {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon message dismiss"
+			". toggle .";
+		align-items: start;
 	}
 
-	.stack-actions {
-		position: static;
-		display: flex;
-		justify-content: flex-end;
-		padding: 0 16px 8px;
+	.stack-recommendation-toggle {
+		justify-self: start;
 	}
 }
 
-.stack-unstack-error {
-	padding: 8px 16px 0;
-	color: var(--vscode-errorForeground);
+.stack-recommendation-preview {
+	border-top: 1px solid var(--vscode-panel-border);
+	padding: 12px 12px 8px;
+}
+
+.stack-recommendation-preview-header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.stack-recommendation-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 8px;
+}
+
+/* Points to a stack recommendation that was added above the page while it was being read. */
+.stack-recommendation-hint {
+	position: fixed;
+	top: 4px;
+	left: 50%;
+	/* Below the sticky header. */
+	z-index: 150;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 10px 2px 6px;
+	border-radius: 12px;
+	font-size: 12px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	transform: translateX(-50%);
+	animation: stack-recommendation-hint-in 0.2s ease-out;
+}
+
+.stack-recommendation-hint .icon {
+	animation: stack-recommendation-hint-nudge 1s ease-in-out 0.2s 3;
+}
+
+.vscode-high-contrast .stack-recommendation-hint,
+.vscode-high-contrast-light .stack-recommendation-hint {
+	border-color: var(--vscode-contrastBorder);
+	box-shadow: none;
+}
+
+@keyframes stack-recommendation-hint-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -100%);
+	}
+}
+
+@keyframes stack-recommendation-hint-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(-3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stack-recommendation-hint,
+	.stack-recommendation-hint .icon {
+		animation: none;
+	}
 }
 
 .subtitle .avatar,
@@ -1151,6 +1299,32 @@ button.secondary.change-base {
 
 .commit .commit-message a.message {
 	cursor: pointer;
+}
+
+.commit .commit-message .message.wrap {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.commit .commit-message .label.timeline-label {
+	display: inline-flex;
+	vertical-align: middle;
+	margin: 1px 0;
+}
+
+.commit .commit-message .message .previous-title {
+	color: var(--vscode-descriptionForeground);
+}
+
+.commit .commit-message .message .current-title {
+	text-decoration: none;
+}
+
+.timeline-event-detail {
+	margin-left: 24px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--vscode-descriptionForeground);
 }
 
 .timeline-detail {

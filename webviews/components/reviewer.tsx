@@ -5,8 +5,9 @@
 import React, { cloneElement, useContext } from 'react';
 import { checkIcon, circleFilledIcon, commentIcon, requestChangesIcon, syncIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
+import { COPILOT_REVIEWER } from '../../src/common/copilot';
 import { ReviewEvent } from '../../src/common/timelineEvent';
-import { AccountType, isITeam, ReviewState } from '../../src/github/interface';
+import { AccountType, IAccount, isITeam, ReviewState } from '../../src/github/interface';
 import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
 
@@ -24,7 +25,7 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 			</div>
 			<div className="reviewer-icons">
 				{
-					((state !== 'REQUESTED') && (isITeam(reviewer) ? true : (reviewer.accountType !== AccountType.Bot))) ?
+					((state !== 'REQUESTED') && (isITeam(reviewer) || canRequestReviewFromAccount(reviewer))) ?
 						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewInfo.reviewState.reviewer.id)}>
 							{syncIcon}️
 						</button>) : null
@@ -34,6 +35,10 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 			</div>
 		</div>
 	);
+}
+
+function canRequestReviewFromAccount(reviewer: IAccount): boolean {
+	return reviewer.accountType !== AccountType.Bot || reviewer.login === COPILOT_REVIEWER;
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {

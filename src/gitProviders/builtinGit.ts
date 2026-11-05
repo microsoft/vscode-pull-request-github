@@ -50,6 +50,10 @@ export class BuiltinGitProvider extends Disposable implements IGit {
 		return this._gitAPI.getRepositoryWorkspace(uri);
 	}
 
+	openWorktreeRepository(uri: vscode.Uri): Promise<Repository | null> {
+		return this._gitAPI.openRepository(uri);
+	}
+
 	clone(uri: vscode.Uri, options?: CloneOptions): Promise<vscode.Uri | null> {
 		return this._gitAPI.clone(uri, options);
 	}

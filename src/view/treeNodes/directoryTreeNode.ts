@@ -13,7 +13,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string, accessibilityInformation: vscode.AccessibilityInformation };
 
-	constructor(parent: TreeNodeParent, label: string) {
+	constructor(parent: TreeNodeParent, label: string, private readonly showCheckbox: boolean = true) {
 		super(parent);
 		this.label = label;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
@@ -110,7 +110,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		let node = this.pathToChild.get(dir);
 		if (!node) {
-			node = new DirectoryTreeNode(this, dir);
+			node = new DirectoryTreeNode(this, dir, this.showCheckbox);
 			this.pathToChild.set(dir, node);
 			this._children.push(node);
 		}
@@ -138,7 +138,11 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public updateCheckboxFromChildren(): void {
-		this.setCheckboxState(this.allChildrenViewed());
+		if (this.showCheckbox) {
+			this.setCheckboxState(this.allChildrenViewed());
+		} else {
+			this.checkboxState = undefined;
+		}
 	}
 
 	getTreeItem(): vscode.TreeItem {

@@ -376,6 +376,20 @@ body img.avatar {
 	margin-right: 0;
 }
 
+.status-check-link-placeholder {
+	visibility: hidden;
+}
+
+/* Points down while the status checks are shown, like the stack section's chevron. */
+#status-checks-display-button[aria-expanded="false"] .icon {
+	transform: rotate(-90deg);
+}
+
+.stack-action-error {
+	padding: 8px 16px 0;
+	color: var(--vscode-errorForeground);
+}
+
 .automerge-section {
 	display: flex;
 }
@@ -389,6 +403,17 @@ body img.avatar {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+}
+
+.stack-merge-buttons {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* As tall as the button beside it. */
+.stack-merge-buttons .icon-button {
+	padding: 4px;
 }
 
 #status-checks .automerge-section {

@@ -3,8 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GithubItemStateEnum } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import * as vscode from 'vscode';
+import type { GitHubRepository, StackBranchComparison } from './githubRepository';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability, PullRequestStack } from './interface';
+import type { PullRequestModel } from './pullRequestModel';
 import { StackCandidate } from '../../common/views';
 import { compareIgnoreCase } from '../common/utils';
 
@@ -54,20 +56,112 @@ export function orderStackablePullRequests(pullRequests: readonly PullRequestMod
 	return ordered.length === pullRequests.length && !current ? ordered : undefined;
 }
 
-export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate): Promise<number[]> {
+/**
+ * Marks the open pull requests in a stack that are behind their base, checking all of them in one request that can
+ * also look up the merge queue of a branch.
+ * @param branches The base branch and the `owner:branch` head of each open pull request, by number.
+ * @param startsAtBottom Whether the first open pull request is the bottom of the stack.
+ * @param mergeQueueBranch A branch to look up the merge queue of.
+ * @returns Whether updating the stack would change any of the pull requests, and the merge method of the merge queue.
+ */
+export async function checkStackBranches(repository: GitHubRepository, entries: PullRequestStack['pullRequests'],
+	branches: ReadonlyMap<number, StackBranchComparison>, startsAtBottom: boolean, mergeQueueBranch?: string,
+): Promise<{ needsUpdate: boolean; mergeQueueMethod?: MergeMethod }> {
+	// GitHub merges a stack onto its base, so being behind that base does not block merging when the lowest open
+	// pull request has no conflicts. Updating the stack is still offered. Only staleness inside the stack blocks.
+	const bottom = startsAtBottom ? entries.find(entry => entry.state === GithubItemStateEnum.Open) : undefined;
+	if (bottom?.mergeable === PullRequestMergeability.Behind) {
+		bottom.mergeable = PullRequestMergeability.Mergeable;
+	}
+	const open = entries.filter(entry => entry.state === GithubItemStateEnum.Open);
+	// A conflict means the base has changes the head does not, so updating the stack is how it is resolved.
+	const compared = open.filter(entry => entry.mergeable !== PullRequestMergeability.Conflict);
+	const comparisons = compared.map(entry => {
+		const comparison = branches.get(entry.number);
+		if (!comparison) {
+			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
+		}
+		return comparison;
+	});
+	const { behindBy, mergeQueueMethod } = await repository.getStackBranchStatus(comparisons, mergeQueueBranch);
+	compared.forEach((entry, index) => {
+		const behind = behindBy[index];
+		if (behind === undefined) {
+			throw new Error(`Unable to check whether pull request #${entry.number} is behind its stack base.`);
+		}
+		// Being behind is shown as having no conflicts, so only a pull request GitHub reports as mergeable is marked
+		// behind; conflicts that are not checked yet and unmet merge requirements stay visible.
+		if (behind > 0 && entry !== bottom && entry.mergeable === PullRequestMergeability.Mergeable) {
+			entry.mergeable = PullRequestMergeability.Behind;
+		}
+	});
+	return {
+		needsUpdate: compared.length < open.length || behindBy.some(behind => (behind ?? 0) > 0),
+		mergeQueueMethod,
+	};
+}
+
+/** Gets the stack that the bottom of the ordered pull requests would start, or extend if it is the top of one. */
+export async function getStackCandidateForPullRequests(ordered: readonly PullRequestModel[]): Promise<StackCandidate> {
+	const bottom = ordered[0];
+	const candidate = await bottom.githubRepository.getStackCandidate(bottom.head!.ref);
+	if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
+		throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
+	}
+	return candidate;
+}
+
+/**
+ * Gets the current pull requests from GitHub, including whether they have auto-merge enabled, which pull request
+ * lists don't include.
+ */
+export function refreshPullRequestsForStack(repository: GitHubRepository, numbers: readonly number[]): Promise<PullRequestModel[]> {
+	return Promise.all(numbers.map(async number => {
+		const current = await repository.getPullRequest(number, 'refreshPullRequestsForStack');
+		if (!current) {
+			throw new Error(vscode.l10n.t('Unable to refresh pull request #{0} before stacking.', number));
+		}
+		return current;
+	}));
+}
+
+/** Explains that stacking disables auto-merge on the pull requests that have it enabled, if any do. */
+export function getStackAutoMergeWarning(pullRequests: readonly PullRequestModel[]): string | undefined {
+	const numbers = pullRequests.filter(pr => pr.autoMerge).map(pr => `#${pr.number}`);
+	return numbers.length
+		? vscode.l10n.t('Auto-merge is not available for stacked pull requests, so it will be disabled for {0}.', numbers.join(', '))
+		: undefined;
+}
+
+/**
+ * Asks whether to disable auto-merge on the pull requests that have it enabled so they can be stacked.
+ * @returns `true` if none of the pull requests have auto-merge enabled, or disabling it was approved.
+ */
+export async function confirmDisablingAutoMergeForStack(pullRequests: readonly PullRequestModel[]): Promise<boolean> {
+	const warning = getStackAutoMergeWarning(pullRequests);
+	if (!warning) {
+		return true;
+	}
+	const disable = vscode.l10n.t('Disable Auto-Merge');
+	const approved = await vscode.window.showWarningMessage(
+		vscode.l10n.t('Disable auto-merge to stack these pull requests?'), { modal: true, detail: warning }, disable,
+	);
+	return approved === disable;
+}
+
+/**
+ * @param confirmedAutoMerge The pull requests that the user approved disabling auto-merge on. Stacking is rejected if
+ * any other pull request has auto-merge enabled.
+ */
+export async function addPullRequestsToStack(pullRequests: readonly PullRequestModel[], confirmedCandidate: StackCandidate,
+	confirmedAutoMerge: readonly number[] = []): Promise<number[]> {
 	const initial = orderStackablePullRequests(pullRequests);
 	if (!initial) {
 		throw new Error('Select two or more open pull requests whose head and base branches form a chain in the same repository.');
 	}
 	const selectedBranches = initial.map(pr => ({ number: pr.number, base: pr.base.ref, head: pr.head!.ref }));
 	const repository = initial[0].githubRepository;
-	const refreshed = await Promise.all(initial.map(async pr => {
-		const current = await repository.getPullRequest(pr.number, 'addPullRequestsToStack');
-		if (!current) {
-			throw new Error(`Unable to refresh pull request #${pr.number} before creating a stack.`);
-		}
-		return current;
-	}));
+	const refreshed = await refreshPullRequestsForStack(repository, initial.map(pr => pr.number));
 	const ordered = orderStackablePullRequests(refreshed);
 	if (!ordered || ordered.some((pr, index) =>
 		pr.number !== selectedBranches[index].number
@@ -75,11 +169,7 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 		|| pr.head?.ref !== selectedBranches[index].head)) {
 		throw new Error('The selected pull request branches have changed. Refresh the view and try again.');
 	}
-	const bottom = ordered[0];
-	const candidate = await repository.getStackCandidate(bottom.head!.ref);
-	if (!candidate || candidate.parentPullRequestNumber !== bottom.number) {
-		throw new Error(`Pull request #${bottom.number} is no longer eligible to start or extend a stack.`);
-	}
+	const candidate = await getStackCandidateForPullRequests(ordered);
 	if (candidate.parentPullRequestNumber !== confirmedCandidate.parentPullRequestNumber
 		|| candidate.stackNumber !== confirmedCandidate.stackNumber) {
 		throw new Error('The selected pull request stack has changed. Refresh the view and try again.');
@@ -88,6 +178,15 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 		if (await pr.getStack()) {
 			throw new Error(`Pull request #${pr.number} is already in a stack.`);
 		}
+	}
+	const autoMerge = ordered.filter(pr => pr.autoMerge);
+	const unconfirmed = autoMerge.find(pr => !confirmedAutoMerge.includes(pr.number));
+	if (unconfirmed) {
+		throw new Error(vscode.l10n.t('Auto-merge was enabled on pull request #{0}. Refresh the view and try again.', unconfirmed.number));
+	}
+	// One at a time, so a failure leaves auto-merge enabled on the pull requests after it.
+	for (const pr of autoMerge) {
+		await pr.disableAutoMerge();
 	}
 	await repository.addPullRequestsToStack(candidate, ordered.slice(1).map(pr => pr.number));
 	return ordered.map(pr => pr.number);

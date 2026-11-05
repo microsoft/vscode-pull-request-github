@@ -656,11 +656,17 @@ export class ReviewManager extends Disposable {
 			this._switchedToPullRequestBranch = undefined;
 		}
 
-		let matchingPullRequestMetadata = switchedToPullRequest ? {
-			owner: switchedToPullRequest.remote.owner,
-			repositoryName: switchedToPullRequest.remote.repositoryName,
-			prNumber: switchedToPullRequest.number,
-		} : await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		let matchingPullRequestMetadata: PullRequestMetadata | undefined;
+		if (switchedToPullRequest) {
+			matchingPullRequestMetadata = {
+				owner: switchedToPullRequest.remote.owner,
+				repositoryName: switchedToPullRequest.remote.repositoryName,
+				prNumber: switchedToPullRequest.number,
+			};
+		} else if (branch.name) {
+			const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branch.name]);
+			matchingPullRequestMetadata = metadata.get(branch.name);
+		}
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, this.id);
 		}
@@ -755,17 +761,22 @@ export class ReviewManager extends Disposable {
 
 		// If this is the PR the user explicitly switched to, always use review mode regardless of state
 		const isSwitchedToPullRequest = this._switchedToPullRequest?.number === pr.number;
+		const wouldLeaveReviewMode = !isSwitchedToPullRequest && (
+			(pr.isClosed && !useReviewConfiguration.closed) ||
+			(pr.isMerged && !useReviewConfiguration.merged)
+		);
 
-		if (pr.isClosed && !useReviewConfiguration.closed && !isSwitchedToPullRequest) {
-			Logger.appendLine('This PR is closed', this.id);
-			await this.clear(true);
-			return;
-		}
-
-		if (pr.isMerged && !useReviewConfiguration.merged && !isSwitchedToPullRequest) {
-			Logger.appendLine('This PR is merged', this.id);
-			await this.clear(true);
-			return;
+		if (wouldLeaveReviewMode) {
+			if (this._reviewCommentController?.hasUnsavedCommentDrafts()) {
+				// Leaving review mode would dispose the comment controller and drop the drafts. Stay until
+				// they are submitted or discarded; the next full validation re-checks. Don't await the warning.
+				this.warnAboutUnsavedCommentDrafts(pr);
+				Logger.appendLine('Keeping review mode because of unsaved comment drafts', this.id);
+			} else {
+				Logger.appendLine(pr.isMerged ? 'This PR is merged' : 'This PR is closed', this.id);
+				await this.clear(true);
+				return;
+			}
 		}
 
 		const neverIgnoreDefaultBranch = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_IGNORE_DEFAULT_BRANCH, false);
@@ -1156,11 +1167,12 @@ export class ReviewManager extends Disposable {
 
 	public async updateComments(): Promise<void> {
 		const branch = this._repository.state.HEAD;
-		if (!branch) {
+		if (!branch?.name) {
 			return;
 		}
 
-		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branch.name]);
+		const matchingPullRequestMetadata = metadata.get(branch.name);
 		if (!matchingPullRequestMetadata) {
 			return;
 		}
@@ -1236,7 +1248,7 @@ export class ReviewManager extends Disposable {
 
 	private async initializePullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			const contentChanges = await pr.getFileChangesInfo();
+			const contentChanges = await pr.getFileChangesInfo(this._folderRepoManager.repository);
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewThreadCacheAndReviewComments(), pr.initializePullRequestFileViewState()]);
 			this._folderRepoManager.setFileViewedContext();
@@ -1307,7 +1319,7 @@ export class ReviewManager extends Disposable {
 			if (!pr) {
 				return;
 			}
-			const rawChanges = await pr.getFileChangesInfo();
+			const rawChanges = await pr.getFileChangesInfo(this._folderRepoManager.repository);
 			const mergeBase = pr.mergeBase;
 			if (!mergeBase) {
 				return;
@@ -1531,6 +1543,23 @@ export class ReviewManager extends Disposable {
 		this._cachedBranchName = undefined;
 		this._staleMetadataCheckedBranches.clear();
 		await this.clear(true);
+	}
+
+	/**
+	 * Non-modal notice that review mode was kept so unsaved file comments are not dropped.
+	 * Does not await the user's choice, so validateState can finish.
+	 */
+	private warnAboutUnsavedCommentDrafts(pr: PullRequestModel): void {
+		const exitReviewMode = vscode.l10n.t('Exit Review Mode');
+		const message = pr.isMerged
+			? vscode.l10n.t('This pull request has been merged. Exit review mode and discard unsaved comments?')
+			: vscode.l10n.t('This pull request has been closed. Exit review mode and discard unsaved comments?');
+		void vscode.window.showWarningMessage(message, exitReviewMode).then(choice => {
+			if (choice !== exitReviewMode || this._prNumber !== pr.number) {
+				return;
+			}
+			void this.clear(true);
+		});
 	}
 
 	private async clear(quitReviewMode: boolean) {

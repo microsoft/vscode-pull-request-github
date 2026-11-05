@@ -12,12 +12,22 @@ import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { DEV_MODE, PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
+import { formatError } from '../common/utils';
 import { PrsTreeModel } from '../view/prsTreeModel';
 
+// Only matches non-negated qualifiers: `-author:copilot` must not count as a Copilot query.
+const AUTHOR_QUALIFIER_REGEX = /(?:^|\s)author:(?<login>\S+)/gi;
+
 export function isCopilotQuery(query: string): boolean {
-	const lowerQuery = query.toLowerCase();
-	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
+	for (const match of query.matchAll(AUTHOR_QUALIFIER_REGEX)) {
+		const login = match.groups?.login.toLowerCase();
+		if (COPILOT_LOGINS.some(copilotLogin => copilotLogin.toLowerCase() === login)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export function getCopilotQuery(): string | undefined {
@@ -190,6 +200,7 @@ export class CopilotStateModel extends Disposable {
 }
 
 export class CopilotPRWatcher extends Disposable {
+	private static readonly ID = 'CopilotPRWatcher';
 	private readonly _model: CopilotStateModel;
 
 	constructor(private readonly _reposManager: RepositoriesManager, private readonly _prsTreeModel: PrsTreeModel) {
@@ -206,9 +217,10 @@ export class CopilotPRWatcher extends Disposable {
 	}
 
 	private _initialize() {
-		this._prsTreeModel.refreshCopilotStateChanges(true);
 		this._pollForChanges();
-		const updateFullState = debounce(() => this._prsTreeModel.refreshCopilotStateChanges(true), 50);
+		const updateFullState = debounce(() => this._prsTreeModel.refreshCopilotStateChanges(true).catch(error => {
+			Logger.error(`Refreshing Copilot pull request state failed: ${formatError(error)}`, CopilotPRWatcher.ID);
+		}), 50);
 		this._register(this._reposManager.onDidChangeAnyPullRequests(e => {
 			if (e.some(pr => COPILOT_ACCOUNTS[pr.model.author.login])) {
 				if (!this._model.isInitialized) {
@@ -256,7 +268,7 @@ export class CopilotPRWatcher extends Disposable {
 	private async _pollForChanges(): Promise<void> {
 		// Skip polling if dev mode is enabled
 		const devMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DEV_MODE, false);
-		if (devMode) {
+		if (devMode || this.isDisposed) {
 			return;
 		}
 
@@ -265,9 +277,15 @@ export class CopilotPRWatcher extends Disposable {
 			this._pollTimeout = undefined;
 		}
 		this._lastPollTime = Date.now();
-		const shouldContinue = await this._prsTreeModel.refreshCopilotStateChanges(true);
+		try {
+			if (!await this._prsTreeModel.refreshCopilotStateChanges(true)) {
+				return;
+			}
+		} catch (error) {
+			Logger.error(`Refreshing Copilot pull request state failed: ${formatError(error)}`, CopilotPRWatcher.ID);
+		}
 
-		if (shouldContinue) {
+		if (!this.isDisposed && !this._pollTimeout) {
 			this._pollTimeout = setTimeout(() => {
 				this._pollForChanges();
 			}, this._pollInterval);

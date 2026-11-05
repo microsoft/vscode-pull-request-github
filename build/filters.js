@@ -67,6 +67,7 @@ module.exports.copyrightFilter = [
 	'!tsconfig.json',
 	'!tsconfig.test.json',
 	'!tsconfig.webviews.json',
+	'!webviews/tsconfig.json',
 	'!tsconfig.scripts.json',
 	'!tsfmt.json',
 	'!**/queries*.gql',
