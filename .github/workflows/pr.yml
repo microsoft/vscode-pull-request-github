@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-suite:
+    name: Test suite
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Enforce package quarantine
+        run: npm run check:package-quarantine
+
+      - name: Install dependencies
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && break
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+          done
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run hygiene checks
+        run: npm run hygiene
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Verify command registrations
+        run: npm run check:commands
+
+      - name: Run test suite
+        run: npm run test
+        env:
+          TEST_JUNIT_XML_PATH: ${{ runner.temp }}/test-results.xml
+
+      - name: Publish test summary
+        if: ${{ !cancelled() }}
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
+        with:
+          paths: ${{ runner.temp }}/*test-results.xml
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mocha-test-results
+          path: ${{ runner.temp }}/*test-results.xml
