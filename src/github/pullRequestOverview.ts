@@ -693,6 +693,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				pullrequest: context
 			});
 			Logger.debug(`Initialized in ${Math.round(performance.now() - updateStart)}ms (data: ${Math.round(dataLoadDuration)}ms, context: ${Math.round(contextDuration)}ms)`, PullRequestOverviewPanel.ID);
+			if (pullRequest.bodyHTML === undefined && pullRequest.body) {
+				void this.loadDescription(pullRequest, updateSequence);
+			}
 			const deferredTimings = new Map<string, number>();
 			const measureDeferred = async <T>(name: string, promise: Promise<T>): Promise<T> => {
 				const start = performance.now();
@@ -811,6 +814,30 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		}
+	}
+
+	/**
+	 * Pull requests that are listed with the REST API, such as those in the "All Open" category, don't have the
+	 * rendered description, so it is loaded after the page is shown.
+	 */
+	private async loadDescription(pullRequestModel: PullRequestModel, updateSequence: number): Promise<void> {
+		const isCurrent = () => !this.isDisposed && updateSequence === this._updateSequence;
+		try {
+			const pullRequest = await pullRequestModel.githubRepository.getPullRequest(pullRequestModel.number, 'PullRequestOverviewPanel.loadDescription', false, true, 'overview');
+			if (!pullRequest || pullRequest.bodyHTML === undefined || !isCurrent()) {
+				return;
+			}
+			const bodyHTML = await this.processLinksInBodyHtml(pullRequest.bodyHTML);
+			if (!isCurrent()) {
+				return;
+			}
+			await this._postMessage({
+				command: 'pr.update',
+				pullrequest: { body: pullRequest.body, bodyHTML } satisfies Partial<PullRequest>,
+			});
+		} catch (error) {
+			Logger.error(`Failed to load pull request description: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 		}
 	}
 

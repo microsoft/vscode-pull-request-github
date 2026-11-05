@@ -184,9 +184,7 @@ export function CommentView(commentProps: Props) {
 
 export const CommentPreview = (preview: OverviewItemPreview | PullRequest) => (
 	<CommentBox for={preview}>
-		{preview.bodyHTML === undefined && preview.body
-			? <div className="comment-body" style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</div>
-			: <CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />}
+		<CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />
 	</CommentBox>
 );
 
@@ -437,7 +435,10 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
+	// Without the rendered HTML, such as before it has loaded, show the text rather than an empty body.
+	const renderedBody = bodyHTML === undefined
+		? <div style={{ whiteSpace: 'pre-wrap' }}>{body}</div>
+		: <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
 	const applyPatchButton =

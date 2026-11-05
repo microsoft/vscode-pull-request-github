@@ -11,7 +11,7 @@ import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
 import { GithubItemStateEnum } from '../../../src/github/interface';
-import { IssuePreview, PullRequestPreview } from '../../../src/github/views';
+import { IssuePreview, PullRequest, PullRequestPreview } from '../../../src/github/views';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { vscode } from '../../common/message';
 import { Root } from '../app';
@@ -164,6 +164,43 @@ describe('Root', function () {
 		);
 		out.container.querySelector('.overview-title h2 a')!.removeAttribute('data-vscode-context');
 		assert.deepStrictEqual(selectors.map(selector => out.container.querySelector(selector)!.outerHTML), previewMarkup);
+	});
+
+	it('shows the description text without treating it as markup until its rendered HTML loads', async function () {
+		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
+		pr.body = 'Bumps the npm group with 1 update:\n<em>Not rendered as HTML</em>';
+		pr.bodyHTML = undefined;
+		const context = new PRContext(pr);
+		context.setPR(pr);
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{(current: PullRequest) => <Overview {...current} />}</Root>
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, pr.body);
+		assert.strictEqual(out.container.querySelector('#description em'), null);
+
+		act(() => context.handleMessage({
+			command: 'pr.update',
+			pullrequest: { body: pr.body, bodyHTML: '<p>Bumps the npm group with 1 update:</p><table><tr><td>lodash</td></tr></table>' },
+		}));
+		await wait(() => assert(out.container.querySelector('#description .comment-body table'), out.container.innerHTML));
+		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, 'Bumps the npm group with 1 update:lodash');
+	});
+
+	it('does not show the text of a description that renders to nothing', function () {
+		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).build();
+		pr.body = '<!-- Describe your changes -->';
+		pr.bodyHTML = '';
+		const context = new PRContext(pr);
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(out.container.querySelector('#description .comment-body')?.textContent, '');
 	});
 
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
