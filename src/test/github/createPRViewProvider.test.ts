@@ -6,7 +6,7 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
-import { CreatePullRequestNew, StackCandidate } from '../../../common/views';
+import { CreateParamsNew, CreatePullRequestNew, StackCandidate } from '../../../common/views';
 import { RemoteInfo } from '../../../common/types';
 import { GitApiImpl, GitErrorCodes, RefType } from '../../api/api1';
 import { Branch } from '../../api/api';
@@ -997,5 +997,125 @@ describe('Create pull request for a branch created from the remote HEAD', functi
 		assert(showInformationMessage.calledOnce);
 		assert.match(showInformationMessage.firstCall.args[0], /^You have 2 unpushed commit\(s\) on 'feature'\./);
 		assert(push.calledOnceWithExactly('origin', 'feature', true));
+	});
+});
+
+describe('Create pull request stack from a fork with a different name', function () {
+	let sinon: SinonSandbox;
+	let context: MockExtensionContext;
+	let credentials: CredentialStore;
+	let folderManager: FolderRepositoryManager;
+	let repository: MockRepository;
+	let baseRepository: MockGitHubRepository;
+	let forkRepository: MockGitHubRepository;
+	let provider: TestCreatePullRequestViewProvider;
+	let model: CreatePullRequestDataModel;
+	let findRepository: SinonStub;
+	let showWarningMessage: SinonStub;
+	let postMessage: SinonStub;
+	const candidate: StackCandidate = { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' };
+
+	beforeEach(async function () {
+		sinon = createSandbox();
+		MockCommandRegistry.install(sinon);
+		context = new MockExtensionContext();
+		const telemetry = new MockTelemetry();
+		credentials = new CredentialStore(telemetry, context);
+		repository = new MockRepository();
+		const manager = new RepositoriesManager(credentials, telemetry);
+		folderManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(manager), credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
+		// `fork/test-fork` is a fork of `github/test`.
+		const baseUrl = 'https://github.com/github/test';
+		baseRepository = new MockGitHubRepository(new GitHubRemote('upstream', baseUrl, new Protocol(baseUrl), GitHubServerType.GitHubDotCom), credentials, telemetry, sinon);
+		const forkUrl = 'https://github.com/fork/test-fork';
+		forkRepository = new MockGitHubRepository(new GitHubRemote('origin', forkUrl, new Protocol(forkUrl), GitHubServerType.GitHubDotCom), credentials, telemetry, sinon);
+		const repositories = [baseRepository, forkRepository];
+		sinon.stub(folderManager, 'gitHubRepositories').get(() => repositories);
+		sinon.stub(folderManager, 'findRepo').callsFake(predicate => repositories.find(predicate));
+		findRepository = sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').callsFake(async (owner, repositoryName) =>
+			repositories.find(repo => repo.remote.owner === owner && repo.remote.repositoryName === repositoryName));
+		showWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+		await repository.createBranch('D4', true, 'commit-sha');
+		model = new CreatePullRequestDataModel(folderManager, 'github', 'D3', 'fork', 'D4', 'test-fork', 'test');
+		provider = new TestCreatePullRequestViewProvider(telemetry, model, vscode.Uri.file(__dirname), folderManager, { owner: 'github', repo: 'test', base: 'D3' });
+		postMessage = sinon.stub(provider, '_postMessage').resolves();
+	});
+
+	afterEach(function () {
+		provider.dispose();
+		model.dispose();
+		folderManager.dispose();
+		baseRepository.dispose();
+		forkRepository.dispose();
+		credentials.dispose();
+		context.dispose();
+		sinon.restore();
+	});
+
+	function nextPost(): Promise<{ command: string, params: Partial<CreateParamsNew> }> {
+		return new Promise(resolve => postMessage.callsFake(async message => resolve(message)));
+	}
+
+	function assertStackCheckedIn(owner: string, repositoryName: string) {
+		assert(showWarningMessage.notCalled, showWarningMessage.firstCall?.args[0]);
+		assert(findRepository.alwaysCalledWithExactly(owner, repositoryName), JSON.stringify(findRepository.args));
+	}
+
+	it('checks stack eligibility in the base repository when the repository changes while creating', async function () {
+		const getCandidate = sinon.stub(baseRepository, 'getStackCandidate').resolves(candidate);
+		const posted = nextPost();
+
+		// Any repository change while the compare branch is checked out refreshes the view, such as publishing the branch.
+		repository.setWorktrees([]);
+
+		assert.strictEqual((await posted).params.stackCandidate?.parentPullRequestNumber, 795);
+		assertStackCheckedIn('github', 'test');
+		assert(getCandidate.calledOnceWithExactly('D3'));
+	});
+
+	it('checks stack eligibility in the base repository when the default compare branch is set', async function () {
+		const getCandidate = sinon.stub(baseRepository, 'getStackCandidate').resolves(candidate);
+
+		await provider.setDefaultCompareBranch(await repository.getBranch('D4'));
+
+		assert(postMessage.calledOnce);
+		assert.strictEqual(postMessage.firstCall.args[0].params.stackCandidate?.parentPullRequestNumber, 795);
+		assertStackCheckedIn('github', 'test');
+		assert(getCandidate.calledOnceWithExactly('D3'));
+	});
+
+	it('checks stack eligibility in the base repository when the compare branch is chosen', async function () {
+		sinon.stub(forkRepository, 'getViewerPermission').resolves(ViewerPermission.Write);
+		sinon.stub(forkRepository, 'getDefaultBranch').resolves('main');
+		sinon.stub(baseRepository, 'getStackCandidate').resolves(candidate);
+
+		const result = await provider['processRemoteAndBranchResult'](forkRepository, {
+			remote: { owner: 'fork', repositoryName: 'test-fork' },
+			branch: 'D4',
+		}, false);
+
+		assert.strictEqual(result.stackCandidate?.parentPullRequestNumber, 795);
+		assertStackCheckedIn('github', 'test');
+	});
+
+	it('checks stack eligibility in the newly chosen base repository', async function () {
+		sinon.stub(forkRepository, 'getViewerPermission').resolves(ViewerPermission.Write);
+		sinon.stub(forkRepository, 'getDefaultBranch').resolves('main');
+		sinon.stub(forkRepository, 'getRepoAccessAndMergeMethods').resolves({ hasWritePermission: true, mergeMethodsAvailability: { merge: true, squash: true, rebase: true }, viewerCanAutoMerge: false });
+		sinon.stub(folderManager, 'mergeQueueMethodForBranch').resolves(undefined);
+		sinon.stub(forkRepository, 'getStackCandidate').resolves({ parentPullRequestNumber: 12, size: 1, url: 'https://github.com/fork/test-fork/pull/12' });
+		const posted = nextPost();
+
+		const result = await provider['processRemoteAndBranchResult'](forkRepository, {
+			remote: { owner: 'fork', repositoryName: 'test-fork' },
+			branch: 'D3',
+		}, true);
+		const { params } = await posted;
+
+		assert.strictEqual(model.baseRepositoryName, 'test-fork');
+		assert.strictEqual(result.stackCandidate?.parentPullRequestNumber, 12);
+		assert.deepStrictEqual(params.baseRemote, { owner: 'fork', repositoryName: 'test-fork' });
+		assert.strictEqual(params.stackCandidate?.parentPullRequestNumber, 12);
+		assertStackCheckedIn('fork', 'test-fork');
 	});
 });
