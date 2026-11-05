@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.176.1
+
+### Fixes
+
+- [github.dev] 0.176.0: Pull Requests view missing and PR info fails to open (0.174.0 works). https://github.com/microsoft/vscode-pull-request-github/issues/9162
+
 ## 0.176.0
 
 ### Changes
