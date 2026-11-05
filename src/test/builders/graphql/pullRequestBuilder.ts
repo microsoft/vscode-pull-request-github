@@ -96,6 +96,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			merged: { default: false },
 			mergeable: { default: 'MERGEABLE' },
 			mergeStateStatus: { default: 'CLEAN' },
+			viewerCanMergeAsAdmin: { default: false },
 			reviewThreads: { default: { totalCount: 0 } },
 			isDraft: { default: false },
 			suggestedReviewers: { default: [] },

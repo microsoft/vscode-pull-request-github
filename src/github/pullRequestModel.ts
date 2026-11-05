@@ -299,13 +299,39 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return newState;
 	}
 
+	private refsChanged(item: PullRequest): boolean {
+		return (['base', 'head'] as const).some(key => {
+			const previous = this.item[key];
+			const next = item[key];
+			return !!next && (previous?.ref !== next.ref || previous?.sha !== next.sha
+				|| previous?.repo.owner !== next.repo.owner || previous?.repo.name !== next.repo.name);
+		});
+	}
+
+	// Stack enrichment and full snapshots with superseded permissions must not
+	// cancel a fresh permission lookup. Ref changes always invalidate that lookup.
+	override update(item: PullRequest, authoritativePermissions: boolean = true): void {
+		if (this.base && (authoritativePermissions || this.refsChanged(item))) {
+			this.githubRepository.beginPullRequestRefresh(item.number);
+		}
+		super.update(item);
+	}
+
 	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		const refsChanged = this.refsChanged(item);
+		// Bypass capability belongs to the base branch, not a particular commit.
+		// Commit changes still supersede in-flight lookups via update above.
+		const baseBranchChanged = !!item.base && (this.item.base?.ref !== item.base.ref
+			|| this.item.base?.repo.owner !== item.base.repo.owner || this.item.base?.repo.name !== item.base.repo.name);
 		// REST pull request lists don't include these, so keep the values that are already known.
 		if (item.viewerCanUpdate === undefined) {
 			item.viewerCanUpdate = this.item.viewerCanUpdate;
 		}
+		if (item.viewerCanMergeAsAdmin === undefined) {
+			item.viewerCanMergeAsAdmin = baseBranchChanged ? undefined : this.item.viewerCanMergeAsAdmin;
+		}
 		if (item.mergeable === undefined) {
-			item.mergeable = this.item.mergeable;
+			item.mergeable = refsChanged ? PullRequestMergeability.Unknown : this.item.mergeable;
 		}
 		if (item.stack === undefined) {
 			item.stack = this.item.stack;
@@ -318,7 +344,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (this.head && item.head && (this.head.ref !== item.head.ref || this.head.sha !== item.head.sha)) {
 			changes.head = true;
 		}
-		if (this.item.mergeable !== item.mergeable) {
+		if (this.item.mergeable !== item.mergeable || this.item.viewerCanMergeAsAdmin !== item.viewerCanMergeAsAdmin) {
 			changes.mergeability = true;
 		}
 		if (this.base && item.base && (this.base.ref !== item.base.ref || this.base.sha !== item.base.sha)) {
@@ -1470,18 +1496,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			if (data?.updateIssue?.issue) {
-				// Update the local base branch reference by creating a new GitHubRef instance
-				const cloneUrl = this.base.repositoryCloneUrl.toString() || '';
-				this.base = new GitHubRef(
-					newBaseBranch,
-					`${this.base.owner}:${newBaseBranch}`,
-					this.base.sha,
-					cloneUrl,
-					this.base.owner,
-					this.base.name,
-					this.base.isInOrganization
-				);
-				this._onDidChange.fire({ base: true });
+				// The mutation confirms the branch, but not its tip or permissions.
+				// Use the normal update path to keep item.base in sync and supersede
+				// permission lookups that were started against the previous base.
+				this.update({
+					...this.item,
+					base: {
+						ref: newBaseBranch,
+						label: `${this.base.owner}:${newBaseBranch}`,
+						sha: '',
+						repo: {
+							cloneUrl: this.base.repositoryCloneUrl.toString() || '',
+							owner: this.base.owner,
+							name: this.base.name,
+							isInOrganization: this.base.isInOrganization,
+						},
+					},
+					viewerCanMergeAsAdmin: undefined,
+					mergeable: PullRequestMergeability.Unknown,
+				});
 			}
 			Logger.debug(`Updating base branch to ${newBaseBranch} - done`, PullRequestModel.ID);
 		} catch (e) {
@@ -2328,8 +2361,18 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	/**
 	 * Get the current mergeability of the pull request.
+	 * The existing viewerCanMergeAsAdmin field carries effective bypass capability:
+	 * GitHub's classic flag, broadened by permission to bypass any applicable ruleset.
+	 * It does not guarantee that all unmet requirements can be bypassed; GitHub
+	 * verifies those requirements when merging.
 	 */
 	async getMergeability(): Promise<PullRequestMergeabilityResult> {
+		const version = this.githubRepository.beginPullRequestMergeabilityRefresh(this.number);
+		const currentResult = (): PullRequestMergeabilityResult => ({
+			mergeability: this.item.mergeable ?? PullRequestMergeability.Unknown,
+			viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin === true,
+			conflicts: this.conflicts,
+		});
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -2355,27 +2398,41 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					number: this.number,
 				}
 			});
+			// Check before mutating any model state: a refresh or newer request may
+			// have revoked capabilities while this request was in flight.
+			if (!this.githubRepository.isCurrentPullRequestRefresh(this.number, version)) {
+				return currentResult();
+			}
 			if (data.repository === null) {
 				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
 			}
 
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
+			const viewerCanMergeAsAdmin = await this.githubRepository.getEffectiveViewerCanMergeAsAdmin(
+				data.repository?.pullRequest.viewerCanMergeAsAdmin, mergeability, this.base?.ref ?? '');
+			// The REST fallback adds another suspension point. A newer request or
+			// model refresh must supersede every state update from this response.
+			if (!this.githubRepository.isCurrentPullRequestRefresh(this.number, version)) {
+				return currentResult();
+			}
 			const previousMergeability = this.item.mergeable;
+			const previousCanMergeAsAdmin = this.item.viewerCanMergeAsAdmin;
+			this.item.viewerCanMergeAsAdmin = viewerCanMergeAsAdmin;
 			this.item.mergeable = mergeability;
 			const viewerCanUpdate = data.repository?.pullRequest.viewerCanUpdate;
 			if (viewerCanUpdate !== undefined) {
 				this.item.viewerCanUpdate = viewerCanUpdate;
 			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
-			this.update(this.item);
-			if (previousMergeability !== mergeability) {
+			this.update(this.item, false);
+			if (previousMergeability !== mergeability || previousCanMergeAsAdmin !== this.item.viewerCanMergeAsAdmin) {
 				this._onDidChange.fire({ mergeability: true });
 			}
-			return { mergeability, conflicts: this.conflicts };
+			return { mergeability, viewerCanMergeAsAdmin: this.item.viewerCanMergeAsAdmin, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
-			return { mergeability: PullRequestMergeability.Unknown };
+			return !this.githubRepository.isCurrentPullRequestRefresh(this.number, version) ? currentResult() : { mergeability: PullRequestMergeability.Unknown };
 		}
 	}
 

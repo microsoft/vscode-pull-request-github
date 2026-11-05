@@ -261,6 +261,7 @@ fragment PullRequestFragment on PullRequest {
 	autoMergeRequest {
 		mergeMethod
 	}
+	viewerCanMergeAsAdmin
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate

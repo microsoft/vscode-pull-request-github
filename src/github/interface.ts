@@ -75,6 +75,8 @@ export enum PullRequestMergeability {
 
 export interface PullRequestMergeabilityResult {
 	mergeability: PullRequestMergeability;
+	/** Classic branch protection or applicable ruleset bypass permission; not a guarantee every unmet rule can be bypassed. */
+	viewerCanMergeAsAdmin?: boolean;
 	conflicts?: string[];
 }
 
@@ -337,6 +339,8 @@ export interface PullRequest extends Issue {
 	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	/** GitHub-reported classic protection or ruleset bypass permission, never inferred from repository write access. */
+	viewerCanMergeAsAdmin?: boolean;
 	mergeQueueEntry?: MergeQueueEntry | null;
 	/** Undefined when the pull request was loaded through the REST API, which doesn't report it. */
 	viewerCanUpdate?: boolean;

@@ -116,6 +116,7 @@ export interface PullRequest extends Issue {
 	reviewRequirement: PullRequestReviewRequirement | null;
 	canUpdateBranch: boolean;
 	mergeable: PullRequestMergeability;
+	viewerCanMergeAsAdmin?: boolean;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMerge?: boolean;

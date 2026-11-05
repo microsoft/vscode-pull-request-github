@@ -876,6 +876,7 @@ export interface PullRequest extends Issue {
 	baseRefOid: string;
 	baseRepository: BaseRefRepository;
 	merged: boolean;
+	viewerCanMergeAsAdmin?: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 	mergeQueueEntry?: MergeQueueEntry | null;
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
@@ -1019,6 +1020,7 @@ export interface PullRequestMergabilityResponse {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 			viewerCanUpdate?: boolean;
+			viewerCanMergeAsAdmin?: boolean;
 			mergeRequirements?: {
 				conditions: {
 					__typename: string | 'PullRequestMergeConflictStateCondition';

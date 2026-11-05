@@ -5,7 +5,7 @@
 
 import { default as assert } from 'assert';
 import { NetworkStatus } from 'apollo-boost';
-import { SinonSandbox, createSandbox, match } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox, match } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -106,6 +106,95 @@ describe('GitHubRepository', function () {
 			} finally {
 				repo.dispose();
 			}
+		});
+	});
+
+	describe('canBypassBranchRulesets', function () {
+		let repo: MockGitHubRepository;
+		let branchRules: SinonStub;
+		let ruleset: SinonStub;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			repo.queryProvider.expectOctokitRequest(['repos', 'getBranchRules'], [], []);
+			repo.queryProvider.expectOctokitRequest(['repos', 'getRepoRuleset'], [], {});
+			branchRules = repo.octokit.api.repos.getBranchRules as unknown as SinonStub;
+			ruleset = repo.octokit.api.repos.getRepoRuleset as unknown as SinonStub;
+			branchRules.resetBehavior();
+			ruleset.resetBehavior();
+			branchRules.resolves({ data: [{ ruleset_id: 1 }], headers: {} });
+			ruleset.resolves({ data: { enforcement: 'active', current_user_can_bypass: 'never' }, headers: {} });
+		});
+
+		afterEach(function () { repo.dispose(); });
+
+		for (const permission of ['always', 'pull_requests_only', 'exempt', 'never', undefined, 'unknown']) {
+			it(`handles ruleset bypass permission ${permission}`, async function () {
+				ruleset.resolves({ data: { enforcement: 'active', current_user_can_bypass: permission }, headers: {} });
+				assert.strictEqual(await repo.canBypassBranchRulesets('main'),
+					permission === 'always' || permission === 'pull_requests_only' || permission === 'exempt');
+			});
+		}
+
+		for (const enforcement of ['disabled', 'evaluate', undefined, 'unknown']) {
+			it(`denies bypass for non-active enforcement ${enforcement}`, async function () {
+				ruleset.resolves({ data: { enforcement, current_user_can_bypass: 'always' }, headers: {} });
+				assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+			});
+		}
+
+		it('paginates branch rules and fetches each applicable ruleset only once', async function () {
+			branchRules.onFirstCall().resolves({
+				data: [{ ruleset_id: 1 }, { ruleset_id: 1 }, {}], headers: { link: '<next>; rel="next"' },
+			});
+			branchRules.onSecondCall().resolves({ data: [{ ruleset_id: 2 }, { ruleset_id: 1 }], headers: {} });
+			ruleset.onSecondCall().resolves({ data: { enforcement: 'active', current_user_can_bypass: 'always' }, headers: {} });
+			assert.strictEqual(await repo.canBypassBranchRulesets('release/main'), true);
+			assert.deepStrictEqual(branchRules.args, [1, 2].map(page => [{
+				owner: 'owner', repo: 'repo', branch: 'release/main', per_page: 100, page,
+			}]));
+			assert.deepStrictEqual(ruleset.args, [1, 2].map(ruleset_id => [{
+				owner: 'owner', repo: 'repo', ruleset_id, includes_parents: true,
+			}]));
+		});
+
+		it('does not cache a grant across permission revocation', async function () {
+			ruleset.onFirstCall().resolves({ data: { enforcement: 'active', current_user_can_bypass: 'always' }, headers: {} });
+			assert.strictEqual(await repo.canBypassBranchRulesets('main'), true);
+			assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+			assert.strictEqual(branchRules.callCount, 2);
+			assert.strictEqual(ruleset.callCount, 2);
+		});
+
+		it('denies missing branch/ruleset ids and empty rules', async function () {
+			assert.strictEqual(await repo.canBypassBranchRulesets(''), false);
+			assert(branchRules.notCalled);
+			for (const data of [[], [{}], [{ ruleset_id: null }], [{ ruleset_id: '1' }]]) {
+				branchRules.resolves({ data, headers: {} });
+				assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+			}
+			assert(ruleset.notCalled);
+		});
+
+		for (const status of [401, 403, 404, 500]) {
+			it(`fails closed on branch/ruleset errors (${status})`, async function () {
+				const error = Object.assign(new Error('Unavailable'), { status });
+				branchRules.rejects(error);
+				assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+				branchRules.resolves({ data: [{ ruleset_id: 1 }, { ruleset_id: 2 }], headers: {} });
+				ruleset.onFirstCall().resolves({ data: { enforcement: 'active', current_user_can_bypass: 'always' }, headers: {} });
+				ruleset.onSecondCall().rejects(error);
+				assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+			});
+		}
+
+		it('fails closed if a later branch rules page fails', async function () {
+			branchRules.onFirstCall().resolves({ data: [{ ruleset_id: 1 }], headers: { link: '<next>; rel="next"' } });
+			branchRules.onSecondCall().rejects(new Error('Network error'));
+			assert.strictEqual(await repo.canBypassBranchRulesets('main'), false);
+			assert(ruleset.notCalled);
 		});
 	});
 

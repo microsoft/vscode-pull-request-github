@@ -47,6 +47,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	status: { linked: CombinedStatusBuilder },
 	reviewRequirement: { default: null },
 	mergeable: { default: PullRequestMergeability.Mergeable },
+	viewerCanMergeAsAdmin: { default: false },
 	defaultMergeMethod: { default: 'merge' },
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
 	allowAutoMerge: { default: false },

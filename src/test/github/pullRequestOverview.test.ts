@@ -1081,6 +1081,74 @@ describe('PullRequestOverview', function () {
 			});
 		});
 
+		it('publishes the current bypass capability after deferred data outlives a revocation', async function () {
+			prModel.update({ ...prModel.item, viewerCanMergeAsAdmin: true });
+			(prModel.getMergeability as SinonStub).resolves({
+				mergeability: PullRequestMergeability.NotMergeable,
+				viewerCanMergeAsAdmin: true,
+			});
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+
+			await openPanel();
+			assert.strictEqual(messages.some(message => !!message.pullrequest?.status), false);
+			prModel.update({ ...prModel.item, viewerCanMergeAsAdmin: false });
+			messages.length = 0;
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred, 'deferred data should be published after the remaining request finishes');
+			assert.strictEqual(deferred.pullrequest!.viewerCanMergeAsAdmin, false);
+		});
+
+		it('publishes current conflicts after deferred data outlives a mergeability refresh', async function () {
+			prModel.update({ ...prModel.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: true });
+			(prModel.getMergeability as SinonStub).resolves({
+				mergeability: PullRequestMergeability.NotMergeable,
+				viewerCanMergeAsAdmin: true,
+			});
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+
+			await openPanel();
+			assert.strictEqual(messages.some(message => !!message.pullrequest?.status), false);
+			prModel.update({ ...prModel.item, mergeable: PullRequestMergeability.Conflict });
+			messages.length = 0;
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred, 'deferred data should be published after the remaining request finishes');
+			assert.strictEqual(deferred.pullrequest!.mergeable, PullRequestMergeability.Conflict);
+			assert.strictEqual(deferred.pullrequest!.viewerCanMergeAsAdmin, true);
+		});
+
+		it('does not publish the initial base queue method after retargeting while the new lookup is pending', async function () {
+			sinon.stub(prModel, 'getStack').resolves(undefined);
+			getMergeQueueMethod.resolves('merge');
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+			await openPanel();
+			const panel = PullRequestOverviewPanel.findPanel(remote.owner, remote.repositoryName, prModel.number)!;
+			let finishQueue!: (method: MergeMethod | undefined) => void;
+			getMergeQueueMethod.returns(new Promise<MergeMethod | undefined>(resolve => { finishQueue = resolve; }));
+			const base = prModel.item.base!;
+			prModel.update({ ...prModel.item, base: { ...base, ref: 'new-target' } });
+			messages.length = 0;
+
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred);
+			assert.strictEqual('mergeQueueMethod' in deferred.pullrequest!, false);
+			assert.strictEqual((panel as any)._stackLoaded, false);
+			finishQueue(undefined);
+			await (panel as any)._stackRefreshPromise;
+			assert.strictEqual(messages.find(message => message.pullrequest?.stackLoaded)?.pullrequest?.mergeQueueMethod, null);
+		});
+
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
 			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			sinon.stub(prModel, 'getStack').resolves({
@@ -1678,6 +1746,123 @@ describe('PullRequestOverview', function () {
 		});
 	});
 
+	describe('stack membership during ref changes', function () {
+		for (const ref of ['base', 'head'] as const) {
+			for (const fails of [false, true]) {
+				it(`preserves the displayed stack when ${ref} changes and its replacement ${fails ? 'fails' : 'loads'}`, async function () {
+					const { panel, model, stackQuery } = await createPanel();
+					await (panel as any).refreshStack();
+					const displayedStack = (panel as any)._loadedStack;
+					assert(displayedStack);
+					const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+					let finish!: (stack: PullRequestStack | undefined) => void;
+					let reject!: (error: Error) => void;
+					stackQuery.returns(new Promise<PullRequestStack | undefined>((resolve, fail) => { finish = resolve; reject = fail; }));
+					const previousRef = model.item[ref]!;
+
+					model.update({ ...model.item, [ref]: { ...previousRef, ref: `changed-${ref}` } });
+
+					assert.strictEqual((panel as any)._stackLoaded, false);
+					assert.strictEqual((panel as any)._loadedStack, displayedStack);
+					const loading = postMessage.firstCall.args[0].pullrequest;
+					assert.strictEqual(loading.stackLoaded, false);
+					assert.strictEqual('stack' in loading, false, 'loading must not erase known stack membership');
+					await new Promise(resolve => setTimeout(resolve, 0));
+					assert(!postMessage.getCalls().some(call => 'stack' in (call.args[0].pullrequest ?? {})));
+
+					if (fails) {
+						reject(new Error('Stack unavailable'));
+					} else {
+						finish(undefined);
+					}
+					await (panel as any)._stackRefreshPromise;
+					const membership = postMessage.getCalls().filter(call => 'stack' in (call.args[0].pullrequest ?? {}));
+					if (fails) {
+						assert.strictEqual(membership.length, 0);
+						assert(postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoadError === true));
+					} else {
+						assert.strictEqual(membership.length, 1);
+						assert.strictEqual(membership[0].args[0].pullrequest.stack, null);
+						assert.strictEqual(membership[0].args[0].pullrequest.stackLoaded, true);
+					}
+				});
+			}
+		}
+	});
+
+	describe('merge queue eligibility on retarget', function () {
+		for (const fails of [false, true]) {
+			it(`keeps eligibility unknown until the new base lookup ${fails ? 'fails' : 'finishes'}`, async function () {
+				const { panel, model, stackQuery, queueMethod } = await createPanel();
+				stackQuery.resolves(undefined);
+				model.item.mergeable = PullRequestMergeability.NotMergeable;
+				model.item.viewerCanMergeAsAdmin = true;
+				const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+				let finish!: (method: MergeMethod | undefined) => void;
+				let reject!: (error: Error) => void;
+				queueMethod.returns(new Promise<MergeMethod | undefined>((resolve, fail) => { finish = resolve; reject = fail; }));
+				const base = model.item.base!;
+
+				model.update({ ...model.item, base: { ...base, ref: 'queued-target' } });
+
+				const invalidation = postMessage.firstCall.args[0].pullrequest;
+				assert.strictEqual(invalidation.stackLoaded, false);
+				assert.strictEqual(invalidation.mergeQueueMethod, null);
+				assert.strictEqual((panel as any)._stackLoaded, false);
+				await new Promise(resolve => setTimeout(resolve, 0));
+				assert(queueMethod.calledWith('queued-target', model.remote.owner, model.remote.repositoryName));
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoaded === true));
+
+				if (fails) {
+					reject(new Error('Queue unavailable'));
+				} else {
+					finish('squash');
+				}
+				await (panel as any)._stackRefreshPromise;
+				assert.strictEqual((panel as any)._stackLoaded, !fails);
+				const loaded = postMessage.getCalls().find(call => call.args[0].pullrequest?.stackLoaded === true);
+				if (fails) {
+					assert.strictEqual(loaded, undefined);
+				} else {
+					assert.strictEqual(loaded?.args[0].pullrequest.mergeQueueMethod, 'squash');
+				}
+			});
+		}
+
+		for (const oldLookupFails of [false, true]) {
+			it(`ignores a previous base lookup that ${oldLookupFails ? 'fails' : 'finishes'} after retargeting`, async function () {
+				const { panel, model, stackQuery, queueMethod } = await createPanel();
+				stackQuery.resolves(undefined);
+				const postMessage = sinon.stub(panel as any, '_postMessage').resolves();
+				let finishOld!: (method: MergeMethod | undefined) => void;
+				let rejectOld!: (error: Error) => void;
+				let finishNew!: (method: MergeMethod | undefined) => void;
+				const base = model.item.base!;
+				queueMethod.withArgs(base.ref, model.remote.owner, model.remote.repositoryName).returns(new Promise<MergeMethod | undefined>((resolve, reject) => { finishOld = resolve; rejectOld = reject; }));
+				queueMethod.withArgs('queued-target', model.remote.owner, model.remote.repositoryName).returns(new Promise<MergeMethod | undefined>(resolve => { finishNew = resolve; }));
+				const oldLookup = (panel as any).loadStack(model, (panel as any)._updateSequence);
+
+				model.update({ ...model.item, base: { ...base, ref: 'queued-target' } });
+				await new Promise(resolve => setTimeout(resolve, 0));
+				if (oldLookupFails) {
+					rejectOld(new Error('Obsolete queue lookup failed'));
+				} else {
+					finishOld(undefined);
+				}
+				await oldLookup;
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoadError === true));
+
+				assert.strictEqual((panel as any)._stackLoaded, false);
+				assert(!postMessage.getCalls().some(call => call.args[0].pullrequest?.stackLoaded === true));
+				finishNew('merge');
+				await (panel as any)._stackRefreshPromise;
+				const loaded = postMessage.getCalls().filter(call => call.args[0].pullrequest?.stackLoaded === true);
+				assert.strictEqual(loaded.length, 1);
+				assert.strictEqual(loaded[0].args[0].pullrequest.mergeQueueMethod, 'merge');
+			});
+		}
+	});
+
 	describe('branch status changes', function () {
 		async function openPanel() {
 			const result = await createPanel();
@@ -1712,6 +1897,28 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(update?.mergeable, PullRequestMergeability.Mergeable);
 		});
 
+		for (const ref of ['base', 'head'] as const) {
+			it(`publishes a changed ${ref} identity before comparison completes while bypass remains granted`, async function () {
+				const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
+				model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: true });
+				await new Promise(resolve => setTimeout(resolve, 0));
+				let finishComparison!: (value: boolean) => void;
+				upToDate.returns(new Promise<boolean>(resolve => { finishComparison = resolve; }));
+				const previousRef = model.item[ref];
+				assert(previousRef);
+
+				model.update({ ...model.item, [ref]: { ...previousRef, ref: 'retargeted-branch' } });
+				await new Promise(resolve => setTimeout(resolve, 0));
+
+				const update = lastBranchStatusUpdate();
+				assert.strictEqual(update?.[ref], `${model[ref]!.owner}/${model.remote.repositoryName}:retargeted-branch`);
+				assert.strictEqual(update?.viewerCanMergeAsAdmin, true);
+				assert.strictEqual(update?.mergeable, PullRequestMergeability.NotMergeable);
+				finishComparison(false);
+				await new Promise(resolve => setTimeout(resolve, 0));
+			});
+		}
+
 		it('publishes a mergeability change that GitHub reports after loading', async function () {
 			const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
 			upToDate.resolves(false);
@@ -1725,6 +1932,52 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(update?.canUpdateBranch, true);
 		});
 
+		it('publishes conflicts and revoked bypass capability even when the comparison fails', async function () {
+			const { panel, model, upToDate, lastBranchStatusUpdate } = await openPanel();
+			upToDate.rejects(new Error('Comparison unavailable'));
+
+			model.update({ ...model.item, mergeable: PullRequestMergeability.Conflict, viewerCanMergeAsAdmin: false });
+			await (panel as any).refreshBranchStatus(false);
+
+			const update = lastBranchStatusUpdate();
+			assert.strictEqual(update?.mergeable, PullRequestMergeability.Conflict);
+			assert.strictEqual(update?.viewerCanMergeAsAdmin, false);
+		});
+
+		for (const ref of ['head', 'base'] as const) {
+			for (const comparisonFails of [false, true]) {
+				it(`publishes conflicts and revoked bypass access when ${ref} changes and comparison ${comparisonFails ? 'fails' : 'stalls'}`, async function () {
+					const { model, upToDate, lastBranchStatusUpdate } = await openPanel();
+					model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, viewerCanMergeAsAdmin: true });
+					await new Promise(resolve => setTimeout(resolve, 0));
+					let finishComparison!: (value: boolean) => void;
+					if (comparisonFails) {
+						upToDate.rejects(new Error('Comparison unavailable'));
+					} else {
+						upToDate.returns(new Promise<boolean>(resolve => { finishComparison = resolve; }));
+					}
+					const previousRef = model.item[ref];
+					assert(previousRef);
+
+					model.update({
+						...model.item,
+						[ref]: { ...previousRef, sha: `updated-${ref}` },
+						mergeable: PullRequestMergeability.Conflict,
+						viewerCanMergeAsAdmin: false,
+					});
+					await new Promise(resolve => setTimeout(resolve, 0));
+
+					const update = lastBranchStatusUpdate();
+					assert.strictEqual(update?.mergeable, PullRequestMergeability.Conflict);
+					assert.strictEqual(update?.viewerCanMergeAsAdmin, false);
+					if (!comparisonFails) {
+						finishComparison(false);
+						await new Promise(resolve => setTimeout(resolve, 0));
+					}
+				});
+			}
+		}
+
 		it('ignores an older comparison that finishes after a newer one', async function () {
 			const { panel, upToDate, branchStatusUpdates } = await openPanel();
 			let releaseOlder!: (value: boolean) => void;
@@ -1736,7 +1989,7 @@ describe('PullRequestOverview', function () {
 			releaseOlder(true);
 			await older;
 
-			const updates = branchStatusUpdates();
+			const updates = branchStatusUpdates().filter(update => 'canUpdateBranch' in update);
 			assert.strictEqual(updates.length, 1);
 			assert.strictEqual(updates[0].canUpdateBranch, true);
 		});

@@ -59,6 +59,7 @@ import {
 	PullRequest,
 	PullRequestChecks,
 	PullRequestCheckStatus,
+	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
 	StackablePullRequest,
@@ -342,6 +343,38 @@ export class GitHubRepository extends Disposable {
 
 	public equals(repo: GitHubRepository): boolean {
 		return this.remote.equals(repo.remote);
+	}
+
+	private _pullRequestRefreshSequence = 0;
+	private readonly _pullRequestRefreshVersions = new Map<number, number>();
+	private readonly _pullRequestSnapshotVersions = new Map<number, number>();
+	private readonly _parsedPullRequestVersions = new WeakMap<PullRequest, number>();
+
+	// Branch queries reserve a version before the PR numbers are known. Parsing
+	// later associates it with each PR without superseding newer requests.
+	beginPullRequestRefresh(number?: number, version = ++this._pullRequestRefreshSequence): number {
+		if (number !== undefined && version > (this._pullRequestRefreshVersions.get(number) ?? 0)) {
+			this._pullRequestRefreshVersions.set(number, version);
+		}
+		if (number !== undefined && version > (this._pullRequestSnapshotVersions.get(number) ?? 0)) {
+			this._pullRequestSnapshotVersions.set(number, version);
+		}
+		return version;
+	}
+
+	// Lightweight lookups supersede permissions, not unrelated full-snapshot fields.
+	beginPullRequestMergeabilityRefresh(number: number): number {
+		const version = ++this._pullRequestRefreshSequence;
+		this._pullRequestRefreshVersions.set(number, version);
+		return version;
+	}
+
+	isCurrentPullRequestRefresh(number: number, version: number): boolean {
+		return this._pullRequestRefreshVersions.get(number) === version;
+	}
+
+	trackParsedPullRequestRefresh(pullRequest: PullRequest, version: number): void {
+		this._parsedPullRequestVersions.set(pullRequest, version);
 	}
 
 	getExistingPullRequestModel(prNumber: number): PullRequestModel | undefined {
@@ -929,7 +962,7 @@ export class GitHubRepository extends Disposable {
 			data?.nodes.forEach((summary, index) => {
 				const pullRequest = pullRequests[index];
 				if (summary && pullRequest.item === items[index]) {
-					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) });
+					pullRequest.update({ ...pullRequest.item, stack: parseStackSummary(summary) }, false);
 				}
 			});
 		} catch (e) {
@@ -972,6 +1005,7 @@ export class GitHubRepository extends Disposable {
 	}
 
 	async getPullRequestForBranch(branch: string, headOwner: string, throwOnError: boolean = false): Promise<PullRequestModel | undefined> {
+		const version = this.beginPullRequestRefresh();
 		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, this.id);
@@ -991,7 +1025,7 @@ export class GitHubRepository extends Disposable {
 			if (data?.repository) {
 				const nodes = [...data.repository.openPullRequests.nodes, ...data.repository.pullRequests.nodes]
 					.filter((pullRequest, index, pullRequests) => pullRequests.findIndex(candidate => candidate.number === pullRequest.number) === index);
-				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
+				const prs = (await Promise.all(nodes.map(node => parseGraphQLPullRequest(node, this, version)))).filter(pr => pr.head && compareIgnoreCase(pr.head.repo.owner, headOwner) === 0);
 				if (prs.length === 0) {
 					return undefined;
 				}
@@ -1723,8 +1757,24 @@ export class GitHubRepository extends Disposable {
 
 	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
+		const version = this._parsedPullRequestVersions.get(pullRequest);
+		if (model && version !== undefined && this._pullRequestSnapshotVersions.get(pullRequest.number) !== version) {
+			return model;
+		}
 		if (model) {
-			model.update(pullRequest);
+			if (version !== undefined && !this.isCurrentPullRequestRefresh(pullRequest.number, version)) {
+				// A newer lightweight lookup owns permissions. Still apply the full
+				// snapshot (title, body, state, refs, etc.). Ref changes invalidate the
+				// retained capability in doUpdate and supersede that lookup as well.
+				model.update({
+					...pullRequest,
+					viewerCanMergeAsAdmin: undefined,
+					viewerCanUpdate: model.item.viewerCanUpdate,
+					mergeable: undefined,
+				}, false);
+			} else {
+				model.update(pullRequest);
+			}
 		} else {
 			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
@@ -1878,6 +1928,7 @@ export class GitHubRepository extends Disposable {
 			return;
 		}
 
+		const version = this.beginPullRequestRefresh(id);
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
@@ -1896,7 +1947,7 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this), silent);
+			const pr = this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this, version), silent);
 			if (loadMode === 'default') {
 				await pr.getLastUpdateTime(new Date(pr.item.updatedAt));
 			}
@@ -2427,6 +2478,65 @@ export class GitHubRepository extends Disposable {
 		}
 
 		return ret;
+	}
+
+	/** Resolve effective bypass capability from fresh classic and ruleset permissions. */
+	public async getEffectiveViewerCanMergeAsAdmin(classic: boolean | undefined, mergeability: PullRequestMergeability, branch: string): Promise<boolean> {
+		if (classic === true) {
+			return true;
+		}
+		if (mergeability !== PullRequestMergeability.NotMergeable && mergeability !== PullRequestMergeability.Behind) {
+			return false;
+		}
+		return this.canBypassBranchRulesets(branch);
+	}
+
+	/**
+	 * Whether the viewer may bypass any active ruleset applying to this branch.
+	 * This is not a guarantee that all unmet merge requirements can be bypassed.
+	 * Do not cache permissions (including in-flight requests): a later refresh
+	 * must be able to observe permission revocation independently.
+	 */
+	public async canBypassBranchRulesets(branch: string): Promise<boolean> {
+		if (!branch) {
+			return false;
+		}
+		try {
+			const { remote, octokit } = await this.ensure();
+			const repository = { owner: remote.owner, repo: remote.repositoryName };
+			const rulesetIds = new Set<number>();
+			let page = 1;
+			let hasNextPage: boolean;
+			do {
+				const result = await octokit.call(octokit.api.repos.getBranchRules, {
+					...repository, branch, per_page: 100, page,
+				});
+				for (const rule of result.data) {
+					if (typeof rule.ruleset_id === 'number') {
+						rulesetIds.add(rule.ruleset_id);
+					}
+				}
+				hasNextPage = !!result.headers.link?.includes('rel="next"');
+				page++;
+			} while (hasNextPage);
+
+			const permissions = await Promise.all([...rulesetIds].map(async ruleset_id => {
+				// includes_parents also covers organization/enterprise rulesets.
+				const { data } = await octokit.call(octokit.api.repos.getRepoRuleset, {
+					...repository, ruleset_id, includes_parents: true,
+				});
+				// Some servers return `exempt`, which is not yet in the installed API types.
+				const permission: string | undefined = data.current_user_can_bypass;
+				return data.enforcement === 'active'
+					&& (permission === 'always' || permission === 'pull_requests_only' || permission === 'exempt');
+			}));
+			return permissions.some(Boolean);
+		} catch (e) {
+			// Unsupported servers, inaccessible rulesets, and incomplete requests
+			// must never be interpreted as a permission grant.
+			Logger.debug(`Unable to fetch ruleset bypass permissions: ${e}`, this.id);
+			return false;
+		}
 	}
 
 	/**

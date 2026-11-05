@@ -98,6 +98,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _updateItemPromise: Promise<void> | undefined;
 	private _updateSequence = 0;
 	private _stackLoaded = false;
+	private _stackEligibilitySequence = 0;
 	private _stackPullRequestNumbers = new Set<number>();
 	private _stackRefreshPending = false;
 	private _stackRefreshPromise: Promise<void> | undefined;
@@ -347,6 +348,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			}));
 			this._prListeners.push(this._item.onDidChange(e => {
+				if (e.base || e.head) {
+					// Ref changes invalidate queue/stack eligibility before publishing the
+					// new refs or capability. Old lookups must not unlock the new target.
+					this._stackEligibilitySequence++;
+					this._stackLoaded = false;
+					this._stackPrefetch = undefined;
+					this._stackUpdateEligibility = undefined;
+					// Keep the displayed stack until its replacement is known. Clearing it
+					// would route a stacked PR through the ordinary single-PR merge flow.
+					this._stackRecommendation = undefined;
+					void this._postMessage({
+						command: 'pr.update',
+						pullrequest: {
+							stackLoaded: false,
+							stackRecommendation: null,
+							stackLoadError: false,
+							canUpdateStack: false,
+							mergeQueueMethod: null,
+						} satisfies Partial<PullRequest>,
+					});
+				}
 				if (e.draft) {
 					void this.refreshPanel();
 				} else if ((e.state || e.comments) && !this._refreshing && !this._updateItemPromise) {
@@ -502,6 +524,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const branchStatusSequence = compareWithBase ? ++this._branchStatusSequence : this._branchStatusSequence;
 		try {
 			if (compareWithBase) {
+				// Revocations and conflicts must not wait for the independent branch comparison,
+				// including when the same refresh changes the head or base.
+				await this._postMessage({
+					command: 'pr.update',
+					pullrequest: {
+						base: item.base ? `${item.base.owner}/${item.remote.repositoryName}:${item.base.ref}` : '',
+						head: item.head ? `${item.head.owner}/${item.remote.repositoryName}:${item.head.ref}` : '',
+						mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+						viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
+					} satisfies Partial<PullRequest>,
+				});
 				const isBranchUpToDateWithBase = await this._folderRepositoryManager.isHeadUpToDateWithBase(item);
 				if (this.isDisposed || item !== this._item || updateSequence !== this._updateSequence || branchStatusSequence !== this._branchStatusSequence) {
 					return;
@@ -512,7 +545,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await this._postMessage({
 				command: 'pr.update',
 				pullrequest: {
+					base: item.base ? `${item.base.owner}/${item.remote.repositoryName}:${item.base.ref}` : '',
+					head: item.head ? `${item.head.owner}/${item.remote.repositoryName}:${item.head.ref}` : '',
 					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+					viewerCanMergeAsAdmin: item.item.viewerCanMergeAsAdmin === true,
 					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),
 				} satisfies Partial<PullRequest>,
 			});
@@ -558,6 +594,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._stackLoaded = false;
 		this._isBranchUpToDateWithBase = undefined;
 		const branchStatusSequence = ++this._branchStatusSequence;
+		const stackEligibilitySequence = this._stackEligibilitySequence;
 		const updateStart = performance.now();
 		this._stackPrefetch = undefined;
 		if (this._panel.visible) {
@@ -662,6 +699,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				reviewRequirement: null,
 				canUpdateBranch: false,
 				mergeable: pullRequest.item.mergeable ?? PullRequestMergeability.Unknown,
+				viewerCanMergeAsAdmin: pullRequest.item.viewerCanMergeAsAdmin === true,
 				reviewers: this._existingReviewers,
 				isDraft: pullRequest.isDraft,
 				mergeMethodsAvailability,
@@ -743,7 +781,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				branchInfo,
 				mergeQueueMethod,
 				isBranchUpToDateWithBase,
-				mergeability,
+				_mergeability,
 				emailForCommit,
 				coAuthors,
 				hasReviewDraft,
@@ -768,11 +806,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isLocalHeadDeleted: !branchInfo,
 						...(isBranchStatusCurrent ? {
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
-							mergeable: mergeability.mergeability,
+							// Other deferred data can finish after mergeability or capability refreshes.
+							mergeable: pullRequestModel.item.mergeable ?? PullRequestMergeability.Unknown,
+							viewerCanMergeAsAdmin: pullRequestModel.item.viewerCanMergeAsAdmin === true,
 						} : {}),
 						reviewers,
 						hasReviewDraft,
-						...(this._stackLoaded ? {} : { mergeQueueMethod }),
+						...(this._stackLoaded || stackEligibilitySequence !== this._stackEligibilitySequence ? {} : { mergeQueueMethod }),
 						emailForCommit,
 						currentUserReviewState: this.getCurrentUserReviewState(reviewers, currentUser),
 						isCopilotOnMyBehalf: isCopilotOnBehalf,
@@ -832,7 +872,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async loadStack(pullRequestModel: PullRequestModel, updateSequence: number): Promise<void> {
 		const prefetch = this._stackPrefetch;
 		this._stackPrefetch = undefined;
-		const isCurrent = () => !this.isDisposed && updateSequence === this._updateSequence;
+		const stackEligibilitySequence = this._stackEligibilitySequence;
+		const isCurrent = () => !this.isDisposed && pullRequestModel === this._item
+			&& updateSequence === this._updateSequence && stackEligibilitySequence === this._stackEligibilitySequence;
 		let stack: PullRequestStack | undefined;
 		try {
 			const data = await (prefetch?.updateSequence === updateSequence ? prefetch.data : this.fetchStackData(pullRequestModel));

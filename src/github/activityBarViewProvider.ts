@@ -184,7 +184,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 		this._prDisposables = [];
 		this._prDisposables.push(pullRequestModel.onDidChange(e => {
-			if ((e.state || e.comments || e.reviewers) && !this._updatingPromise) {
+			if ((e.state || e.comments || e.reviewers || e.mergeability) && !this._updatingPromise) {
 				this.updatePullRequest(pullRequestModel);
 			}
 		}));
@@ -264,11 +264,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			}
 			this._item = pullRequestModel;
 			const updatingPromise = Promise.all([
-				this._folderRepositoryManager.resolvePullRequest(
-					pullRequestModel.remote.owner,
-					pullRequestModel.remote.repositoryName,
-					pullRequestModel.number,
-				),
+				(async () => {
+					const resolved = await this._folderRepositoryManager.resolvePullRequest(
+						pullRequestModel.remote.owner,
+						pullRequestModel.remote.repositoryName,
+						pullRequestModel.number,
+					);
+					// Resolve first: its model refresh would otherwise supersede the
+					// capability lookup. Initially blocked PRs are not polled by the UI.
+					await resolved?.getMergeability();
+					return resolved;
+				})(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 				pullRequestModel.getTimelineEvents(),
 				pullRequestModel.getReviewRequests(),
@@ -363,6 +369,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				canEdit: canEdit,
 				hasWritePermission,
 				mergeable: pullRequest.item.mergeable,
+				viewerCanMergeAsAdmin: pullRequest.item.viewerCanMergeAsAdmin === true,
 				isDraft: pullRequest.isDraft,
 				status: null,
 				reviewRequirement: null,

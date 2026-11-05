@@ -390,6 +390,22 @@ body img.avatar {
 	color: var(--vscode-errorForeground);
 }
 
+.branch-rules-bypass-consent {
+	padding: 16px;
+}
+
+.branch-rules-bypass-consent label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+}
+
+.branch-rules-bypass-consent p {
+	margin: 8px 0 0;
+	color: var(--vscode-descriptionForeground);
+}
+
 .automerge-section {
 	display: flex;
 }
