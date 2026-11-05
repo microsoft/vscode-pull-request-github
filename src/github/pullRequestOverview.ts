@@ -44,7 +44,7 @@ import {
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
-import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -652,10 +652,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				canRequestCopilotReview: false,
 				isCurrentlyCheckedOut: pullRequestModel.equals(this._folderRepositoryManager.activePullRequest),
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-				base: `${pullRequest.base.owner}/${pullRequest.remote.repositoryName}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: false,
-				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
+				...this.getBranchLabels(pullRequest),
+				qualifiedHead: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch: doneCheckoutBranch,
 				status: null,
@@ -996,7 +996,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override getPreview(repository: GitHubRepository, number: number): Promise<PullRequestPreview> {
-		return repository.getPullRequestPreview(number);
+		return repository.getPullRequestPreview(number, PullRequestOverviewPanel.isMultiRepoWorkspace());
+	}
+
+	private getBranchLabels(pullRequest: PullRequestModel, baseRef: string = pullRequest.base.ref): { base: string; head: string } {
+		return getPullRequestBranchLabels(
+			pullRequest.remote.repositoryName,
+			{ owner: pullRequest.base.owner, ref: baseRef },
+			pullRequest.head ?? undefined,
+			PullRequestOverviewPanel.isMultiRepoWorkspace(),
+		);
 	}
 
 	public override async updateWithIdentity(
@@ -1902,7 +1911,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					await this._item.updateBaseBranch(selectedBranch);
 					const events = await this._getTimeline();
 					const reply: ChangeBaseReply = {
-						base: selectedBranch,
+						base: this.getBranchLabels(this._item, selectedBranch).base,
 						events
 					};
 					await this._replyMessage(message, reply);

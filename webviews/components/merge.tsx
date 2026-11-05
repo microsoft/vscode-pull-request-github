@@ -684,7 +684,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
 		case 'merge':
-			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.head}`;
+			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.qualifiedHead}`;
 		case 'squash':
 			return pr.squashCommitMeta?.title ?? `${pr.title} (#${pr.number})`;
 		default:

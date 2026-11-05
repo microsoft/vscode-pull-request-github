@@ -335,6 +335,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const doneCheckoutBranch = postDoneAction.startsWith(CHECKOUT_PULL_REQUEST_BASE_BRANCH)
 				? pullRequest.base.ref
 				: defaultBranch;
+			const head = pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.head.name}:${pullRequest.head.ref}` : '';
 
 			const context: Partial<PullRequest> = {
 				number: pullRequest.number,
@@ -359,7 +360,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				base: `${pullRequest.base.owner}/${pullRequest.base.name}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: !branchInfo,
-				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.head.name}:${pullRequest.head.ref}` : '',
+				head,
+				qualifiedHead: head,
 				canEdit: canEdit,
 				hasWritePermission,
 				mergeable: pullRequest.item.mergeable,

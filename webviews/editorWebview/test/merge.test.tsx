@@ -5,13 +5,13 @@
 
 import { default as assert } from 'assert';
 import * as React from 'react';
-import { cleanup, render } from 'react-testing-library';
+import { cleanup, fireEvent, render } from 'react-testing-library';
 import { createSandbox, SinonFakeTimers, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { PullRequestMergeability } from '../../../src/github/interface';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { MergeStatusAndActions } from '../../components/merge';
+import { Merge, MergeStatusAndActions } from '../../components/merge';
 
 describe('Merge status and actions', function () {
 	let sinon: SinonSandbox;
@@ -53,5 +53,22 @@ describe('Merge status and actions', function () {
 		await clock.tickAsync(3000);
 
 		assert.strictEqual(checkMergeability.calledOnce, true);
+	});
+
+	it('defaults the merge commit title to the head branch with its owner and repository', function () {
+		const pr = new PullRequestBuilder()
+			.number(1234)
+			.head('feature')
+			.qualifiedHead('contributor/repo:feature')
+			.build();
+
+		const view = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Merge {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		fireEvent.click(view.getByText('Merge Pull Request'));
+
+		assert.strictEqual(view.container.querySelector<HTMLInputElement>('input[name="title"]')?.value, 'Merge pull request #1234 from contributor/repo:feature');
 	});
 });

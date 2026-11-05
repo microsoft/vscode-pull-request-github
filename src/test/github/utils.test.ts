@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType, isITeam, reviewerLabel } from '../../github/interface';
-import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -15,6 +15,30 @@ import * as GraphQL from '../../github/graphql';
 import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
+
+	describe('getPullRequestBranchLabels', () => {
+		const sameOwner = { base: { owner: 'owner', ref: 'main' }, head: { owner: 'owner', ref: 'feature' } };
+		const fork = { base: { owner: 'owner', ref: 'main' }, head: { owner: 'contributor', ref: 'feature' } };
+
+		it('shows only the branch names for a same-owner pull request in a single-repo workspace', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, sameOwner.head, false), { base: 'main', head: 'feature' });
+		});
+
+		it('shows the owners only when the base and head owners differ', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, fork.head, false), { base: 'owner:main', head: 'contributor:feature' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, { owner: 'OWNER', ref: 'feature' }, false), { base: 'main', head: 'feature' });
+		});
+
+		it('shows the repository name only in a multi-repo workspace', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, sameOwner.head, true), { base: 'repo:main', head: 'repo:feature' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, fork.head, true), { base: 'owner/repo:main', head: 'contributor/repo:feature' });
+		});
+
+		it('has no head label and no owner when the head repository is gone', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, undefined, false), { base: 'main', head: '' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, undefined, true), { base: 'repo:main', head: '' });
+		});
+	});
 
 	describe('transformHtmlUrlsToExtensionUrls', () => {
 		let sinon: SinonSandbox;

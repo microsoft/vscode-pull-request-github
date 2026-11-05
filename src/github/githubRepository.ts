@@ -75,6 +75,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
+	getPullRequestBranchLabels,
 	GraphQLAccount,
 	isInCodespaces,
 	isStacksUnsupportedError,
@@ -1813,7 +1814,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequestPreview(number: number): Promise<PullRequestPreview> {
+	async getPullRequestPreview(number: number, showRepositoryName: boolean = false): Promise<PullRequestPreview> {
 		if (!Number.isSafeInteger(number) || number <= 0) {
 			throw new Error(`Invalid pull request number: ${number}`);
 		}
@@ -1837,8 +1838,12 @@ export class GitHubRepository extends Disposable {
 		return {
 			...preview,
 			author: parseAccount(author, this),
-			base: `${baseRepository.owner.login}/${remote.repositoryName}:${baseRefName}`,
-			head: headRepository ? `${headRepository.owner.login}/${remote.repositoryName}:${headRefName}` : '',
+			...getPullRequestBranchLabels(
+				remote.repositoryName,
+				{ owner: baseRepository.owner.login, ref: baseRefName },
+				headRepository ? { owner: headRepository.owner.login, ref: headRefName } : undefined,
+				showRepositoryName,
+			),
 		};
 	}
 
