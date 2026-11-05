@@ -618,6 +618,7 @@ body .comment-container .review-comment-container .review-comment-body {
 body .comment-container .comment-body>p,
 body .comment-container .comment-body>div>p,
 body .comment-container .comment-body>div>ul,
+body .comment-container .comment-body>div>ol,
 .comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
@@ -1735,17 +1736,61 @@ blockquote p:last-child {
 	border-bottom: 2px solid;
 }
 
-.comment-body h1 {
+h2,
+h3 {
+	font-weight: normal;
+}
+
+/* Markdown headings, lists, and inline code follow github.com's markdown styles. */
+.comment-body h1,
+.comment-body h2,
+.comment-body h3,
+.comment-body h4,
+.comment-body h5,
+.comment-body h6 {
+	display: block;
+	margin-top: 24px;
+	margin-bottom: 16px;
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.comment-body h1,
+.comment-body h2 {
 	padding-bottom: 0.3em;
-	line-height: 1.2;
 	border-bottom-width: 1px;
 	border-bottom-style: solid;
 }
 
-.comment-body h1,
-h2,
-h3 {
-	font-weight: normal;
+.comment-body h1 {
+	font-size: 2em;
+}
+
+.comment-body h2 {
+	font-size: 1.5em;
+}
+
+.comment-body h3 {
+	font-size: 1.25em;
+}
+
+.comment-body h4 {
+	font-size: 1em;
+}
+
+.comment-body h5 {
+	font-size: 0.875em;
+}
+
+.comment-body h6 {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.comment-body :not(pre)>code {
+	padding: 0.2em 0.4em;
+	font-size: 85%;
+	border-radius: 6px;
 }
 
 .comment-body h1 code,
@@ -1754,8 +1799,26 @@ h3 {
 .comment-body h4 code,
 .comment-body h5 code,
 .comment-body h6 code {
+	padding: 0 0.2em;
 	font-size: inherit;
 	line-height: auto;
+}
+
+.comment-body ul,
+.comment-body ol {
+	padding-left: 2em;
+}
+
+.comment-body li+li {
+	margin-top: 0.25em;
+}
+
+.markdown-body>:first-child {
+	margin-top: 0;
+}
+
+.markdown-body>:last-child {
+	margin-bottom: 0;
 }
 
 .comment-body table {
@@ -1848,14 +1911,23 @@ code {
 	background-color: rgba(10, 10, 10, 0.4);
 }
 
+.vscode-light .comment-body :not(pre)>code {
+	background-color: rgba(129, 139, 152, 0.12);
+}
+
+.vscode-dark .comment-body :not(pre)>code {
+	background-color: rgba(101, 108, 118, 0.2);
+}
+
 .vscode-high-contrast .comment-body pre:not(.hljs),
 .vscode-high-contrast .comment-body code>div {
 	background-color: var(--vscode-editor-background);
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .comment-body h1 {
-	border: 1px solid rgb(0, 0, 0);
+.vscode-high-contrast .comment-body h1,
+.vscode-high-contrast .comment-body h2 {
+	border-color: var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .comment-container .review-comment-header,
@@ -1878,12 +1950,14 @@ code {
 }
 
 .vscode-light .comment-body h1,
+.vscode-light .comment-body h2,
 .vscode-light .comment-body hr,
 .vscode-light .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(0, 0, 0, 0.18);
 }
 
 .vscode-dark .comment-body h1,
+.vscode-dark .comment-body h2,
 .vscode-dark .comment-body hr,
 .vscode-dark .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(255, 255, 255, 0.18);
