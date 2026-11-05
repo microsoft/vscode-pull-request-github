@@ -236,6 +236,11 @@ span.lineContent {
 	overflow-wrap: anywhere;
 }
 
+.comment-body .katex-display {
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
 .comment-reactions {
 	display: flex;
 	flex-direction: row;

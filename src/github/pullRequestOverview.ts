@@ -44,7 +44,7 @@ import {
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
-import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks } from './utils';
 import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -395,26 +395,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	/**
-	 * Override to process permalinks with PR-specific logic (including diff links).
+	 * Override to also process PR-specific diff links.
 	 * Returns undefined if bodyHTML is undefined.
 	 */
 	protected override async processLinksInBodyHtml(bodyHTML: string | undefined): Promise<string | undefined> {
-		if (!bodyHTML) {
-			return bodyHTML;
+		const result = await super.processLinksInBodyHtml(bodyHTML);
+		if (!result) {
+			return result;
 		}
 
-		let result = await processPermalinks(
-			bodyHTML,
-			this._item.githubRepository,
-			this._item.githubRepository.rootUri
-		);
-		result = await processDiffLinks(
+		return processDiffLinks(
 			result,
 			this._item.githubRepository,
 			() => this.getDiffLinkHashMap(),
 			this._item.number
 		);
-		return result;
 	}
 
 	private getDiffLinkHashMap(): Promise<Record<string, string>> {

@@ -13,6 +13,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
+import { getMathResourceRoots, getMathStyleUris, processMath } from './markdownMath';
 import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
@@ -203,16 +204,23 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		super();
 		this._initialFolderRepositoryManager = folderRepositoryManager;
 
-		// Create and show a new webview panel
-		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
+		const webviewOptions: vscode.WebviewOptions = {
 			// Enable javascript in the webview
 			enableScripts: true,
-			retainContextWhenHidden: true,
 
-			// And restrict the webview to only loading content from our extension's `dist` directory.
-			localResourceRoots: [vscode.Uri.joinPath(_extensionUri, 'dist')],
+			// And restrict the webview to only loading content from our extension's `dist` directory and the math styles.
+			localResourceRoots: [vscode.Uri.joinPath(_extensionUri, 'dist'), ...getMathResourceRoots()],
+		};
+		// Create and show a new webview panel
+		this._panel = existingPanel ?? this._register(vscode.window.createWebviewPanel(type, title, column, {
+			...webviewOptions,
+			retainContextWhenHidden: true,
 			enableFindWidget: true
 		}));
+		if (existingPanel) {
+			// A restored panel has the options it was created with, which may refer to an older location of the math styles.
+			existingPanel.webview.options = webviewOptions;
+		}
 
 		this._panel.iconPath = {
 			dark: vscode.Uri.joinPath(_extensionUri, iconSubpath.dark),
@@ -787,7 +795,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 
 	/**
-	 * Process code reference links in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
+	 * Process code reference links and math in bodyHTML. Can be overridden by subclasses (e.g., PullRequestOverviewPanel)
 	 * to provide custom processing logic for different item types.
 	 * Returns undefined if bodyHTML is undefined.
 	 */
@@ -795,11 +803,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		if (!bodyHTML) {
 			return bodyHTML;
 		}
-		return processPermalinks(
+		const result = await processPermalinks(
 			bodyHTML,
 			this._item.githubRepository,
 			this._item.githubRepository.rootUri
 		);
+		return processMath(result);
 	}
 
 	/**
@@ -1138,14 +1147,16 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const nonce = generateUuid();
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-pr-description.js');
+		const mathStyles = getMathStyleUris().map(style => `<link rel="stylesheet" href="${this._webview!.asWebviewUri(style).toString()}">`).join('');
 
 		return `<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; media-src https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; media-src https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:; font-src ${this._webview!.cspSource};">
 
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		${mathStyles}
 	</head>
 	<body class="${process.platform}">
 		<div id=app></div>
