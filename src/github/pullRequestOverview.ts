@@ -555,20 +555,43 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item = pullRequestModel;
 		this._diffLinkHashMapPromise = undefined;
 		const updateSequence = ++this._updateSequence;
+		const overviewIdentity = this._identity;
+		// An earlier load must not overwrite a closed panel or a newer request.
+		const isStale = () => this.isDisposed || updateSequence !== this._updateSequence
+			|| overviewIdentity !== this._identity || this._pendingUpdate !== undefined;
 		this._stackLoaded = false;
 		this._isBranchUpToDateWithBase = undefined;
 		const branchStatusSequence = ++this._branchStatusSequence;
 		const updateStart = performance.now();
 		this._stackPrefetch = undefined;
-		if (this._panel.visible) {
-			// The stack only needs the pull request, so it loads while the rest of the page does, and is shown once the page is.
-			const data = this.fetchStackData(pullRequestModel);
-			// A failure is reported when the stack is shown.
-			data.catch(() => undefined);
-			this._stackPrefetch = { updateSequence, data };
-		}
 
 		try {
+			// PR list models may contain Markdown without rendered description HTML.
+			// Resolve it before the initial webview context is sent.
+			if (pullRequestModel.body?.trim() && !pullRequestModel.bodyHTML?.trim()) {
+				const resolvedModel = await this.resolveModel({
+					owner: pullRequestModel.remote.owner,
+					repo: pullRequestModel.remote.repositoryName,
+					number: pullRequestModel.number,
+				});
+				if (isStale()) {
+					return;
+				}
+				if (!resolvedModel) {
+					throw new Error(`Failed to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+				}
+				pullRequestModel = resolvedModel;
+				this._item = resolvedModel;
+			}
+
+			if (this._panel.visible) {
+				// The stack only needs the pull request, so it loads while the rest of the page does, and is shown once the page is.
+				const data = this.fetchStackData(pullRequestModel);
+				// A failure is reported when the stack is shown.
+				data.catch(() => undefined);
+				this._stackPrefetch = { updateSequence, data };
+			}
+
 			const dataTimings = new Map<string, number>();
 			const measure = async <T>(name: string, promise: Promise<T>): Promise<T> => {
 				const start = performance.now();
@@ -592,6 +615,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUser,
 				viewerCanEdit,
 			] = await updatingPromise;
+			if (isStale()) {
+				return;
+			}
 			const pullRequest = pullRequestModel;
 			const timelineEvents = cachedTimelineEvents;
 			const dataLoadDuration = performance.now() - updateStart;
@@ -631,6 +657,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				closingIssuesPromise,
 				this.getInitialStack(pullRequest),
 			]);
+			if (isStale()) {
+				return;
+			}
 			const contextDuration = performance.now() - contextStart;
 			this._canUpdateStackAccess = baseContext.hasWritePermission;
 			// Reloading the pull request keeps the recommendation that is shown, so that the page does not move,
@@ -810,7 +839,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+			if (!isStale()) {
+				vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+			}
 		}
 	}
 
