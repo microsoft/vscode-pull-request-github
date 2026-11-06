@@ -2882,8 +2882,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 }
 
-export async function isCopilotOnMyBehalf(pullRequestModel: PullRequestModel, currentUser: IAccount, coAuthors?: IAccount[]): Promise<boolean> {
-	if (!COPILOT_ACCOUNTS[pullRequestModel.author.login]) {
+export async function isCopilotOnMyBehalf(pullRequestModel: PullRequestModel, currentUser: IAccount | undefined, coAuthors?: IAccount[]): Promise<boolean> {
+	if (!currentUser || !pullRequestModel.author || !COPILOT_ACCOUNTS[pullRequestModel.author.login]) {
 		return false;
 	}
 

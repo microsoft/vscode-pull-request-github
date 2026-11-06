@@ -400,5 +400,17 @@ describe('Active pull request stack changes', function () {
 			assert.match(confirm.firstCall.args[0], /Rebase and push 3 pull requests in this stack\?/);
 			assert(reply.calledOnceWithExactly(message, { updatedPullRequests: [] }));
 		});
+
+		it('handles undefined currentUser gracefully without throwing TypeError (#8187)', async function () {
+			(folderManager.getCurrentUser as SinonStub).resolves(undefined);
+			await provider.updatePullRequest(model);
+			await settleUpdates();
+
+			const initialize = provider.messages.find(message => message.command === 'pr.initialize');
+			assert(initialize);
+			assert.strictEqual(initialize?.pullrequest?.isAuthor, false);
+			assert.strictEqual(initialize?.pullrequest?.currentUserReviewState, undefined);
+			assert.strictEqual(initialize?.pullrequest?.isCopilotOnMyBehalf, false);
+		});
 	});
 });
