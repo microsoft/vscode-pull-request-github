@@ -682,7 +682,8 @@ export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
 	CheckoutPullRequest = '/checkout-pull-request',
-	OpenPullRequestChanges = '/open-pull-request-changes'
+	OpenPullRequestChanges = '/open-pull-request-changes',
+	CommentOnMarkdownPreview = '/comment-on-markdown-preview'
 }
 
 export interface OpenIssueWebviewUriParams {

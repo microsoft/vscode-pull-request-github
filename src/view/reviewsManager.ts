@@ -25,6 +25,11 @@ import { NotificationsManager } from '../notifications/notificationsManager';
 
 export class ReviewsManager extends Disposable {
 	public static ID = 'Reviews';
+	private readonly _onDidChangeCommentThreads = this._register(new vscode.EventEmitter<void>());
+	/**
+	 * Fires when the comment threads of any review manager's checked out pull request change.
+	 */
+	public readonly onDidChangeCommentThreads = this._onDidChangeCommentThreads.event;
 
 	constructor(
 		private _context: vscode.ExtensionContext,
@@ -45,6 +50,11 @@ export class ReviewsManager extends Disposable {
 		this._register(vscode.workspace.registerFileSystemProvider(Schemes.Review, gitContentProvider, { isReadonly: true }));
 		this.registerListeners();
 		this._register(this._prsTreeDataProvider);
+		this._reviewManagers.forEach(reviewManager => this.listenToCommentThreads(reviewManager));
+	}
+
+	private listenToCommentThreads(reviewManager: ReviewManager): void {
+		this._register(reviewManager.onDidChangeCommentThreads(() => this._onDidChangeCommentThreads.fire()));
 	}
 
 	get reviewManagers(): ReviewManager[] {
@@ -106,6 +116,7 @@ export class ReviewsManager extends Disposable {
 	}
 
 	public addReviewManager(reviewManager: ReviewManager) {
+		this.listenToCommentThreads(reviewManager);
 		// Try to insert in workspace folder order
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
