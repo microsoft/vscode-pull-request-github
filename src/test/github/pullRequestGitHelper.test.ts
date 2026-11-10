@@ -69,26 +69,7 @@ describe('PullRequestGitHelper', function () {
 
 	describe('fetchAndCheckout', function () {
 		it('creates a unique branch when local branch exists with different commit to preserve user work', async function () {
-			const url = 'git@github.com:owner/name.git';
-			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
-
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const { remote, pullRequest } = createPullRequest();
 
 			// Setup: local branch exists with different commit than remote
 			await repository.createBranch('my-branch', false, 'local-commit-hash');
@@ -114,26 +95,7 @@ describe('PullRequestGitHelper', function () {
 		});
 
 		it('checks out and pulls an existing branch that is only behind the PR head', async function () {
-			const url = 'git@github.com:owner/name.git';
-			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
-
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const { remote, pullRequest } = createPullRequest();
 
 			await repository.createBranch('my-branch', false, 'local-commit-hash');
 			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
@@ -154,26 +116,7 @@ describe('PullRequestGitHelper', function () {
 		});
 
 		it('pulls an already checked out branch that is only behind the PR head', async function () {
-			const url = 'git@github.com:owner/name.git';
-			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
-
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const { remote, pullRequest } = createPullRequest();
 
 			await repository.createBranch('my-branch', true, 'local-commit-hash');
 			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
@@ -194,26 +137,7 @@ describe('PullRequestGitHelper', function () {
 		});
 
 		it('creates a unique branch when the behind PR branch is checked out in another worktree', async function () {
-			const url = 'git@github.com:owner/name.git';
-			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
-
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const { remote, pullRequest } = createPullRequest();
 
 			await repository.createBranch('my-branch', false, 'local-commit-hash');
 			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
@@ -241,26 +165,7 @@ describe('PullRequestGitHelper', function () {
 		});
 
 		it('creates a unique branch even when currently checked out on conflicting local branch', async function () {
-			const url = 'git@github.com:owner/name.git';
-			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
-
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const { remote, pullRequest } = createPullRequest();
 
 			// Setup: local branch exists with different commit than remote AND is currently checked out
 			await repository.createBranch('my-branch', true, 'local-commit-hash'); // checkout = true
