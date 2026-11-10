@@ -44,6 +44,29 @@ describe('PullRequestGitHelper', function () {
 		sinon.restore();
 	});
 
+	function createPullRequest() {
+		const url = 'git@github.com:owner/name.git';
+		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+		const prItem = convertRESTPullRequestToRawPullRequest(
+			new PullRequestBuilder()
+				.number(100)
+				.user(u => u.login('me'))
+				.base(b => {
+					(b.repo)(r => (<RepositoryBuilder>r).clone_url(url));
+				})
+				.head(h => {
+					h.repo(r => (<RepositoryBuilder>r).clone_url(url));
+					h.ref('my-branch');
+				})
+				.build(),
+			gitHubRepository,
+		);
+
+		return { remote, pullRequest: new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem) };
+	}
+
 	describe('fetchAndCheckout', function () {
 		it('creates a unique branch when local branch exists with different commit to preserve user work', async function () {
 			const url = 'git@github.com:owner/name.git';
@@ -260,6 +283,137 @@ describe('PullRequestGitHelper', function () {
 			const uniqueBranch = await repository.getBranch('pr/me/100');
 			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
 			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
+		});
+
+		it('creates a unique branch when the up-to-date PR branch is checked out in another worktree', async function () {
+			const { remote, pullRequest } = createPullRequest();
+
+			await repository.createBranch('my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.setBranchUpstream('my-branch', 'refs/remotes/origin/my-branch');
+			await repository.createBranch('main', true, 'main-commit-hash');
+			repository.setWorktrees([{
+				name: 'my-branch-worktree',
+				path: '/repo-worktrees/my-branch',
+				ref: 'refs/heads/my-branch',
+				main: false,
+				detached: false,
+			}]);
+
+			repository.expectFetch('origin', 'my-branch');
+			const checkout = sinon.spy(repository, 'checkout');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+
+			assert.strictEqual(checkout.calledWith('my-branch'), false, 'Should not check out a branch used by another worktree');
+			const uniqueBranch = await repository.getBranch('pr/me/100');
+			assert.strictEqual(uniqueBranch.commit, 'remote-commit-hash', 'Unique branch should have remote commit');
+			assert.strictEqual(uniqueBranch.upstream?.name, 'my-branch', 'Unique branch should track the PR head');
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
+			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
+		});
+
+		it('creates a unique branch when the PR branch is checked out in the main worktree', async function () {
+			const { remote, pullRequest } = createPullRequest();
+
+			await repository.createBranch('my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('linked-branch', true, 'linked-commit-hash');
+			repository.setWorktrees([{
+				name: 'repo',
+				path: '/repo',
+				ref: 'refs/heads/my-branch',
+				main: true,
+				detached: false,
+			}]);
+
+			repository.expectFetch('origin', 'my-branch');
+
+			await PullRequestGitHelper.fetchAndCheckout(repository, [remote], pullRequest, { report: () => undefined });
+
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the unique branch');
+		});
+	});
+
+	describe('checkoutExistingPullRequestBranch', function () {
+		it('does not check out an associated branch that is checked out in another worktree', async function () {
+			const { pullRequest } = createPullRequest();
+
+			await repository.createBranch('my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('main', true, 'main-commit-hash');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, 'my-branch');
+			repository.setWorktrees([{
+				name: 'my-branch-worktree',
+				path: '/repo-worktrees/my-branch',
+				ref: 'refs/heads/my-branch',
+				main: false,
+				detached: false,
+			}]);
+			const checkout = sinon.spy(repository, 'checkout');
+
+			const result = await PullRequestGitHelper.checkoutExistingPullRequestBranch(repository, pullRequest, { report: () => undefined });
+
+			assert.strictEqual(result, false, 'Should fall back to fetchAndCheckout');
+			assert.strictEqual(checkout.called, false, 'Should not check out a branch used by another worktree');
+			assert.strictEqual(repository.state.HEAD?.name, 'main');
+		});
+
+		it('checks out another associated branch when the first is checked out in another worktree', async function () {
+			const { pullRequest } = createPullRequest();
+
+			await repository.createBranch('my-branch', false, 'remote-commit-hash');
+			await repository.createBranch('pr/me/100', false, 'remote-commit-hash');
+			await repository.createBranch('refs/remotes/origin/my-branch', false, 'remote-commit-hash');
+			await repository.setBranchUpstream('pr/me/100', 'refs/remotes/origin/my-branch');
+			await repository.createBranch('main', true, 'main-commit-hash');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, 'my-branch');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, 'pr/me/100');
+			await repository.setConfig('branch.pr/me/100.remote', 'origin');
+			await repository.setConfig('branch.pr/me/100.merge', 'refs/heads/my-branch');
+			repository.setWorktrees([{
+				name: 'my-branch-worktree',
+				path: '/repo-worktrees/my-branch',
+				ref: 'refs/heads/my-branch',
+				main: false,
+				detached: false,
+			}]);
+			// Only called when the "pull branch before checkout" setting is on (the default)
+			repository.expectFetch('origin', 'refs/heads/my-branch');
+
+			const result = await PullRequestGitHelper.checkoutExistingPullRequestBranch(repository, pullRequest, { report: () => undefined });
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(repository.state.HEAD?.name, 'pr/me/100', 'Should check out the branch not used by another worktree');
+		});
+	});
+
+	describe('isBranchCheckedOutInAnotherWorktree', function () {
+		it('is false when there are no worktrees', function () {
+			assert.strictEqual(PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, 'my-branch'), false);
+		});
+
+		it('is false when the branch is checked out in this repository', async function () {
+			await repository.createBranch('my-branch', true, 'commit-hash');
+			repository.setWorktrees([{ name: 'repo', path: '/repo', ref: 'refs/heads/my-branch', main: true, detached: false }]);
+			assert.strictEqual(PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, 'my-branch'), false);
+		});
+
+		it('is false for detached worktrees and other branches', async function () {
+			await repository.createBranch('main', true, 'commit-hash');
+			repository.setWorktrees([
+				{ name: 'detached', path: '/wt/detached', ref: 'my-branch', main: false, detached: true },
+				{ name: 'other', path: '/wt/other', ref: 'refs/heads/other-branch', main: false, detached: false },
+			]);
+			assert.strictEqual(PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, 'my-branch'), false);
+		});
+
+		it('is true when another linked or main worktree has the branch checked out', async function () {
+			await repository.createBranch('main', true, 'commit-hash');
+			repository.setWorktrees([{ name: 'wt', path: '/wt/my-branch', ref: 'refs/heads/my-branch', main: false, detached: false }]);
+			assert.strictEqual(PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, 'my-branch'), true);
+
+			repository.setWorktrees([{ name: 'repo', path: '/repo', ref: 'refs/heads/my-branch', main: true, detached: false }]);
+			assert.strictEqual(PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, 'my-branch'), true);
 		});
 	});
 
