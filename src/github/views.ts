@@ -98,6 +98,8 @@ export interface PullRequest extends Issue {
 	stackMergeStatus?: 'pending' | 'enqueued';
 	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
+	/** Whether the overview is shown in the agents window, where pull requests are not checked out. */
+	isAgentSessionsWorkspace?: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
