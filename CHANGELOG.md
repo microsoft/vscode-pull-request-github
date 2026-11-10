@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.178.0
+
+### Changes
+
+- "Changes since last review" no longer includes changes from merge commits, matching GitHub's web view.
+- Branch names in the pull request overview header are shorter: the owner is only shown for pull requests from forks, and the repository name is only shown in workspaces with multiple GitHub repositories.
+
+### Fixes
+
+- Headings, lists, and inline code in pull request descriptions and comments don't match GitHub's markdown styles. https://github.com/microsoft/vscode-pull-request-github/pull/9171
+- Opening all changes of a pull request fails for repositories that aren't open in the workspace. https://github.com/microsoft/vscode-pull-request-github/pull/9163
+- The branch deletion dialog after merging makes "Delete All" look like it deletes the repository, and deleting both branches without "Delete All" takes two trips through the dialog. https://github.com/microsoft/vscode-pull-request-github/issues/9060
+- There's no guidance when a repository can't be accessed because the workspace uses the wrong one of multiple signed-in GitHub accounts. https://github.com/microsoft/vscode-pull-request-github/issues/7745
+
 ## 0.176.1
 
 ### Fixes
