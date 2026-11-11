@@ -31,8 +31,11 @@ const useMediaQuery = (query: string) => {
 	return matches;
 };
 
+// Keep in sync with the single column media query in index.css
+export const singleColumnLayoutQuery = '(max-width: 1000px)';
+
 export const Overview = (pr: PullRequest) => {
-	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	const isSingleColumnLayout = useMediaQuery(singleColumnLayoutQuery);
 	const titleRef = React.useRef<HTMLDivElement>(null);
 	const isStuck = useStickyHeader(titleRef);
 
@@ -44,35 +47,25 @@ export const Overview = (pr: PullRequest) => {
 				<Header {...pr} />
 			</div>
 		</div>
-		{isSingleColumnLayout ?
-			<>
-				<CollapsibleSidebar {...pr}/>
-				<Main {...pr} />
-			</>
-			:
-			<>
-				<Main {...pr} />
-				<Sidebar {...pr} />
-			</>
-		}
+		{isSingleColumnLayout ? <CollapsibleSidebar {...pr} /> : <Sidebar {...pr} />}
+		<Main {...pr} />
 	</>;
 };
 
 export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
-	const isSingleColumnLayout = useMediaQuery('(max-width: 768px)');
+	const isSingleColumnLayout = useMediaQuery(singleColumnLayoutQuery);
 	return <>
 		<div id="title" className="title">
 			<div className="details">
 				<HeaderPreview {...preview} />
 			</div>
 		</div>
-		{isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout isIssue={preview.isIssue === true} /> : null}
+		<SidebarPreview isSingleColumnLayout={isSingleColumnLayout} isIssue={preview.isIssue === true} />
 		<div id="main">
 			<div id="description">
 				<CommentPreview {...preview} />
 			</div>
 		</div>
-		{!isSingleColumnLayout ? <SidebarPreview isSingleColumnLayout={false} isIssue={preview.isIssue === true} /> : null}
 	</>;
 };
 

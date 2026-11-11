@@ -2095,7 +2095,46 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 768px) {
+/*
+ * While the main column is narrower than its maximum width, let the timeline use the full width once it is below the sidebar.
+ * The lower bound must match singleColumnLayoutQuery in overview.tsx, and the upper bound must match the body max-width.
+ */
+@media (1000px < width <= 1280px) {
+	#app {
+		display: flow-root;
+	}
+
+	/* The sidebar is before #main in the DOM so that the timeline can flow around it. */
+	#sidebar {
+		float: right;
+		width: 300px;
+		margin: 0 0 16px 32px;
+	}
+
+	#main {
+		display: block;
+	}
+
+	/* Each item establishes its own formatting context so that it narrows next to the sidebar instead of going under it. */
+	#main > * {
+		width: auto;
+	}
+
+	#main > :not(.comment-container) {
+		display: flow-root;
+	}
+
+	#main > * + * {
+		margin-top: 16px;
+	}
+
+	.review-comment-container {
+		max-width: none;
+	}
+}
+
+/* Keep in sync with singleColumnLayoutQuery in overview.tsx */
+@media (max-width: 1000px) {
 	.title {
 		border-bottom: none;
 		padding-bottom: 0px;

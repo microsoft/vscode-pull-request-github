@@ -15,7 +15,7 @@ import { IssuePreview, PullRequestPreview } from '../../../src/github/views';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { vscode } from '../../common/message';
 import { Root } from '../app';
-import { Overview, OverviewPreview } from '../overview';
+import { Overview, OverviewPreview, singleColumnLayoutQuery } from '../overview';
 
 describe('Root', function () {
 	let sinon: SinonSandbox;
@@ -167,7 +167,7 @@ describe('Root', function () {
 	});
 
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
-		const media = window.matchMedia('(max-width: 768px)');
+		const media = window.matchMedia(singleColumnLayoutQuery);
 		sinon.stub(window, 'matchMedia').returns({ ...media, matches: true, addEventListener() { }, removeEventListener() { } });
 		const out = render(<OverviewPreview {...new PullRequestBuilder().build()} />);
 		assert(out.container.querySelector('.collapsible-sidebar'));
