@@ -84,6 +84,22 @@ const OverviewTabs = (pr: PullRequest) => {
 		};
 	}, []);
 
+	React.useEffect(() => {
+		// VS Code scrolls to the target of a link within the page after the page handles the click, but cannot scroll to
+		// one in a hidden tab, such as the stack that the header's stack badge links to. Updating state outside of React's
+		// event handlers renders synchronously, so the tab is shown before VS Code scrolls.
+		const revealLinkTarget = (event: MouseEvent) => {
+			const href = event.target instanceof Element ? event.target.closest('a[href^="#"]')?.getAttribute('href') : undefined;
+			const panel = href ? document.getElementById(href.slice(1))?.closest<HTMLElement>('[role="tabpanel"]') : undefined;
+			const tab = panel?.hidden ? overviewTabs.find(({ id }) => panel.id === `overview-panel-${id}`) : undefined;
+			if (tab) {
+				setSelected(tab.id);
+			}
+		};
+		document.addEventListener('click', revealLinkTarget, true);
+		return () => document.removeEventListener('click', revealLinkTarget, true);
+	}, []);
+
 	const onKeyDown = (event: React.KeyboardEvent, index: number) => {
 		const targets: Record<string, number> = {
 			ArrowLeft: index - 1,

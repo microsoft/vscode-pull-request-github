@@ -1392,8 +1392,7 @@ describe('Overview', function () {
 	});
 
 	describe('agents window tabs', function () {
-		function renderAgentsOverview() {
-			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build();
+		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build()) {
 			const context = new PRContext(pr);
 			const out = render(
 				<PullRequestContext.Provider value={context}>
@@ -1451,6 +1450,40 @@ describe('Overview', function () {
 			assert.strictEqual(selectedTab(), 'Timeline');
 			assert(scrollIntoView.calledOn(textarea));
 			assert.strictEqual(document.activeElement, textarea);
+		});
+
+		it('shows the stack from the header badge before the link scrolls to it', function () {
+			const { out, tabs, selectedTab } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).number(794).stack({
+				position: 2,
+				size: 2,
+				base: 'main',
+				pullRequests: [
+					{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			}).build());
+			const stack = out.container.querySelector('#pull-request-stack')!;
+
+			for (const tab of [tabs[1], tabs[2]]) {
+				fireEvent.click(tab);
+				assert(stack.closest('[hidden]'));
+
+				// VS Code scrolls to the target of a link within the page in a click listener on the window.
+				let stackVisibleWhenScrolled: boolean | undefined;
+				const scrollToTarget = () => {
+					stackVisibleWhenScrolled = !stack.closest('[hidden]');
+				};
+				window.addEventListener('click', scrollToTarget);
+				try {
+					// Unlike fireEvent, a user's click is not wrapped in act(), which would only render after the click.
+					out.container.querySelector('.stack-badge')!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+				} finally {
+					window.removeEventListener('click', scrollToTarget);
+				}
+
+				assert.strictEqual(selectedTab(), 'Checks/Merge', `from ${tab.textContent}`);
+				assert.strictEqual(stackVisibleWhenScrolled, true, `from ${tab.textContent}`);
+			}
 		});
 	});
 
