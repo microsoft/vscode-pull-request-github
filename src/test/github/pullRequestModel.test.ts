@@ -17,6 +17,8 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { getGitHubCommitFileSystemProvider } from '../../view/githubFileContentProvider';
 import { InMemPRFileSystemProvider } from '../../view/inMemPRContentProvider';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 import { getStackMergeAllTarget, GithubItemStateEnum, isStackMergeable, isStackUpdatable, MergeMethod, MergeQueueState, PullRequestStack, PullRequestMergeability } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
@@ -1535,7 +1537,7 @@ describe('PullRequestModel', function () {
 		});
 	});
 
-	describe('openChanges', function () {
+	describe('openChanges and openDiff', function () {
 		const reviewedCommit = '4444444444444444444444444444444444444444';
 		const headCommit = '5555555555555555555555555555555555555555';
 		let repositoriesManager: RepositoriesManager;
@@ -1595,6 +1597,79 @@ describe('PullRequestModel', function () {
 				[`${reviewedCommit}:/old.ts`, `${headCommit}:/new.ts`],
 				[`${oldPointer}\n`, `${newPointer}\n`],
 			]);
+		});
+
+		it('opens a single file diff from GitHub when the pull request repository is not open', async function () {
+			const pr = new PullRequestBuilder().head(head => head.sha(headCommit)).build();
+			const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+			sinon.stub(CredentialStore.prototype, 'isAnyAuthenticated').returns(true);
+			sinon.stub(repo, 'getFile').callsFake(async (filePath: string, ref: string) => new TextEncoder().encode(`${ref}:${filePath}`));
+			const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+			const gitHubCommitFileSystemProvider = getGitHubCommitFileSystemProvider({ reposManager: repositoriesManager, gitAPI, credentialStore: credentials })!;
+			const change = new SlimFileChange(reviewedCommit, '', GitChangeType.RENAME, 'src/new.ts', 'src/old.ts');
+
+			await PullRequestModel.openDiff(resolver.getRemoteOnlyManager(), model, change, 'new.ts', 3);
+
+			const [command, baseUri, headUri, title, options] = executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.diff');
+			assert.strictEqual(title, 'new.ts (Pull Request)');
+			assert.deepStrictEqual(options, { selection: { start: { line: 3, character: 0 }, end: { line: 3, character: 0 } } });
+			const read = async (uri: vscode.Uri) => new TextDecoder().decode(await gitHubCommitFileSystemProvider.readFile(uri));
+			assert.deepStrictEqual([await read(baseUri), await read(headUri)], [`${reviewedCommit}:/src/old.ts`, `${headCommit}:/src/new.ts`]);
+		});
+
+		describe('with an open repository', function () {
+			let localManager: FolderRepositoryManager;
+			let localRepositories: MockGitHubRepository[];
+
+			beforeEach(function () {
+				localManager = new FolderRepositoryManager(0, context, new MockRepository(), telemetry, gitAPI, credentials, new CreatePullRequestHelper(), new MockThemeWatcher());
+				localRepositories = [];
+			});
+
+			afterEach(function () {
+				localRepositories.forEach(repository => repository.dispose());
+				localManager.dispose();
+			});
+
+			function addLocalRepository(remoteName: string) {
+				const repository = new MockGitHubRepository(new GitHubRemote(remoteName, 'github/test', protocol, GitHubServerType.GitHubDotCom), credentials, telemetry, sinon);
+				localRepositories.push(repository);
+				localManager.gitHubRepositories.push(repository);
+			}
+
+			async function openDiff(): Promise<vscode.Uri[]> {
+				const pr = new PullRequestBuilder().head(head => head.sha(headCommit)).build();
+				const model = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+				const executeCommand = sinon.stub(vscode.commands, 'executeCommand').resolves();
+				await PullRequestModel.openDiff(localManager, model, new SlimFileChange(reviewedCommit, '', GitChangeType.MODIFY, 'src/file.ts', undefined), 'file.ts');
+				const [, baseUri, headUri] = executeCommand.firstCall.args;
+				return [baseUri, headUri];
+			}
+
+			it('opens a single file diff from GitHub when the repository has the pull request remote under another name', async function () {
+				// An overview opened before the repository was, such as in the agents window, keeps a pull request from the remote-only manager.
+				addLocalRepository('origin');
+				sinon.stub(CredentialStore.prototype, 'isAnyAuthenticated').returns(true);
+				sinon.stub(repo, 'getFile').callsFake(async (filePath: string, ref: string) => new TextEncoder().encode(`${ref}:${filePath}`));
+				const gitHubCommitFileSystemProvider = getGitHubCommitFileSystemProvider({ reposManager: repositoriesManager, gitAPI, credentialStore: credentials })!;
+
+				const uris = await openDiff();
+
+				const contents: string[] = [];
+				for (const uri of uris) {
+					contents.push(new TextDecoder().decode(await gitHubCommitFileSystemProvider.readFile(uri)));
+				}
+				assert.deepStrictEqual(contents, [`${reviewedCommit}:/src/file.ts`, `${headCommit}:/src/file.ts`]);
+			});
+
+			it('keeps opening pull request documents when the repository has the pull request remote', async function () {
+				addLocalRepository(remote.remoteName);
+
+				const uris = await openDiff();
+
+				assert.deepStrictEqual(uris.map(uri => uri.scheme), [Schemes.Pr, Schemes.Pr]);
+			});
 		});
 	});
 

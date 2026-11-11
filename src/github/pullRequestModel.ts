@@ -1843,17 +1843,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, openToTheSide?: boolean): Promise<void> {
 		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-		if (folderManager.repository instanceof RemoteOnlyRepository) {
-			// `pr:` documents can only be resolved through a workspace repository, so read the files from GitHub instead.
-			const headCommit = pullRequestModel.head?.sha;
-			if (!headCommit) {
-				throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
-			}
-			const fileSystemProvider = getGitHubCommitFileSystemProvider();
-			if (!fileSystemProvider) {
-				throw new Error('GitHub commit file system provider is not initialized.');
-			}
-			fileSystemProvider.registerGitHubRepository(pullRequestModel.githubRepository);
+		if (!this.canResolvePRUris(folderManager, pullRequestModel)) {
+			const headCommit = this.prepareGitHubCommitDiff(pullRequestModel);
 			for (const changeModel of changeModels) {
 				// Submodule `pr:` URIs carry their content, so they don't need a repository.
 				args.push(changeModel.submoduleChange
@@ -1951,11 +1942,43 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private static toGitHubCommitMultiDiffEntry(githubRepository: GitHubRepository, change: InMemFileChange | SlimFileChange, baseCommit: string, headCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
+	/**
+	 * `pr:` documents are resolved through the workspace repository that has the pull request's remote.
+	 * A pull request resolved through another manager, such as an overview that started before the
+	 * repository was open, can have a remote that the workspace repository doesn't know.
+	 */
+	private static canResolvePRUris(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): boolean {
+		return !(folderManager.repository instanceof RemoteOnlyRepository)
+			&& !!folderManager.findRepo(repo => repo.equals(pullRequestModel.githubRepository));
+	}
+
+	/**
+	 * Prepares to read the pull request's files from GitHub when `pr:` documents can't be resolved.
+	 * @returns The pull request head commit.
+	 */
+	private static prepareGitHubCommitDiff(pullRequestModel: PullRequestModel): string {
+		const headCommit = pullRequestModel.head?.sha;
+		if (!headCommit) {
+			throw new Error(`Pull request #${pullRequestModel.number} has no head commit.`);
+		}
+		const fileSystemProvider = getGitHubCommitFileSystemProvider();
+		if (!fileSystemProvider) {
+			throw new Error('GitHub commit file system provider is not initialized.');
+		}
+		fileSystemProvider.registerGitHubRepository(pullRequestModel.githubRepository);
+		return headCommit;
+	}
+
+	private static toGitHubCommitUris(githubRepository: GitHubRepository, change: InMemFileChange | SlimFileChange, baseCommit: string, headCommit: string): { leftUri: vscode.Uri, rightUri: vscode.Uri } {
 		const { owner, repositoryName: repo } = githubRepository.remote;
 		const rightUri = toGitHubCommitUri(change.fileName, { commit: headCommit, owner, repo });
 		const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName ?? change.fileName : change.fileName;
 		const leftUri = toGitHubCommitUri(parentFileName, { commit: baseCommit, owner, repo });
+		return { leftUri, rightUri };
+	}
+
+	private static toGitHubCommitMultiDiffEntry(githubRepository: GitHubRepository, change: InMemFileChange | SlimFileChange, baseCommit: string, headCommit: string): [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined] {
+		const { leftUri, rightUri } = this.toGitHubCommitUris(githubRepository, change, baseCommit, headCommit);
 		if (change.status === GitChangeType.ADD) {
 			return [rightUri, undefined, rightUri];
 		} else if (change.status === GitChangeType.DELETE) {
@@ -2077,7 +2100,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		line?: number
 	): Promise<void> {
 		let headUri, baseUri: vscode.Uri;
-		if ((change instanceof InMemFileChange && change.submoduleChange) || !pullRequestModel.equals(folderManager.activePullRequest)) {
+		const isSubmoduleChange = change instanceof InMemFileChange && !!change.submoduleChange;
+		const isActivePullRequest = !isSubmoduleChange && pullRequestModel.equals(folderManager.activePullRequest);
+		if (!isSubmoduleChange && !isActivePullRequest && !this.canResolvePRUris(folderManager, pullRequestModel)) {
+			// Added and deleted files are read as empty on the side where they don't exist.
+			const headCommit = this.prepareGitHubCommitDiff(pullRequestModel);
+			({ leftUri: baseUri, rightUri: headUri } = this.toGitHubCommitUris(pullRequestModel.githubRepository, change, change.baseCommit, headCommit));
+		} else if (!isActivePullRequest) {
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			headUri = toPRUri(
