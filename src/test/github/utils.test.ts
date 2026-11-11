@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType, isITeam, reviewerLabel } from '../../github/interface';
-import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, parseGraphQLIssue, parseGraphQLComment, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -433,6 +433,35 @@ describe('utils', () => {
 			assert.strictEqual(events[2].event, EventType.Reviewed);
 			assert.strictEqual(events[3].event, EventType.NewCommitsSinceReview);
 			assert.strictEqual((events[4] as CommitEvent).sha, HEAD_SHA);
+		});
+	});
+
+	describe('parseGraphQLComment', () => {
+		it('handles review comment with null commit gracefully without throwing (#9159)', () => {
+			const githubRepository = {} as any;
+			const comment = {
+				id: 'comment-node-id',
+				databaseId: 123456,
+				url: 'https://github.com/llvm/llvm-project/pull/171234#discussion_r2600682231',
+				body: 'Review comment on a rebased/detached commit',
+				bodyHTML: '<p>Review comment on a rebased/detached commit</p>',
+				path: 'src/main.cpp',
+				diffHunk: '@@ -1,5 +1,5 @@',
+				position: 10,
+				originalPosition: 10,
+				commit: null,
+				originalCommit: { oid: 'orig1234567890' },
+				author: null,
+				createdAt: '2026-11-04T16:06:57Z',
+				viewerCanDelete: false,
+				viewerCanUpdate: false,
+				reactionGroups: [],
+			} as any;
+
+			const parsed = parseGraphQLComment(comment, false, false, githubRepository);
+			assert.strictEqual(parsed.id, 123456);
+			assert.strictEqual(parsed.commitId, undefined);
+			assert.strictEqual(parsed.originalCommitId, 'orig1234567890');
 		});
 	});
 });
