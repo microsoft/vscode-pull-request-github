@@ -266,12 +266,12 @@ export interface ReviewComment {
 	pullRequestReview: {
 		databaseId: number;
 	};
-	commit: {
+	commit?: {
 		oid: string;
-	};
-	originalCommit: {
+	} | null;
+	originalCommit?: {
 		oid: string;
-	};
+	} | null;
 	createdAt: string;
 	replyTo: {
 		databaseId: number;
