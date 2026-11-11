@@ -100,6 +100,8 @@ export interface PullRequest extends Issue {
 	isCopilotOnMyBehalf: boolean;
 	/** Whether the overview is shown in the agents window, where pull requests are not checked out. */
 	isAgentSessionsWorkspace?: boolean;
+	/** Whether the experimental agents overview tabs setting is on. The tabs are only shown in the agents window. */
+	agentsOverviewTabs?: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;

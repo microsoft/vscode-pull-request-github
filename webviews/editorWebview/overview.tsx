@@ -6,6 +6,8 @@
 import * as React from 'react';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
+import { REVEAL_TIMELINE_EVENT } from '../common/constants';
+import emitter from '../common/events';
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
 import { StatusChecksSection } from '../components/merge';
@@ -47,9 +49,88 @@ export const Overview = (pr: PullRequest) => {
 				<Header {...pr} />
 			</div>
 		</div>
-		{isSingleColumnLayout ? <CollapsibleSidebar {...pr} /> : <Sidebar {...pr} />}
-		<Main {...pr} />
+		{pr.isAgentSessionsWorkspace && pr.agentsOverviewTabs ?
+			<OverviewTabs {...pr} />
+			:
+			<>
+				{isSingleColumnLayout ? <CollapsibleSidebar {...pr} /> : <Sidebar {...pr} />}
+				<Main pr={pr} showStatusChecks />
+			</>
+		}
 	</>;
+};
+
+const overviewTabs = [
+	{ id: 'checks', label: 'Checks/Merge' },
+	{ id: 'timeline', label: 'Timeline' },
+	{ id: 'metadata', label: 'Metadata' },
+] as const;
+
+type OverviewTabId = typeof overviewTabs[number]['id'];
+
+/**
+ * Pull requests in the agents window are there to be reviewed and merged, so with the experimental setting on, the
+ * overview is split into tabs that start with merging and checks.
+ */
+const OverviewTabs = (pr: PullRequest) => {
+	const [selected, setSelected] = React.useState<OverviewTabId>('checks');
+	const tabs = React.useRef<HTMLButtonElement[]>([]);
+
+	React.useEffect(() => {
+		const revealTimeline = () => setSelected('timeline');
+		emitter.addListener(REVEAL_TIMELINE_EVENT, revealTimeline);
+		return () => {
+			emitter.removeListener(REVEAL_TIMELINE_EVENT, revealTimeline);
+		};
+	}, []);
+
+	const onKeyDown = (event: React.KeyboardEvent, index: number) => {
+		const targets: Record<string, number> = {
+			ArrowLeft: index - 1,
+			ArrowRight: index + 1,
+			Home: 0,
+			End: overviewTabs.length - 1,
+		};
+		const target = targets[event.key];
+		if (target === undefined) {
+			return;
+		}
+		event.preventDefault();
+		const next = (target + overviewTabs.length) % overviewTabs.length;
+		setSelected(overviewTabs[next].id);
+		tabs.current[next].focus();
+	};
+
+	// Hidden panels stay rendered so that they keep their state, such as an unfinished merge.
+	const panel = (id: OverviewTabId, content: JSX.Element) =>
+		<div role="tabpanel" id={`overview-panel-${id}`} aria-labelledby={`overview-tab-${id}`} hidden={selected !== id}>
+			{content}
+		</div>;
+
+	return <div id="overview-tabs">
+		<div role="tablist" aria-label="Pull request overview" className="overview-tab-list">
+			{overviewTabs.map((tab, index) =>
+				<button
+					key={tab.id}
+					ref={element => { tabs.current[index] = element; }}
+					id={`overview-tab-${tab.id}`}
+					className="overview-tab"
+					type="button"
+					role="tab"
+					aria-selected={selected === tab.id}
+					aria-controls={`overview-panel-${tab.id}`}
+					tabIndex={selected === tab.id ? 0 : -1}
+					onClick={() => setSelected(tab.id)}
+					onKeyDown={event => onKeyDown(event, index)}
+				>
+					{tab.label}
+				</button>
+			)}
+		</div>
+		{panel('checks', <StatusChecksSection pr={pr} isSimple={false} />)}
+		{panel('timeline', <Main pr={pr} showStatusChecks={false} />)}
+		{panel('metadata', <Sidebar {...pr} />)}
+	</div>;
 };
 
 export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
@@ -69,13 +150,13 @@ export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
 	</>;
 };
 
-const Main = (pr: PullRequest) => (
+const Main = ({ pr, showStatusChecks }: { pr: PullRequest; showStatusChecks: boolean }) => (
 	<div id="main">
 		<div id="description">
 			<CommentView isPRDescription comment={pr} />
 		</div>
 		<Timeline events={pr.events} isIssue={pr.isIssue} />
-		<StatusChecksSection pr={pr} isSimple={false} />
+		{showStatusChecks ? <StatusChecksSection pr={pr} isSimple={false} /> : null}
 		<AddComment {...pr} />
 	</div>
 );

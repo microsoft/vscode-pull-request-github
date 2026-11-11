@@ -41,6 +41,67 @@ html {
 	grid-row: 1;
 }
 
+/* In the agents window, the overview is split into tabs below the title. */
+#overview-tabs {
+	grid-column: 1 / 3;
+	grid-row: 3;
+	min-width: 0;
+}
+
+/* The tab list takes the place of the line below the title. */
+.title:has(+ #overview-tabs) {
+	margin-bottom: 12px;
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
+.overview-tab-list {
+	display: flex;
+	gap: 20px;
+	margin-bottom: 24px;
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+#overview-tabs .overview-tab {
+	margin-bottom: -1px;
+	padding: 6px 2px;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: none;
+	color: var(--vscode-panelTitle-inactiveForeground);
+}
+
+#overview-tabs .overview-tab:hover,
+#overview-tabs .overview-tab[aria-selected='true'] {
+	color: var(--vscode-panelTitle-activeForeground);
+}
+
+#overview-tabs .overview-tab[aria-selected='true'] {
+	border-bottom-color: var(--vscode-panelTitle-activeBorder);
+}
+
+#overview-tabs .overview-tab:focus {
+	outline: none;
+}
+
+#overview-tabs .overview-tab:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Without the narrow sidebar column, the metadata sections are laid out side by side. */
+#overview-tabs #sidebar {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 24px 32px;
+}
+
+#overview-tabs .section {
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
 #project a {
 	cursor: pointer;
 }
@@ -298,7 +359,6 @@ body .comment-container.review {
 
 .review-comment-container {
 	width: 100%;
-	max-width: 1000px;
 	display: flex;
 	flex-direction: column;
 	position: relative;
@@ -2105,31 +2165,27 @@ code {
 	}
 
 	/* The sidebar is before #main in the DOM so that the timeline can flow around it. */
-	#sidebar {
+	#app > #sidebar {
 		float: right;
 		width: 300px;
 		margin: 0 0 16px 32px;
 	}
 
-	#main {
+	#app > #main {
 		display: block;
 	}
 
 	/* Each item establishes its own formatting context so that it narrows next to the sidebar instead of going under it. */
-	#main > * {
+	#app > #main > * {
 		width: auto;
 	}
 
-	#main > :not(.comment-container) {
+	#app > #main > :not(.comment-container) {
 		display: flow-root;
 	}
 
-	#main > * + * {
+	#app > #main > * + * {
 		margin-top: 16px;
-	}
-
-	.review-comment-container {
-		max-width: none;
 	}
 }
 

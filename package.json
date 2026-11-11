@@ -651,6 +651,14 @@
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
 					"default": false
 				},
+				"githubPullRequests.experimental.agentsOverviewTabs": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.agentsOverviewTabs.description%",
+					"default": false,
+					"tags": [
+						"experimental"
+					]
+				},
 				"githubPullRequests.webviewRefreshInterval": {
 					"type": "number",
 					"markdownDescription": "%githubPullRequests.webviewRefreshInterval.description%",
