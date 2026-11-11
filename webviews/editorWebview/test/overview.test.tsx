@@ -190,6 +190,45 @@ describe('Overview', function () {
 		}
 	});
 
+	it('hangs description task list checkboxes in the list indent, centered on their text', function () {
+		const pr = new PullRequestBuilder().isAuthor(false).bodyHTML(
+			'<ul class="contains-task-list">'
+			+ '<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" checked=""> Tight item</li>'
+			+ '<li class="task-list-item"><p dir="auto"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox"> Loose item</p></li>'
+			+ '</ul>',
+		).build();
+		pr.attestationCommitsEnabled = true;
+		const sharedStyles = document.createElement('style');
+		sharedStyles.textContent = readFileSync(path.resolve('webviews', 'common', 'common.css'), 'utf8');
+		document.head.appendChild(sharedStyles);
+		try {
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			const checkboxes = out.container.querySelectorAll('.comment-body .task-list-item input[type="checkbox"]');
+			assert.strictEqual(checkboxes.length, 2);
+			for (const checkbox of checkboxes) {
+				const style = window.getComputedStyle(checkbox);
+				assert.strictEqual(style.verticalAlign, 'middle');
+				assert.strictEqual(style.getPropertyValue('margin-inline'), '-1.6em 0.2em');
+				assert.strictEqual(style.fontSize, 'inherit', 'em margins follow the surrounding text');
+				assert.strictEqual(style.width, '14px');
+				assert.strictEqual(style.height, '14px');
+				assert.strictEqual(style.position, 'relative', 'the checkmark is positioned on the checkbox itself');
+			}
+
+			const attestationCheckbox = out.container.querySelector('.checkbox-wrapper input[type="checkbox"]');
+			assert(attestationCheckbox);
+			const attestationStyle = window.getComputedStyle(attestationCheckbox);
+			assert.strictEqual(attestationStyle.width, '18px');
+			assert.strictEqual(attestationStyle.getPropertyValue('margin-inline'), '');
+		} finally {
+			sharedStyles.remove();
+		}
+	});
+
 	it('shows and hides the status checks with a caret', function () {
 		const status: PullRequestCheckStatus = {
 			id: 'build', state: CheckState.Success, context: 'Build',
