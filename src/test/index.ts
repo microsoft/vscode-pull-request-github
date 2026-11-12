@@ -7,7 +7,7 @@
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
 import * as vscode from 'vscode';
-import glob from 'glob';
+import * as glob from 'glob';
 import Mocha from 'mocha';
 import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
 import { EXTENSION_ID } from '../constants';
