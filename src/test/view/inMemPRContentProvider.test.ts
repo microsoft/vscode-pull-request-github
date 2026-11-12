@@ -16,7 +16,7 @@ describe('InMemPRFileSystemProvider', function () {
 	it('keeps equal PR numbers in different repositories independent when reading and disposing', async function () {
 		const sandbox = createSandbox();
 		const reposManager = sandbox.createStubInstance(RepositoriesManager);
-		const provider = new InMemPRFileSystemProvider(reposManager, undefined!, undefined!);
+		const provider = new InMemPRFileSystemProvider(reposManager as unknown as RepositoriesManager, undefined!, undefined!);
 		const registrations: vscode.Disposable[] = [];
 		try {
 			const uris = ['repoA', 'repoB'].map(name => {
@@ -31,7 +31,7 @@ describe('InMemPRFileSystemProvider', function () {
 					scheme: 'pr', path: `/work/${name}/Makefile`,
 					query: JSON.stringify({ prNumber: 63, remoteName: 'origin' }),
 				});
-				reposManager.getManagerForFile.withArgs(uri).returns(manager);
+				reposManager.getManagerForFile.withArgs(uri).returns(manager as unknown as FolderRepositoryManager);
 				registrations.push(provider.registerTextDocumentContentProvider(pr, async () => name));
 				return uri;
 			});

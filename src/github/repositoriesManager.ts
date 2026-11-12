@@ -19,7 +19,7 @@ import { GitHubRemote, Remote } from '../common/remote';
 import { GITHUB_ENTERPRISE, URI, URIS } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
+import { fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 
@@ -208,7 +208,6 @@ export class RepositoriesManager extends Disposable {
 		}
 
 		const repoInfo = ((uri.scheme === Schemes.Repo) ? fromRepoUri(uri) : undefined);
-		const prInfo = ((uri.scheme === Schemes.Pr) ? fromPRUri(uri) : undefined);
 
 		// Prioritize longest path first to handle nested workspaces
 		const folderManagers = this._folderManagers
@@ -220,7 +219,7 @@ export class RepositoriesManager extends Disposable {
 
 			if (repoInfo && folderManager.findExistingGitHubRepository({ owner: repoInfo.owner, repositoryName: repoInfo.repo })) {
 				return folderManager;
-			} else if (!prInfo || folderManager.repository.state.remotes.some(remote => remote.name === prInfo.remoteName)) {
+			} else {
 				const testUriRelativePath = uri.path.substring(
 					managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
 				);

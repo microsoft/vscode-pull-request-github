@@ -70,6 +70,9 @@ describe('RepositoriesManager', function () {
 				query: JSON.stringify({ prNumber: 63, remoteName: 'origin' }),
 			});
 			assert.strictEqual(reposManager.getManagerForFile(uri), managers[1]);
+			assert.strictEqual(reposManager.getManagerForFile(uri.with({
+				query: JSON.stringify({ prNumber: 63, remoteName: 'missing' }),
+			})), managers[1]);
 			assert.strictEqual(reposManager.getManagerForFile(uri.with({ path: '/work/repoB-other/Makefile' })), undefined);
 		});
 	});
