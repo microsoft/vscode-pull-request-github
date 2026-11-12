@@ -220,9 +220,7 @@ export class RepositoriesManager extends Disposable {
 
 			if (repoInfo && folderManager.findExistingGitHubRepository({ owner: repoInfo.owner, repositoryName: repoInfo.repo })) {
 				return folderManager;
-			} else if (prInfo && folderManager.repository.state.remotes.find(remote => remote.name === prInfo.remoteName)) {
-				return folderManager;
-			} else {
+			} else if (!prInfo || folderManager.repository.state.remotes.some(remote => remote.name === prInfo.remoteName)) {
 				const testUriRelativePath = uri.path.substring(
 					managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
 				);

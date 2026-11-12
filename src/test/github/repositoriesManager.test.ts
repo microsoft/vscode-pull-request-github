@@ -55,6 +55,25 @@ describe('RepositoriesManager', function () {
 		sinon.restore();
 	});
 
+	describe('PR documents in multi-root workspaces', function () {
+		it('selects the folder containing the file when both remotes are named origin', function () {
+			const managers = ['/work/repoA', '/work/repoB'].map((path, index) => {
+				const repository = new MockRepository();
+				repository.rootUri = vscode.Uri.file(path);
+				repository.addRemote('origin', `git@github.com:owner/repo${index}`);
+				const manager = new FolderRepositoryManager(index, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+				reposManager.insertFolderManager(manager);
+				return manager;
+			});
+			const uri = vscode.Uri.from({
+				scheme: 'pr', path: '/work/repoB/Makefile',
+				query: JSON.stringify({ prNumber: 63, remoteName: 'origin' }),
+			});
+			assert.strictEqual(reposManager.getManagerForFile(uri), managers[1]);
+			assert.strictEqual(reposManager.getManagerForFile(uri.with({ path: '/work/repoB-other/Makefile' })), undefined);
+		});
+	});
+
 	describe('Enterprise setup', function () {
 		const hostA = 'https://host-a.example';
 		const hostB = 'https://host-b.example';

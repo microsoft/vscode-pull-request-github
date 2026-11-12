@@ -83,7 +83,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
-					this.pullRequestModel.number,
+					this.pullRequestModel,
 					this.provideDocumentContent.bind(this),
 				);
 				if (this._inMemPRContentProvider) {
