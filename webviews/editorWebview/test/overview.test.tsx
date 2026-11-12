@@ -48,6 +48,18 @@ describe('Overview', function () {
 		assert(out.container.querySelector('.overview-title'));
 	});
 
+	it('renders the sidebar before the main column so the timeline can flow below it', function () {
+		const pr = new PullRequestBuilder().build();
+		const out = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const sidebar = out.container.querySelector('#sidebar')!;
+		assert.strictEqual(sidebar.nextElementSibling, out.container.querySelector('#main'));
+	});
+
 	it('opens PR number links on GitHub', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
