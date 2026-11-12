@@ -1441,20 +1441,21 @@ describe('Overview', function () {
 			return { context, out, tabs, selectedTab, visiblePanels };
 		}
 
-		it('splits the overview into checks, timeline, and metadata tabs', function () {
+		it('splits the overview into timeline, checks, and metadata tabs', function () {
 			const { out, tabs, selectedTab, visiblePanels } = renderAgentsOverview();
 
-			assert.deepStrictEqual(tabs.map(tab => tab.textContent), ['Checks/Merge', 'Timeline', 'Metadata']);
+			assert.deepStrictEqual(tabs.map(tab => tab.textContent), ['Timeline', 'Checks/Merge', 'Metadata']);
+			assert.strictEqual(selectedTab(), 'Timeline');
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.id), ['overview-panel-timeline']);
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.getAttribute('aria-labelledby')), [tabs[0].id]);
+			assert(visiblePanels()[0].querySelector('#description'));
+			assert(visiblePanels()[0].querySelector('#comment-form'));
+
+			fireEvent.click(tabs[1]);
 			assert.strictEqual(selectedTab(), 'Checks/Merge');
 			assert.strictEqual(out.container.querySelectorAll('#status-checks').length, 1);
 			assert.deepStrictEqual(visiblePanels().map(panel => panel.id), ['overview-panel-checks']);
 			assert(visiblePanels()[0].querySelector('#status-checks .automerge-section'));
-
-			fireEvent.click(tabs[1]);
-			assert.strictEqual(selectedTab(), 'Timeline');
-			assert.deepStrictEqual(visiblePanels().map(panel => panel.getAttribute('aria-labelledby')), [tabs[1].id]);
-			assert(visiblePanels()[0].querySelector('#description'));
-			assert(visiblePanels()[0].querySelector('#comment-form'));
 
 			fireEvent.click(tabs[2]);
 			assert.strictEqual(selectedTab(), 'Metadata');
@@ -1473,7 +1474,8 @@ describe('Overview', function () {
 		});
 
 		it('shows the timeline when asked to scroll to the pending review', function () {
-			const { context, out, selectedTab } = renderAgentsOverview();
+			const { context, out, tabs, selectedTab } = renderAgentsOverview();
+			fireEvent.click(tabs[1]);
 			const scrollIntoView = sinon.spy();
 			HTMLElement.prototype.scrollIntoView = scrollIntoView;
 			try {
@@ -1500,7 +1502,7 @@ describe('Overview', function () {
 			}).build());
 			const stack = out.container.querySelector('#pull-request-stack')!;
 
-			for (const tab of [tabs[1], tabs[2]]) {
+			for (const tab of [tabs[0], tabs[2]]) {
 				fireEvent.click(tab);
 				assert(stack.closest('[hidden]'));
 

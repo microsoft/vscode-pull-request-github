@@ -61,19 +61,19 @@ export const Overview = (pr: PullRequest) => {
 };
 
 const overviewTabs = [
-	{ id: 'checks', label: 'Checks/Merge' },
 	{ id: 'timeline', label: 'Timeline' },
+	{ id: 'checks', label: 'Checks/Merge' },
 	{ id: 'metadata', label: 'Metadata' },
 ] as const;
 
 type OverviewTabId = typeof overviewTabs[number]['id'];
 
 /**
- * Pull requests in the agents window are there to be reviewed and merged, so with the experimental setting on, the
- * overview is split into tabs that start with merging and checks.
+ * With the experimental setting on, the overview of pull requests in the agents window is split into tabs that start
+ * with the timeline.
  */
 const OverviewTabs = (pr: PullRequest) => {
-	const [selected, setSelected] = React.useState<OverviewTabId>('checks');
+	const [selected, setSelected] = React.useState<OverviewTabId>('timeline');
 	const tabs = React.useRef<HTMLButtonElement[]>([]);
 
 	React.useEffect(() => {
@@ -143,8 +143,8 @@ const OverviewTabs = (pr: PullRequest) => {
 				</button>
 			)}
 		</div>
-		{panel('checks', <StatusChecksSection pr={pr} isSimple={false} />)}
 		{panel('timeline', <Main pr={pr} showStatusChecks={false} />)}
+		{panel('checks', <StatusChecksSection pr={pr} isSimple={false} />)}
 		{panel('metadata', <Sidebar {...pr} />)}
 	</div>;
 };
