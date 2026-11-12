@@ -226,6 +226,42 @@ describe('Overview', function () {
 		assert(out.container.querySelector('.status-check'));
 	});
 
+	describe('workflows awaiting approval', function () {
+		const waiting: PullRequestCheckStatus = {
+			id: 'awaiting-approval:CI', state: CheckState.Pending, context: 'CI',
+			description: 'Waiting for approval', targetUrl: null, workflowName: 'CI', event: 'pull_request',
+			url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: true, databaseId: undefined,
+		};
+
+		function renderAwaitingApproval(workflowRunIds: number[], hasWritePermission: boolean) {
+			const pr = new PullRequestBuilder()
+				.hasWritePermission(hasWritePermission)
+				.status(checks => checks.state(CheckState.Pending).statuses([waiting]).workflowRunIdsAwaitingApproval(workflowRunIds))
+				.build();
+			const context = new PRContext(pr);
+			const approveWorkflowRuns = sinon.stub(context, 'approveWorkflowRuns').resolves();
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+			return { out, approveWorkflowRuns };
+		}
+
+		it('offers maintainers to approve them above the checks', async function () {
+			const { out, approveWorkflowRuns } = renderAwaitingApproval([11, 12], true);
+
+			const heading = out.getByText('2 workflows awaiting approval');
+			assert(heading.compareDocumentPosition(out.getByLabelText('Show status checks')) & Node.DOCUMENT_POSITION_FOLLOWING);
+			fireEvent.click(out.getByText('Approve workflows to run'));
+
+			await wait(() => assert(approveWorkflowRuns.calledOnceWithExactly([11, 12])));
+		});
+
+		it('only explains them to users who cannot approve them', function () {
+			const { out } = renderAwaitingApproval([11], false);
+
+			assert(out.getByText('1 workflow awaiting approval'));
+			assert.strictEqual(out.queryByText('Approve workflows to run'), null);
+		});
+	});
+
 	it('opens a PR number link exactly once', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);

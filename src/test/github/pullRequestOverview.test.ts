@@ -30,7 +30,7 @@ import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestMergeability, PullRequestStack, StackablePullRequest } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest } from '../../github/interface';
 import { GitHubRepository } from '../../github/githubRepository';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -1624,12 +1624,12 @@ describe('PullRequestOverview', function () {
 		sinon.stub(model, 'getReviewRequests').resolves([]);
 		const timeline = sinon.stub(model, 'getTimelineEvents').resolves([]);
 		sinon.stub(model, 'validateDraftMode').resolves(false);
-		sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+		const statusChecks = sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 		sinon.stub(model, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
 		sinon.stub(model, 'getCoAuthors').resolves([]);
 		sinon.stub(model, 'getLastUpdateTime').resolves(new Date(0));
 		const stack = sinon.stub(model, 'getStack').resolves(undefined);
-		return { stack, timeline };
+		return { stack, timeline, statusChecks };
 	}
 
 	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
@@ -3220,6 +3220,57 @@ describe('PullRequestOverview', function () {
 
 			sinon.assert.calledOnce(getTimelineEvents);
 			assert.deepStrictEqual(sent, ['reply:change']);
+		});
+	});
+
+	describe('approveWorkflowRuns', function () {
+		let panel: TestPullRequestOverviewPanel;
+		let services: ReturnType<typeof stubPanelServices>;
+		let statusChecks: SinonStub<[], Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]>>;
+		const refreshed: PullRequestChecks = { state: CheckState.Pending, statuses: [] };
+
+		function approval(runId: number) {
+			return [{ owner: remote.owner, repo: remote.repositoryName, run_id: runId }];
+		}
+
+		beforeEach(function () {
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			services = panelServices ??= stubPanelServices();
+			services.models.set(model.number, model);
+			statusChecks = stubModelServices(model).statusChecks;
+			panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			panel.setItem(model);
+			context.subscriptions.push(panel);
+		});
+
+		it('approves every workflow run and replies with the refreshed checks', async function () {
+			const approve = sinon.spy(repo, 'approveWorkflowRun');
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(11), {}, 201);
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(12), {}, 201);
+			statusChecks.resolves([refreshed, null]);
+			const reply = sinon.stub(panel, '_replyMessage').resolves();
+			const message = { req: 'approve', command: 'pr.approve-workflow-runs', args: { workflowRunIds: [11, 12] } };
+
+			await panel._onDidReceiveMessage(message);
+
+			assert.deepStrictEqual(approve.args, [[11], [12]]);
+			sinon.assert.notCalled(services.showError);
+			assert(reply.calledOnceWithExactly(message, { status: refreshed, reviewRequirement: null }));
+		});
+
+		it('reports a workflow run that could not be approved and still refreshes the checks', async function () {
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(11), {}, 201);
+			repo.queryProvider.expectOctokitError(['actions', 'approveWorkflowRun'], approval(12), new Error('Must have write access'));
+			statusChecks.resolves([refreshed, null]);
+			const reply = sinon.stub(panel, '_replyMessage').resolves();
+			const message = { req: 'approve', command: 'pr.approve-workflow-runs', args: { workflowRunIds: [11, 12] } };
+
+			await panel._onDidReceiveMessage(message);
+
+			sinon.assert.calledOnce(services.showError);
+			assert.match(services.showError.firstCall.args[0], /Must have write access/);
+			assert(reply.calledOnceWithExactly(message, { status: refreshed, reviewRequirement: null }));
 		});
 	});
 

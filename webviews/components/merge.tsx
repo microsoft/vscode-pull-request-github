@@ -95,6 +95,37 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	) : null;
 };
 
+const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
+	const { approveWorkflowRuns } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const workflowRunIds = pr.status?.workflowRunIdsAwaitingApproval;
+	if (pr.state !== GithubItemStateEnum.Open || !workflowRunIds?.length) {
+		return null;
+	}
+
+	const approve = () => {
+		setBusy(true);
+		approveWorkflowRuns(workflowRunIds).finally(() => setBusy(false));
+	};
+	const isPlural = workflowRunIds.length > 1;
+	return (
+		<div className="status-section">
+			<div className="status-item">
+				<span className="workflow-approval-icon">{warningIcon}</span>
+				<div>
+					<p className="workflow-approval-heading">{workflowRunIds.length} {isPlural ? 'workflows' : 'workflow'} awaiting approval</p>
+					<p className="workflow-approval-description">{isPlural ? 'These workflows require' : 'This workflow requires'} approval from a maintainer.</p>
+				</div>
+				{pr.hasWritePermission ? (
+					<div className="button-container">
+						<button className="secondary" onClick={approve} disabled={isBusy}>Approve workflows to run</button>
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
+};
+
 const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
 	const { state, reviewRequirement } = pr;
 	if (!reviewRequirement || state !== GithubItemStateEnum.Open) {
@@ -161,6 +192,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 				<>
 					<PRStatusMessage pr={pr} isSimple={isSimple} />
 					<RequiredReviewers pr={pr} />
+					<WorkflowsAwaitingApproval pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
 					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}

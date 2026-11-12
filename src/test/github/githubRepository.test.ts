@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { NetworkStatus } from 'apollo-boost';
+import { ApolloQueryResult, NetworkStatus } from 'apollo-boost';
 import { SinonSandbox, createSandbox, match } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -17,7 +17,7 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../github/interface';
-import { PullRequest as GraphQLPullRequest, PullRequestResponse, StackablePullRequestNode, StackBranchStatusResponse } from '../../github/graphql';
+import { CheckSuiteForRollup, GetChecksResponse, PullRequest as GraphQLPullRequest, PullRequestResponse, StackablePullRequestNode, StackBranchStatusResponse } from '../../github/graphql';
 import { PullRequestBuilder as GraphQLPullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
 import { PullRequestBuilder as RestPullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import Logger from '../../common/logger';
@@ -965,6 +965,69 @@ describe('GitHubRepository', function () {
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].workflowName, undefined);
 			assert.ok(result[0].context.length > 0);
+		});
+	});
+
+	describe('getStatusChecks', function () {
+		let repo: MockGitHubRepository;
+
+		beforeEach(function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			repo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		});
+
+		afterEach(function () {
+			repo.dispose();
+		});
+
+		function workflowSuite(name: string, databaseId: number, status: CheckSuiteForRollup['status'], conclusion: CheckSuiteForRollup['conclusion']): CheckSuiteForRollup {
+			return { status, conclusion, workflowRun: { databaseId, event: 'pull_request', workflow: { name } }, app: null };
+		}
+
+		function response(checkSuites: CheckSuiteForRollup[]): ApolloQueryResult<GetChecksResponse> {
+			return {
+				data: {
+					repository: {
+						pullRequest: {
+							url: 'https://github.com/owner/repo/pull/1',
+							latestReviews: { nodes: [] },
+							reviewsRequestingChanges: { nodes: [] },
+							baseRef: null,
+							commits: { nodes: [{ commit: { checkSuites: { nodes: checkSuites } } }] },
+						},
+					},
+				},
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			};
+		}
+
+		it('lists the workflow runs that are awaiting approval as pending checks', async function () {
+			sinon.stub(repo, 'query').resolves(response([
+				workflowSuite('CI', 11, 'COMPLETED', 'ACTION_REQUIRED'),
+				workflowSuite('Lint', 12, 'COMPLETED', 'ACTION_REQUIRED'),
+				workflowSuite('Docs', 13, 'COMPLETED', 'SUCCESS'),
+				{ status: 'COMPLETED', conclusion: 'ACTION_REQUIRED', workflowRun: null, app: null },
+			]));
+
+			const [checks] = await repo.getStatusChecks(1);
+
+			assert(checks);
+			assert.deepStrictEqual(checks.workflowRunIdsAwaitingApproval, [11, 12]);
+			assert.strictEqual(checks.state, CheckState.Pending);
+			assert.deepStrictEqual(checks.statuses.map(status => [status.context, status.state, status.description]), [
+				['CI', CheckState.Pending, 'Waiting for approval'],
+				['Lint', CheckState.Pending, 'Waiting for approval'],
+			]);
+		});
+
+		it('does not offer to approve workflow runs that are waiting for something else', async function () {
+			sinon.stub(repo, 'query').resolves(response([workflowSuite('Deploy', 21, 'WAITING', null)]));
+
+			const [checks] = await repo.getStatusChecks(1);
+
+			assert(checks);
+			assert.strictEqual(checks.workflowRunIdsAwaitingApproval, undefined);
 		});
 	});
 });

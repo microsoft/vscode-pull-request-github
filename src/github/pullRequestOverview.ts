@@ -45,7 +45,7 @@ import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
 import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -1095,6 +1095,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.view-check-logs':
 				return this.viewCheckLogs(message);
+			case 'pr.approve-workflow-runs':
+				return this.approveWorkflowRuns(message);
 			case 'pr.openCommitChanges':
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
@@ -1281,6 +1283,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			Logger.error(`View check run logs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 			return this._replyMessage(message, { error: formatError(e) });
+		}
+	}
+
+	private async approveWorkflowRuns(message: IRequestMessage<ApproveWorkflowRunsArgs>): Promise<void> {
+		const results = await Promise.allSettled(message.args.workflowRunIds.map(id => this._item.githubRepository.approveWorkflowRun(id)));
+		const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+		if (failure) {
+			Logger.error(`Approving workflow runs failed: ${formatError(failure.reason)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Approving workflows failed. {0}', formatError(failure.reason)));
+		}
+		// Refresh the checks even after a failure, since some of the workflows may have been approved.
+		try {
+			const [status, reviewRequirement] = await this._item.getStatusChecks();
+			const reply: ApproveWorkflowRunsReply = { status, reviewRequirement };
+			return this._replyMessage(message, reply);
+		} catch (e) {
+			Logger.error(`Refreshing checks after approving workflow runs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			return this._throwError(message, formatError(e));
 		}
 	}
 
