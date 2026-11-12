@@ -252,6 +252,15 @@ export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
+export interface ApproveWorkflowRunsArgs {
+	workflowRunIds: number[];
+}
+
+export interface ApproveWorkflowRunsReply {
+	status: PullRequestChecks | null;
+	reviewRequirement: PullRequestReviewRequirement | null;
+}
+
 export interface FileUploadPlaceholder {
 	name: string;
 	placeholder: string;

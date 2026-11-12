@@ -1260,6 +1260,7 @@ export interface CheckSuiteForRollup {
 	| 'TIMED_OUT'
 	| null;
 	workflowRun?: {
+		databaseId: number | null;
 		event: string;
 		workflow: {
 			name: string;

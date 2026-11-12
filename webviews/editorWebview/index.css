@@ -507,6 +507,31 @@ button.input-box {
 	margin-right: 8px;
 }
 
+.workflow-approval-icon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background-color: var(--vscode-statusBarItem-warningBackground);
+	color: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-icon svg path {
+	fill: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-heading {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflow-approval-description {
+	color: var(--vscode-descriptionForeground);
+}
+
 .status-section p {
 	margin: 0;
 }

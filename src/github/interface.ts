@@ -472,6 +472,11 @@ export interface PullRequestCheckStatus {
 export interface PullRequestChecks {
 	state: CheckState;
 	statuses: PullRequestCheckStatus[];
+	/**
+	 * The IDs of the GitHub Actions workflow runs that won't run until a maintainer approves them,
+	 * such as those for pull requests from first-time contributors. Absent when there are none.
+	 */
+	workflowRunIdsAwaitingApproval?: number[];
 }
 
 export interface PullRequestReviewRequirement {

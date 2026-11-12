@@ -2302,6 +2302,17 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
+	async approveWorkflowRun(workflowRunId: number): Promise<void> {
+		Logger.debug(`Approve workflow run - enter`, this.id);
+		const { octokit, remote } = await this.ensure();
+		await octokit.call(octokit.api.actions.approveWorkflowRun, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			run_id: workflowRunId,
+		});
+		Logger.debug(`Approve workflow run - done`, this.id);
+	}
+
 	async getOrgTeamsCount(): Promise<number> {
 		Logger.debug(`Fetch Teams Count - enter`, this.id);
 		if (!this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId)) {
@@ -2573,6 +2584,13 @@ export class GitHubRepository extends Disposable {
 			checks.statuses = checks.statuses.concat(awaitingApprovalStatuses);
 			checks.state = this.computeOverallCheckState(checks.statuses);
 		}
+		const workflowRunIdsAwaitingApproval = (checkSuites ?? [])
+			.filter(isWorkflowRunAwaitingApproval)
+			.map(suite => suite.workflowRun?.databaseId)
+			.filter((id): id is number => typeof id === 'number');
+		if (workflowRunIdsAwaitingApproval.length) {
+			checks.workflowRunIdsAwaitingApproval = workflowRunIdsAwaitingApproval;
+		}
 
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
 		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
@@ -2748,7 +2766,8 @@ export class GitHubRepository extends Disposable {
 		for (const suite of checkSuites) {
 			// A suite that is waiting or has only been requested and hasn't concluded is
 			// awaiting approval before it can run.
-			if (suite.conclusion !== null || (suite.status !== 'WAITING' && suite.status !== 'REQUESTED')) {
+			const isWaiting = suite.conclusion === null && (suite.status === 'WAITING' || suite.status === 'REQUESTED');
+			if (!isWaiting && !isWorkflowRunAwaitingApproval(suite)) {
 				continue;
 			}
 
@@ -2860,6 +2879,14 @@ export class GitHubRepository extends Disposable {
 }
 
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+/**
+ * GitHub Actions concludes the suite of a workflow run that needs a maintainer's approval
+ * (e.g. for a pull request from a first-time contributor) as `ACTION_REQUIRED`.
+ */
+function isWorkflowRunAwaitingApproval(suite: CheckSuiteForRollup): boolean {
+	return !!suite.workflowRun && suite.conclusion === 'ACTION_REQUIRED';
+}
 
 /**
  * Escape characters that would break a markdown link's text segment (`[text](url)`).

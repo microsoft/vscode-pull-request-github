@@ -1617,6 +1617,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 								status
 								conclusion
 								workflowRun {
+									databaseId
 									event
 									workflow {
 										name
@@ -1705,6 +1706,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 								status
 								conclusion
 								workflowRun {
+									databaseId
 									event
 									workflow {
 										name
