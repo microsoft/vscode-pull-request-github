@@ -17,6 +17,7 @@ import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, P
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
+import { COMMENT_TEXTAREA_ID } from '../../common/constants';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { STACK_RECOMMENDATION_HINT_LABEL as HINT, STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
 import { Root as EditorRoot } from '../app';
@@ -1386,6 +1387,118 @@ describe('Overview', function () {
 			assert.strictEqual(out.queryByText('Checkout \'main\''), null);
 			assert.strictEqual(out.container.querySelector('[data-vscode-context*="github:checkoutMenu"]'), null);
 			assert(out.getByText('Refresh'));
+			cleanup();
+		}
+	});
+
+	describe('agents window tabs', function () {
+		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build()) {
+			const context = new PRContext(pr);
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			const tabs = [...out.container.querySelectorAll<HTMLElement>('[role="tab"]')];
+			const selectedTab = () => tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.textContent;
+			const visiblePanels = () => [...out.container.querySelectorAll<HTMLElement>('[role="tabpanel"]')].filter(panel => !panel.hidden);
+			return { context, out, tabs, selectedTab, visiblePanels };
+		}
+
+		it('splits the overview into checks, timeline, and metadata tabs', function () {
+			const { out, tabs, selectedTab, visiblePanels } = renderAgentsOverview();
+
+			assert.deepStrictEqual(tabs.map(tab => tab.textContent), ['Checks/Merge', 'Timeline', 'Metadata']);
+			assert.strictEqual(selectedTab(), 'Checks/Merge');
+			assert.strictEqual(out.container.querySelectorAll('#status-checks').length, 1);
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.id), ['overview-panel-checks']);
+			assert(visiblePanels()[0].querySelector('#status-checks .automerge-section'));
+
+			fireEvent.click(tabs[1]);
+			assert.strictEqual(selectedTab(), 'Timeline');
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.getAttribute('aria-labelledby')), [tabs[1].id]);
+			assert(visiblePanels()[0].querySelector('#description'));
+			assert(visiblePanels()[0].querySelector('#comment-form'));
+
+			fireEvent.click(tabs[2]);
+			assert.strictEqual(selectedTab(), 'Metadata');
+			assert(visiblePanels()[0].querySelector('#sidebar #reviewers'));
+		});
+
+		it('moves between tabs with the arrow, Home, and End keys', function () {
+			const { tabs, selectedTab } = renderAgentsOverview();
+
+			for (const [from, key, expected] of [[0, 'ArrowLeft', 2], [2, 'ArrowRight', 0], [0, 'End', 2], [2, 'Home', 0], [0, 'ArrowRight', 1]] as const) {
+				fireEvent.keyDown(tabs[from], { key });
+				assert.strictEqual(selectedTab(), tabs[expected].textContent, `${key} from ${tabs[from].textContent}`);
+				assert.strictEqual(document.activeElement, tabs[expected]);
+				assert.deepStrictEqual(tabs.map(tab => tab.tabIndex), tabs.map((_, index) => index === expected ? 0 : -1));
+			}
+		});
+
+		it('shows the timeline when asked to scroll to the pending review', function () {
+			const { context, out, selectedTab } = renderAgentsOverview();
+			const scrollIntoView = sinon.spy();
+			HTMLElement.prototype.scrollIntoView = scrollIntoView;
+			try {
+				act(() => context.handleMessage({ command: 'pr.scrollToPendingReview' }));
+			} finally {
+				Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+			}
+
+			const textarea = out.container.querySelector(`#${COMMENT_TEXTAREA_ID}`);
+			assert.strictEqual(selectedTab(), 'Timeline');
+			assert(scrollIntoView.calledOn(textarea));
+			assert.strictEqual(document.activeElement, textarea);
+		});
+
+		it('shows the stack from the header badge before the link scrolls to it', function () {
+			const { out, tabs, selectedTab } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).number(794).stack({
+				position: 2,
+				size: 2,
+				base: 'main',
+				pullRequests: [
+					{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			}).build());
+			const stack = out.container.querySelector('#pull-request-stack')!;
+
+			for (const tab of [tabs[1], tabs[2]]) {
+				fireEvent.click(tab);
+				assert(stack.closest('[hidden]'));
+
+				// VS Code scrolls to the target of a link within the page in a click listener on the window.
+				let stackVisibleWhenScrolled: boolean | undefined;
+				const scrollToTarget = () => {
+					stackVisibleWhenScrolled = !stack.closest('[hidden]');
+				};
+				window.addEventListener('click', scrollToTarget);
+				try {
+					// Unlike fireEvent, a user's click is not wrapped in act(), which would only render after the click.
+					out.container.querySelector('.stack-badge')!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+				} finally {
+					window.removeEventListener('click', scrollToTarget);
+				}
+
+				assert.strictEqual(selectedTab(), 'Checks/Merge', `from ${tab.textContent}`);
+				assert.strictEqual(stackVisibleWhenScrolled, true, `from ${tab.textContent}`);
+			}
+		});
+	});
+
+	it('keeps the sidebar layout without tabs unless the experimental tabs are on in the agents window', function () {
+		for (const [isAgentSessionsWorkspace, agentsOverviewTabs] of [[false, false], [true, false], [false, true]]) {
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(isAgentSessionsWorkspace).agentsOverviewTabs(agentsOverviewTabs).build();
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			const description = `agents window: ${isAgentSessionsWorkspace}, setting: ${agentsOverviewTabs}`;
+			assert.strictEqual(out.container.querySelector('[role="tablist"]'), null, description);
+			assert(out.container.querySelector('#main > #status-checks'), description);
 			cleanup();
 		}
 	});
