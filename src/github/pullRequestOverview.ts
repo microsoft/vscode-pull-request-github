@@ -679,6 +679,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
+				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
 				stack: initialStack,
 				stackLoaded: false,
 				stackLoadError: false,

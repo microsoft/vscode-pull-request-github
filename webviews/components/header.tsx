@@ -29,6 +29,7 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
+	isAgentSessionsWorkspace,
 	doneCheckoutBranch,
 	events,
 	owner,
@@ -61,6 +62,7 @@ export function Header({
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
+					isAgentSessionsWorkspace={!!isAgentSessionsWorkspace}
 					doneCheckoutBranch={doneCheckoutBranch}
 					owner={owner}
 					repo={repo}
@@ -208,6 +210,7 @@ export function ViewChangesButton(): JSX.Element {
 interface ButtonGroupProps {
 	isCurrentlyCheckedOut: boolean;
 	isIssue: boolean;
+	isAgentSessionsWorkspace: boolean;
 	doneCheckoutBranch: string;
 	owner: string;
 	repo: string;
@@ -215,12 +218,12 @@ interface ButtonGroupProps {
 	busy?: boolean;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, isAgentSessionsWorkspace, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
 	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }} />
+			{isAgentSessionsWorkspace ? null : <CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }} />}
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>

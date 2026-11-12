@@ -1359,6 +1359,25 @@ describe('Overview', function () {
 		assert.strictEqual(out.container.querySelector('[aria-label="View Pull Request Changes"]'), null);
 	});
 
+	it('does not show the checkout button in the agents window', function () {
+		for (const isCurrentlyCheckedOut of [false, true]) {
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).isCurrentlyCheckedOut(isCurrentlyCheckedOut).build();
+			const context = new PRContext(pr);
+
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert.strictEqual(out.queryByText('Checkout'), null);
+			assert.strictEqual(out.queryByText('Checkout \'main\''), null);
+			assert.strictEqual(out.container.querySelector('[data-vscode-context*="github:checkoutMenu"]'), null);
+			assert(out.getByText('Refresh'));
+			cleanup();
+		}
+	});
+
 	it('applies sticky class when scrolled', function () {
 		const pr = new PullRequestBuilder().build();
 		const context = new PRContext(pr);
