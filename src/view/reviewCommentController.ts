@@ -47,6 +47,13 @@ export interface SuggestionInformation {
 	suggestionContent: string;
 }
 
+export interface MarkdownPreviewCommentInfo {
+	/** Zero-based, inclusive line ranges that can be commented on. */
+	commentingRanges: { start: number; end: number }[];
+	/** Zero-based, inclusive line ranges of the existing comment threads. */
+	threads: { id: string; start: number; end: number; commentCount: number; resolved: boolean }[];
+}
+
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
 	static readonly PREFIX = 'github-review';
@@ -61,6 +68,13 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private readonly _context: vscode.ExtensionContext;
+	private readonly _onDidChangeCommentThreads = this._register(new vscode.EventEmitter<void>());
+	public readonly onDidChangeCommentThreads = this._onDidChangeCommentThreads.event;
+	private readonly _onDidProvideCommentingRanges = this._register(new vscode.EventEmitter<vscode.Uri>());
+	/**
+	 * Fires when VS Code has been given the commenting ranges of a document.
+	 */
+	public readonly onDidProvideCommentingRanges = this._onDidProvideCommentingRanges.event;
 	public readonly resourceHints = { schemes: [Schemes.Review] };
 
 	constructor(
@@ -224,6 +238,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			}
 		}));
 		this.updateResourcesWithCommentingRanges();
+		this._onDidChangeCommentThreads.fire();
 	}
 
 	/**
@@ -354,6 +369,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				}
 
 				this.updateResourcesWithCommentingRanges();
+				this._onDidChangeCommentThreads.fire();
 			}),
 		);
 	}
@@ -502,6 +518,12 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+		const ranges = await this.getCommentingRanges(document);
+		this._onDidProvideCommentingRanges.fire(document.uri);
+		return ranges;
+	}
+
+	async getCommentingRanges(document: vscode.TextDocument): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		let query: ReviewUriParams | undefined =
 			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
@@ -568,11 +590,57 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		return;
 	}
 
+	/**
+	 * Gets the commenting ranges and comment threads of a workspace file, or of the base side of
+	 * a review diff, for use by views other than the text editor, such as the markdown preview.
+	 */
+	async getMarkdownPreviewCommentInfo(document: vscode.TextDocument): Promise<MarkdownPreviewCommentInfo> {
+		const commentingRanges = await this.getCommentingRanges(document);
+		const ranges = Array.isArray(commentingRanges) ? commentingRanges : (commentingRanges?.ranges ?? []);
+		let threads: GHPRCommentThread[];
+		// Gets the zero-based lines of a thread in the document, when they differ from the thread's range.
+		let getThreadLines: (thread: GHPRCommentThread) => { start: number; end: number } | undefined = () => undefined;
+		if (document.uri.scheme === Schemes.Review) {
+			// Review documents can show other versions of a file, such as the version an outdated comment was made on.
+			// The thread maps only apply to the documents of the current file changes.
+			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
+			// The base side of a renamed file has the previous file name, but threads are stored by the current file name.
+			const threadMap = fromReviewUri(document.uri.query).base ? this._reviewSchemeFileChangeCommentThreads : this._workspaceFileChangeCommentThreads;
+			threads = matchedFile ? (threadMap[matchedFile.fileName] ?? []) : [];
+		} else {
+			const fileName = this._folderRepoManager.gitRelativeRootPath(document.uri.path);
+			threads = this._workspaceFileChangeCommentThreads[fileName] ?? [];
+			// The ranges of workspace threads are mapped from the saved file when the threads are created, but the preview
+			// shows the current text, which can have unsaved changes. Map the threads' pull request lines to the current text.
+			const contentDiff = threads.length ? await this.getContentDiff(document.uri, fileName).catch(() => undefined) : undefined;
+			if (contentDiff !== undefined) {
+				const reviewThreads = new Map((this._folderRepoManager.activePullRequest?.reviewThreadsCache ?? []).map(thread => [thread.id, thread]));
+				getThreadLines = thread => {
+					const reviewThread = reviewThreads.get(thread.gitHubThreadId);
+					return reviewThread && {
+						start: mapOldPositionToNew(contentDiff, reviewThread.startLine) - 1,
+						end: mapOldPositionToNew(contentDiff, reviewThread.endLine) - 1,
+					};
+				};
+			}
+		}
+		return {
+			commentingRanges: ranges.map(range => ({ start: range.start.line, end: range.end.line })),
+			threads: threads.filter(thread => thread.range).map(thread => ({
+				id: thread.gitHubThreadId,
+				...(getThreadLines(thread) ?? { start: thread.range!.start.line, end: thread.range!.end.line }),
+				commentCount: thread.comments.length,
+				resolved: thread.state?.resolved === vscode.CommentThreadState.Resolved,
+			})),
+		};
+	}
+
 	// #endregion
 
 	private async getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
-		const matchedEditor = vscode.window.visibleTextEditors.find(
-			editor => editor.document.uri.toString() === uri.toString(),
+		// The document can have unsaved changes without being visible, for example when its markdown preview is shown instead.
+		const matchedDocument = vscode.workspace.textDocuments.find(
+			document => document.uri.toString() === uri.toString(),
 		);
 		if (!this._folderRepoManager.activePullRequest?.head) {
 			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.', ReviewCommentController.ID);
@@ -580,8 +648,8 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		try {
-			if (matchedEditor && matchedEditor.document.isDirty && vscode.workspace.getConfiguration('files', matchedEditor.document.uri).get('autoSave') !== 'afterDelay') {
-				const documentText = matchedEditor.document.getText();
+			if (matchedDocument && matchedDocument.isDirty && vscode.workspace.getConfiguration('files', matchedDocument.uri).get('autoSave') !== 'afterDelay') {
+				const documentText = matchedDocument.getText();
 				const details = await this._repository.getObjectDetails(
 					this._folderRepoManager.activePullRequest.head.sha,
 					fileName,
@@ -677,6 +745,21 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		}
 
 		return DiffSide.RIGHT;
+	}
+
+	/**
+	 * Gets the comment thread of a GitHub review thread, once it has been created.
+	 */
+	public getCommentThread(gitHubThreadId: string): GHPRCommentThread | undefined {
+		for (const threadMap of [this._workspaceFileChangeCommentThreads, this._reviewSchemeFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads]) {
+			for (const path in threadMap) {
+				const thread = threadMap[path].find(candidate => candidate.gitHubThreadId === gitHubThreadId);
+				if (thread) {
+					return thread;
+				}
+			}
+		}
+		return undefined;
 	}
 
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {

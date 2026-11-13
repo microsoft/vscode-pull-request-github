@@ -15,6 +15,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { UriHandler } from '../uriHandler';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
+import { MarkdownPreviewComments } from '../view/markdownPreviewComments';
 import { ReviewsManager } from '../view/reviewsManager';
 import { ThemeData } from '../view/theme';
 import { MockExtensionContext } from './mocks/mockExtensionContext';
@@ -57,6 +58,7 @@ describe('UriHandler', function () {
 			context,
 			git,
 			folderRepositoryManagerResolver,
+			{} as MarkdownPreviewComments,
 		);
 		const uri = vscode.Uri.parse('vscode://github.vscode-pull-request-github/open-pull-request-webview?uri=https://github.com/microsoft/vscode/pull/1');
 
@@ -88,4 +90,28 @@ describe('UriHandler', function () {
 		assert.notStrictEqual(resolvedManager, existingManager);
 		assert.ok(resolvedManager.repository instanceof RemoteOnlyRepository);
 	});
+
+	it('only comments from a markdown preview link that has the lines to comment on', async function () {
+		const commentOnLines = sandbox.stub().resolves();
+		const handler = new UriHandler(
+			repositoriesManager,
+			{} as ReviewsManager,
+			telemetry,
+			context,
+			git,
+			folderRepositoryManagerResolver,
+			{ commentOnLines } as unknown as MarkdownPreviewComments,
+		);
+		const link = 'vscode://github.vscode-pull-request-github/comment-on-markdown-preview?document=1';
+
+		await handler.handleUri(vscode.Uri.parse(link));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=2`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=3&end=2`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=2&end=3`));
+		await handler.handleUri(vscode.Uri.parse(`${link}&start=4&end=5&thread=PRRT_kwDO123`));
+
+		// Thread badges reveal their thread instead of adding a comment.
+		assert.deepStrictEqual(commentOnLines.args, [['1', 2, 3, undefined], ['1', 4, 5, 'PRRT_kwDO123']]);
+	});
 });
+
