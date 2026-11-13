@@ -76,15 +76,19 @@ const mergeReadinessBadges: Record<MergeReadiness, { icon: JSX.Element; label: s
 	'blocked': { icon: warningIcon, label: 'Cannot be merged yet' },
 };
 
-/** Counts the published review threads that are not resolved. */
+/** Counts the published review threads that are not resolved and still have comments in the timeline. */
 function countUnresolvedThreads(events: TimelineEvent[]): number {
-	let count = 0;
+	const unresolved = new Set<string>();
 	for (const event of events) {
 		if (event.event === EventType.Reviewed && event.state !== 'PENDING') {
-			count += Object.values(event.reviewThreads ?? {}).filter(thread => !thread.isResolved).length;
+			for (const { threadId } of event.comments) {
+				if (threadId && event.reviewThreads?.[threadId]?.isResolved === false) {
+					unresolved.add(threadId);
+				}
+			}
 		}
 	}
-	return count;
+	return unresolved.size;
 }
 
 const OverviewTabBadges = ({ id, pr }: { id: OverviewTabId; pr: PullRequest }) => {

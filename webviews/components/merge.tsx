@@ -558,6 +558,12 @@ export function getMergeReadiness(pr: PullRequest): MergeReadiness | undefined {
 		|| (pr.stack && pr.stackLoaded === false)) {
 		return undefined;
 	}
+	// Merging a stack also merges the open pull requests below this one, so it depends on their mergeability too.
+	const stack = pr.stack;
+	if (stack?.pullRequests.some(entry => entry.position <= stack.position && entry.state === GithubItemStateEnum.Open
+		&& entry.mergeable === PullRequestMergeability.Unknown)) {
+		return undefined;
+	}
 	if (isReadyToMerge(pr.isDraft ? asReadyForReview(pr) : pr)) {
 		return pr.isDraft ? undefined : 'ready';
 	}
