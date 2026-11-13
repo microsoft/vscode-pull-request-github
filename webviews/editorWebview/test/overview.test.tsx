@@ -13,6 +13,7 @@ import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
+import { EventType, ReviewEvent, ReviewStateValue, TimelineEvent } from '../../../src/common/timelineEvent';
 import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
@@ -1470,6 +1471,63 @@ describe('Overview', function () {
 				assert.strictEqual(selectedTab(), tabs[expected].textContent, `${key} from ${tabs[from].textContent}`);
 				assert.strictEqual(document.activeElement, tabs[expected]);
 				assert.deepStrictEqual(tabs.map(tab => tab.tabIndex), tabs.map((_, index) => index === expected ? 0 : -1));
+			}
+		});
+
+		it('shows on the checks tab whether the pull request can be merged', function () {
+			const agentsPullRequest = () => new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true);
+			const failedCheck: PullRequestCheckStatus = {
+				id: 'build', state: CheckState.Failure, context: 'build', description: null, targetUrl: null, workflowName: undefined,
+				event: undefined, url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
+			};
+			const cases: [string, PullRequest, string | undefined][] = [
+				['mergeable', agentsPullRequest().build(), 'Ready to merge'],
+				['mergeable with a failed check', agentsPullRequest()
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Ready to merge'],
+				['blocked with a failed check', agentsPullRequest().mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['conflicting', agentsPullRequest().mergeable(PullRequestMergeability.Conflict).build(), 'Cannot be merged yet'],
+				['draft that can otherwise be merged', agentsPullRequest().isDraft(true).build(), undefined],
+				['draft in a stack that can otherwise be merged', agentsPullRequest().isDraft(true).number(794).stack({
+					position: 2,
+					size: 2,
+					base: 'main',
+					pullRequests: [
+						{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
+					],
+				}).build(), undefined],
+				['draft blocked by a failed check', agentsPullRequest().isDraft(true).mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['being checked', agentsPullRequest().mergeable(PullRequestMergeability.Unknown).build(), undefined],
+				['merged', agentsPullRequest().state(GithubItemStateEnum.Merged).build(), undefined],
+			];
+			for (const [description, pr, expected] of cases) {
+				const { tabs } = renderAgentsOverview(pr);
+				assert.strictEqual(tabs[1].querySelector('.overview-tab-badge')?.getAttribute('aria-label'), expected, description);
+				cleanup();
+			}
+		});
+
+		it('shows the number of unresolved conversations on the timeline tab', function () {
+			const user = new AccountBuilder().build();
+			const review = (id: number, state: ReviewStateValue, threads: { [threadId: string]: boolean }): ReviewEvent => ({
+				id, event: EventType.Reviewed, comments: [], submittedAt: '', body: '', htmlUrl: '', user, authorAssociation: 'OWNER', state,
+				reviewThreads: Object.fromEntries(Object.entries(threads).map(([threadId, isResolved]) =>
+					[threadId, { threadId, canResolve: true, canUnresolve: true, isResolved }])),
+			});
+			const cases: [TimelineEvent[], string | undefined][] = [
+				// Threads in a pending review have not been published yet.
+				[[review(1, 'COMMENTED', { a: false, b: true }), review(2, 'CHANGES_REQUESTED', { c: false }), review(3, 'PENDING', { d: false })], '2 unresolved conversations'],
+				[[review(1, 'COMMENTED', { a: false })], '1 unresolved conversation'],
+				[[review(1, 'COMMENTED', { a: true })], undefined],
+			];
+			for (const [events, expected] of cases) {
+				const { tabs } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events(events).build());
+				const count = tabs[0].querySelector('.overview-tab-count');
+				assert.strictEqual(count?.getAttribute('aria-label'), expected);
+				assert.strictEqual(count?.textContent, expected?.split(' ')[0]);
+				cleanup();
 			}
 		});
 
