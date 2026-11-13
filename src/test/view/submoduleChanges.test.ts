@@ -47,6 +47,7 @@ describe('Submodule changes', function () {
 		events = new vscode.EventEmitter();
 		pr = {
 			number: 1,
+			remote: { url: 'https://github.com/owner/repo' },
 			head: { sha: 'head' },
 			base: { sha: 'base' },
 			mergeBase: 'base',
@@ -103,7 +104,7 @@ describe('Submodule changes', function () {
 
 	async function assertPointerDocuments(model: FileChangeModel, base: string, head: string) {
 		const provider = new InMemPRFileSystemProvider(undefined!, undefined!, undefined!);
-		const registration = provider.registerTextDocumentContentProvider(pr.number, uri =>
+		const registration = provider.registerTextDocumentContentProvider(pr, uri =>
 			provideDocumentContentForChangeModel(folderManager, pr, fromPRUri(uri)!, model));
 		try {
 			for (const [uri, expected, isBase] of [
@@ -196,7 +197,7 @@ describe('Submodule changes', function () {
 	it('keeps pointer documents tied to their URI when the PR receives another push', async function () {
 		const original = localModel(await parseChange());
 		const provider = new InMemPRFileSystemProvider(undefined!, undefined!, undefined!);
-		const registration = provider.registerTextDocumentContentProvider(pr.number, uri =>
+		const registration = provider.registerTextDocumentContentProvider(pr, uri =>
 			provideDocumentContentForChangeModel(folderManager, pr, fromPRUri(uri)!, original));
 		try {
 			const nextPointer = `Subproject commit ${'c'.repeat(40)}`;
@@ -216,7 +217,7 @@ describe('Submodule changes', function () {
 		const original = localModel(await parseChange());
 		const provider = new InMemPRFileSystemProvider(undefined!, undefined!, undefined!);
 		// Like ReviewManager's provider, this one only knows the change model from before the push.
-		const registration = provider.registerTextDocumentContentProvider(pr.number, uri =>
+		const registration = provider.registerTextDocumentContentProvider(pr, uri =>
 			provideDocumentContentForChangeModel(folderManager, pr, fromPRUri(uri)!, original));
 		const nextPointer = `Subproject commit ${'c'.repeat(40)}`;
 		const next = localModel(await parseChange('modified', `@@ -1 +1 @@\n-${oldPointer}\n+${nextPointer}`), 'next-head');

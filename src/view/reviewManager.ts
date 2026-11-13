@@ -1334,7 +1334,7 @@ export class ReviewManager extends Disposable {
 			});
 
 			this._inMemGitHubContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
-				pr.number,
+				pr,
 				async (uri: vscode.Uri): Promise<string | Uint8Array> => {
 					const params = fromPRUri(uri);
 					if (!params) {
