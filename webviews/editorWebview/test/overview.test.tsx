@@ -7,12 +7,14 @@ import { default as assert } from 'assert';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as React from 'react';
-import { act, cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
+import { act, cleanup, fireEvent, render, RenderResult, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
+import { IComment } from '../../../src/common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
+import { EventType, ReviewEvent, ReviewStateValue, TimelineEvent } from '../../../src/common/timelineEvent';
 import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
@@ -1471,6 +1473,102 @@ describe('Overview', function () {
 				assert.strictEqual(document.activeElement, tabs[expected]);
 				assert.deepStrictEqual(tabs.map(tab => tab.tabIndex), tabs.map((_, index) => index === expected ? 0 : -1));
 			}
+		});
+
+		it('shows on the checks tab whether the pull request can be merged', function () {
+			const agentsPullRequest = () => new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true);
+			const failedCheck: PullRequestCheckStatus = {
+				id: 'build', state: CheckState.Failure, context: 'build', description: null, targetUrl: null, workflowName: undefined,
+				event: undefined, url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
+			};
+			const cases: [string, PullRequest, string | undefined][] = [
+				['mergeable', agentsPullRequest().build(), 'Ready to merge'],
+				['mergeable with a failed check', agentsPullRequest()
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Ready to merge'],
+				['blocked with a failed check', agentsPullRequest().mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['conflicting', agentsPullRequest().mergeable(PullRequestMergeability.Conflict).build(), 'Cannot be merged yet'],
+				['draft that can otherwise be merged', agentsPullRequest().isDraft(true).build(), undefined],
+				['draft in a stack that can otherwise be merged', agentsPullRequest().isDraft(true).number(794).stack({
+					position: 2,
+					size: 2,
+					base: 'main',
+					pullRequests: [
+						{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
+					],
+				}).build(), undefined],
+				['draft blocked by a failed check', agentsPullRequest().isDraft(true).mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['in a stack with a pull request below that is being checked', agentsPullRequest().number(794).stack({
+					position: 2,
+					size: 2,
+					base: 'main',
+					pullRequests: [
+						{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				}).build(), undefined],
+				['being checked', agentsPullRequest().mergeable(PullRequestMergeability.Unknown).build(), undefined],
+				['merged', agentsPullRequest().state(GithubItemStateEnum.Merged).build(), undefined],
+			];
+			for (const [description, pr, expected] of cases) {
+				const { tabs } = renderAgentsOverview(pr);
+				assert.strictEqual(tabs[1].querySelector('.overview-tab-badge')?.getAttribute('aria-label'), expected, description);
+				cleanup();
+			}
+		});
+
+		const reviewComment = (id: number, pullRequestReviewId: number, threadId: string): IComment => ({
+			id, pullRequestReviewId, threadId, path: 'file.ts', body: 'Please change this', diffHunk: '', url: '', htmlUrl: '',
+			graphNodeId: `comment-${id}`, createdAt: '', user: new AccountBuilder().build(),
+		});
+
+		/** A review with one comment in each of its threads. */
+		const review = (id: number, state: ReviewStateValue, threads: { [threadId: string]: boolean }): ReviewEvent => ({
+			id, event: EventType.Reviewed, submittedAt: '', body: '', htmlUrl: '', user: new AccountBuilder().build(), authorAssociation: 'OWNER', state,
+			comments: Object.keys(threads).map((threadId, index) => reviewComment(id * 100 + index, id, threadId)),
+			reviewThreads: Object.fromEntries(Object.entries(threads).map(([threadId, isResolved]) =>
+				[threadId, { threadId, canResolve: true, canUnresolve: true, isResolved }])),
+		});
+
+		const unresolvedCount = (out: RenderResult) => out.container.querySelector('#overview-tab-timeline .overview-tab-count')?.getAttribute('aria-label');
+
+		it('shows the number of unresolved conversations on the timeline tab', function () {
+			const cases: [TimelineEvent[], string | undefined][] = [
+				// Threads in a pending review have not been published yet.
+				[[review(1, 'COMMENTED', { a: false, b: true }), review(2, 'CHANGES_REQUESTED', { c: false }), review(3, 'PENDING', { d: false })], '2 unresolved conversations'],
+				[[review(1, 'COMMENTED', { a: false })], '1 unresolved conversation'],
+				[[review(1, 'COMMENTED', { a: true })], undefined],
+			];
+			for (const [events, expected] of cases) {
+				const { out, tabs } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events(events).build());
+				assert.strictEqual(unresolvedCount(out), expected);
+				assert.strictEqual(tabs[0].querySelector('.overview-tab-count')?.textContent, expected?.split(' ')[0]);
+				cleanup();
+			}
+		});
+
+		it('stops counting a conversation once its last comment is deleted', async function () {
+			const event = review(1, 'COMMENTED', { a: false, b: false });
+			event.comments.push(reviewComment(102, 1, 'b'));
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events([event]).build();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			sinon.stub(context, 'postMessage').resolves();
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			assert.strictEqual(unresolvedCount(out), '2 unresolved conversations');
+
+			// The comments are 100 in conversation a, and 101 and 102 in conversation b.
+			await context.deleteComment({ id: 101, pullRequestReviewId: 1 });
+			assert.strictEqual(unresolvedCount(out), '2 unresolved conversations');
+
+			await context.deleteComment({ id: 100, pullRequestReviewId: 1 });
+			assert.strictEqual(unresolvedCount(out), '1 unresolved conversation');
 		});
 
 		it('shows the timeline when asked to scroll to the pending review', function () {

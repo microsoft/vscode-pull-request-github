@@ -4,13 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { EventType, TimelineEvent } from '../../src/common/timelineEvent';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
 import { REVEAL_TIMELINE_EVENT } from '../common/constants';
 import emitter from '../common/events';
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
-import { StatusChecksSection } from '../components/merge';
+import { checkIcon, closeIcon, warningIcon } from '../components/icon';
+import { getMergeReadiness, MergeReadiness, StatusChecksSection } from '../components/merge';
 import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
 import { StackRecommendationBanner } from '../components/stackRecommendation';
 import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
@@ -67,6 +69,47 @@ const overviewTabs = [
 ] as const;
 
 type OverviewTabId = typeof overviewTabs[number]['id'];
+
+const mergeReadinessBadges: Record<MergeReadiness, { icon: JSX.Element; label: string }> = {
+	'ready': { icon: checkIcon, label: 'Ready to merge' },
+	'checks-failed': { icon: closeIcon, label: 'Cannot be merged, checks failed' },
+	'blocked': { icon: warningIcon, label: 'Cannot be merged yet' },
+};
+
+/** Counts the published review threads that are not resolved and still have comments in the timeline. */
+function countUnresolvedThreads(events: TimelineEvent[]): number {
+	const unresolved = new Set<string>();
+	for (const event of events) {
+		if (event.event === EventType.Reviewed && event.state !== 'PENDING') {
+			for (const { threadId } of event.comments) {
+				if (threadId && event.reviewThreads?.[threadId]?.isResolved === false) {
+					unresolved.add(threadId);
+				}
+			}
+		}
+	}
+	return unresolved.size;
+}
+
+const OverviewTabBadges = ({ id, pr }: { id: OverviewTabId; pr: PullRequest }) => {
+	if (id === 'timeline') {
+		const count = countUnresolvedThreads(pr.events);
+		if (!count) {
+			return null;
+		}
+		const label = `${count} unresolved conversation${count === 1 ? '' : 's'}`;
+		return <span className="overview-tab-count" role="img" aria-label={label} title={label}>{count}</span>;
+	}
+	if (id === 'checks') {
+		const readiness = getMergeReadiness(pr);
+		if (!readiness) {
+			return null;
+		}
+		const { icon, label } = mergeReadinessBadges[readiness];
+		return <span className={`overview-tab-badge ${readiness}`} role="img" aria-label={label} title={label}>{icon}</span>;
+	}
+	return null;
+};
 
 /**
  * With the experimental setting on, the overview of pull requests in the agents window is split into tabs that start
@@ -140,6 +183,7 @@ const OverviewTabs = (pr: PullRequest) => {
 					onKeyDown={event => onKeyDown(event, index)}
 				>
 					{tab.label}
+					<OverviewTabBadges id={tab.id} pr={pr} />
 				</button>
 			)}
 		</div>

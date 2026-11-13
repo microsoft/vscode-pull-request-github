@@ -63,6 +63,9 @@ html {
 }
 
 #overview-tabs .overview-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	margin-bottom: -1px;
 	padding: 6px 2px;
 	border: none;
@@ -88,6 +91,47 @@ html {
 #overview-tabs .overview-tab:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
+}
+
+.overview-tab-badge {
+	display: flex;
+}
+
+.overview-tab-badge.ready {
+	color: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.checks-failed {
+	color: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.checks-failed svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.blocked {
+	color: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-badge.blocked svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-count {
+	box-sizing: border-box;
+	min-width: 18px;
+	padding: 0 5px;
+	border-radius: 9px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	text-align: center;
 }
 
 /* Without the narrow sidebar column, the metadata sections are laid out side by side. */
