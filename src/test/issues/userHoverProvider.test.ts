@@ -7,17 +7,17 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { UserHoverProvider } from '../../issues/userHoverProvider';
-import * as issueUtil from '../../issues/util';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 
 describe('UserHoverProvider', function () {
 	// Every test position is inside a comment. Token information isn't available in these tests.
-	const originalShouldShowHover = issueUtil.shouldShowHover;
+	const originalGetTokenInformation = vscode.languages.getTokenInformationAtPosition;
 	before(() => {
-		(issueUtil as any).shouldShowHover = async () => true;
+		(vscode.languages as any).getTokenInformationAtPosition = async (_document: vscode.TextDocument, position: vscode.Position) =>
+			({ type: vscode.StandardTokenType.Comment, range: new vscode.Range(position, position) });
 	});
 	after(() => {
-		(issueUtil as any).shouldShowHover = originalShouldShowHover;
+		(vscode.languages as any).getTokenInformationAtPosition = originalGetTokenInformation;
 	});
 
 	// Every name resolves to a user, as it would on GitHub for common words like "return".
@@ -39,6 +39,7 @@ describe('UserHoverProvider', function () {
 		const document = {
 			languageId,
 			uri: vscode.Uri.parse('untitled:test'),
+			lineAt: () => ({ range: new vscode.Range(0, 0, 0, line.length) }),
 			getWordRangeAtPosition: (position: vscode.Position, regex: RegExp) => {
 				const match = new RegExp(regex.source, 'g');
 				let result: RegExpExecArray | null;
