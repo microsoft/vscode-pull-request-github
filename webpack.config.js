@@ -347,6 +347,7 @@ async function getExtensionConfig(target, mode, env) {
 					? {
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
+						'../env/node/fs': path.resolve(__dirname, 'src', 'env', 'browser', 'fs'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
 						'../../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
 						'./env/node/gitProviders/api': path.resolve(

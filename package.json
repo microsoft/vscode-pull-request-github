@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.176.0",
+	"version": "0.178.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -650,6 +650,14 @@
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
 					"default": false
+				},
+				"githubPullRequests.experimental.agentsOverviewTabs": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.agentsOverviewTabs.description%",
+					"default": false,
+					"tags": [
+						"experimental"
+					]
 				},
 				"githubPullRequests.webviewRefreshInterval": {
 					"type": "number",

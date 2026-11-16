@@ -7,16 +7,19 @@ import { default as assert } from 'assert';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as React from 'react';
-import { act, cleanup, fireEvent, render, wait, waitForElement } from 'react-testing-library';
+import { act, cleanup, fireEvent, render, RenderResult, wait, waitForElement } from 'react-testing-library';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
+import { IComment } from '../../../src/common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
+import { EventType, ReviewEvent, ReviewStateValue, TimelineEvent } from '../../../src/common/timelineEvent';
 import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { PullRequest } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
+import { COMMENT_TEXTAREA_ID } from '../../common/constants';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { STACK_RECOMMENDATION_HINT_LABEL as HINT, STACKS_DOCUMENTATION_URL } from '../../components/stackRecommendation';
 import { Root as EditorRoot } from '../app';
@@ -46,6 +49,18 @@ describe('Overview', function () {
 
 		assert(out.container.querySelector('.title'));
 		assert(out.container.querySelector('.overview-title'));
+	});
+
+	it('renders the sidebar before the main column so the timeline can flow below it', function () {
+		const pr = new PullRequestBuilder().build();
+		const out = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		const sidebar = out.container.querySelector('#sidebar')!;
+		assert.strictEqual(sidebar.nextElementSibling, out.container.querySelector('#main'));
 	});
 
 	it('opens PR number links on GitHub', function () {
@@ -211,6 +226,42 @@ describe('Overview', function () {
 		assert.strictEqual(caret.getAttribute('aria-label'), 'Hide status checks');
 		assert.strictEqual(out.queryByText('Hide'), null);
 		assert(out.container.querySelector('.status-check'));
+	});
+
+	describe('workflows awaiting approval', function () {
+		const waiting: PullRequestCheckStatus = {
+			id: 'awaiting-approval:CI', state: CheckState.Pending, context: 'CI',
+			description: 'Waiting for approval', targetUrl: null, workflowName: 'CI', event: 'pull_request',
+			url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: true, databaseId: undefined,
+		};
+
+		function renderAwaitingApproval(workflowRunIds: number[], hasWritePermission: boolean) {
+			const pr = new PullRequestBuilder()
+				.hasWritePermission(hasWritePermission)
+				.status(checks => checks.state(CheckState.Pending).statuses([waiting]).workflowRunIdsAwaitingApproval(workflowRunIds))
+				.build();
+			const context = new PRContext(pr);
+			const approveWorkflowRuns = sinon.stub(context, 'approveWorkflowRuns').resolves();
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+			return { out, approveWorkflowRuns };
+		}
+
+		it('offers maintainers to approve them above the checks', async function () {
+			const { out, approveWorkflowRuns } = renderAwaitingApproval([11, 12], true);
+
+			const heading = out.getByText('2 workflows awaiting approval');
+			assert(heading.compareDocumentPosition(out.getByLabelText('Show status checks')) & Node.DOCUMENT_POSITION_FOLLOWING);
+			fireEvent.click(out.getByText('Approve workflows to run'));
+
+			await wait(() => assert(approveWorkflowRuns.calledOnceWithExactly([11, 12])));
+		});
+
+		it('only explains them to users who cannot approve them', function () {
+			const { out } = renderAwaitingApproval([11], false);
+
+			assert(out.getByText('1 workflow awaiting approval'));
+			assert.strictEqual(out.queryByText('Approve workflows to run'), null);
+		});
 	});
 
 	it('opens a PR number link exactly once', function () {
@@ -1357,6 +1408,235 @@ describe('Overview', function () {
 		);
 
 		assert.strictEqual(out.container.querySelector('[aria-label="View Pull Request Changes"]'), null);
+	});
+
+	it('does not show the checkout button in the agents window', function () {
+		for (const isCurrentlyCheckedOut of [false, true]) {
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).isCurrentlyCheckedOut(isCurrentlyCheckedOut).build();
+			const context = new PRContext(pr);
+
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			assert.strictEqual(out.queryByText('Checkout'), null);
+			assert.strictEqual(out.queryByText('Checkout \'main\''), null);
+			assert.strictEqual(out.container.querySelector('[data-vscode-context*="github:checkoutMenu"]'), null);
+			assert(out.getByText('Refresh'));
+			cleanup();
+		}
+	});
+
+	describe('agents window tabs', function () {
+		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build()) {
+			const context = new PRContext(pr);
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			const tabs = [...out.container.querySelectorAll<HTMLElement>('[role="tab"]')];
+			const selectedTab = () => tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.textContent;
+			const visiblePanels = () => [...out.container.querySelectorAll<HTMLElement>('[role="tabpanel"]')].filter(panel => !panel.hidden);
+			return { context, out, tabs, selectedTab, visiblePanels };
+		}
+
+		it('splits the overview into timeline, checks, and metadata tabs', function () {
+			const { out, tabs, selectedTab, visiblePanels } = renderAgentsOverview();
+
+			assert.deepStrictEqual(tabs.map(tab => tab.textContent), ['Timeline', 'Checks/Merge', 'Metadata']);
+			assert.strictEqual(selectedTab(), 'Timeline');
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.id), ['overview-panel-timeline']);
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.getAttribute('aria-labelledby')), [tabs[0].id]);
+			assert(visiblePanels()[0].querySelector('#description'));
+			assert(visiblePanels()[0].querySelector('#comment-form'));
+
+			fireEvent.click(tabs[1]);
+			assert.strictEqual(selectedTab(), 'Checks/Merge');
+			assert.strictEqual(out.container.querySelectorAll('#status-checks').length, 1);
+			assert.deepStrictEqual(visiblePanels().map(panel => panel.id), ['overview-panel-checks']);
+			assert(visiblePanels()[0].querySelector('#status-checks .automerge-section'));
+
+			fireEvent.click(tabs[2]);
+			assert.strictEqual(selectedTab(), 'Metadata');
+			assert(visiblePanels()[0].querySelector('#sidebar #reviewers'));
+		});
+
+		it('moves between tabs with the arrow, Home, and End keys', function () {
+			const { tabs, selectedTab } = renderAgentsOverview();
+
+			for (const [from, key, expected] of [[0, 'ArrowLeft', 2], [2, 'ArrowRight', 0], [0, 'End', 2], [2, 'Home', 0], [0, 'ArrowRight', 1]] as const) {
+				fireEvent.keyDown(tabs[from], { key });
+				assert.strictEqual(selectedTab(), tabs[expected].textContent, `${key} from ${tabs[from].textContent}`);
+				assert.strictEqual(document.activeElement, tabs[expected]);
+				assert.deepStrictEqual(tabs.map(tab => tab.tabIndex), tabs.map((_, index) => index === expected ? 0 : -1));
+			}
+		});
+
+		it('shows on the checks tab whether the pull request can be merged', function () {
+			const agentsPullRequest = () => new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true);
+			const failedCheck: PullRequestCheckStatus = {
+				id: 'build', state: CheckState.Failure, context: 'build', description: null, targetUrl: null, workflowName: undefined,
+				event: undefined, url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
+			};
+			const cases: [string, PullRequest, string | undefined][] = [
+				['mergeable', agentsPullRequest().build(), 'Ready to merge'],
+				['mergeable with a failed check', agentsPullRequest()
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Ready to merge'],
+				['blocked with a failed check', agentsPullRequest().mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['conflicting', agentsPullRequest().mergeable(PullRequestMergeability.Conflict).build(), 'Cannot be merged yet'],
+				['draft that can otherwise be merged', agentsPullRequest().isDraft(true).build(), undefined],
+				['draft in a stack that can otherwise be merged', agentsPullRequest().isDraft(true).number(794).stack({
+					position: 2,
+					size: 2,
+					base: 'main',
+					pullRequests: [
+						{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Merged, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
+					],
+				}).build(), undefined],
+				['draft blocked by a failed check', agentsPullRequest().isDraft(true).mergeable(PullRequestMergeability.NotMergeable)
+					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
+				['in a stack with a pull request below that is being checked', agentsPullRequest().number(794).stack({
+					position: 2,
+					size: 2,
+					base: 'main',
+					pullRequests: [
+						{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Unknown },
+						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					],
+				}).build(), undefined],
+				['being checked', agentsPullRequest().mergeable(PullRequestMergeability.Unknown).build(), undefined],
+				['merged', agentsPullRequest().state(GithubItemStateEnum.Merged).build(), undefined],
+			];
+			for (const [description, pr, expected] of cases) {
+				const { tabs } = renderAgentsOverview(pr);
+				assert.strictEqual(tabs[1].querySelector('.overview-tab-badge')?.getAttribute('aria-label'), expected, description);
+				cleanup();
+			}
+		});
+
+		const reviewComment = (id: number, pullRequestReviewId: number, threadId: string): IComment => ({
+			id, pullRequestReviewId, threadId, path: 'file.ts', body: 'Please change this', diffHunk: '', url: '', htmlUrl: '',
+			graphNodeId: `comment-${id}`, createdAt: '', user: new AccountBuilder().build(),
+		});
+
+		/** A review with one comment in each of its threads. */
+		const review = (id: number, state: ReviewStateValue, threads: { [threadId: string]: boolean }): ReviewEvent => ({
+			id, event: EventType.Reviewed, submittedAt: '', body: '', htmlUrl: '', user: new AccountBuilder().build(), authorAssociation: 'OWNER', state,
+			comments: Object.keys(threads).map((threadId, index) => reviewComment(id * 100 + index, id, threadId)),
+			reviewThreads: Object.fromEntries(Object.entries(threads).map(([threadId, isResolved]) =>
+				[threadId, { threadId, canResolve: true, canUnresolve: true, isResolved }])),
+		});
+
+		const unresolvedCount = (out: RenderResult) => out.container.querySelector('#overview-tab-timeline .overview-tab-count')?.getAttribute('aria-label');
+
+		it('shows the number of unresolved conversations on the timeline tab', function () {
+			const cases: [TimelineEvent[], string | undefined][] = [
+				// Threads in a pending review have not been published yet.
+				[[review(1, 'COMMENTED', { a: false, b: true }), review(2, 'CHANGES_REQUESTED', { c: false }), review(3, 'PENDING', { d: false })], '2 unresolved conversations'],
+				[[review(1, 'COMMENTED', { a: false })], '1 unresolved conversation'],
+				[[review(1, 'COMMENTED', { a: true })], undefined],
+			];
+			for (const [events, expected] of cases) {
+				const { out, tabs } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events(events).build());
+				assert.strictEqual(unresolvedCount(out), expected);
+				assert.strictEqual(tabs[0].querySelector('.overview-tab-count')?.textContent, expected?.split(' ')[0]);
+				cleanup();
+			}
+		});
+
+		it('stops counting a conversation once its last comment is deleted', async function () {
+			const event = review(1, 'COMMENTED', { a: false, b: false });
+			event.comments.push(reviewComment(102, 1, 'b'));
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events([event]).build();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			sinon.stub(context, 'postMessage').resolves();
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			assert.strictEqual(unresolvedCount(out), '2 unresolved conversations');
+
+			// The comments are 100 in conversation a, and 101 and 102 in conversation b.
+			await context.deleteComment({ id: 101, pullRequestReviewId: 1 });
+			assert.strictEqual(unresolvedCount(out), '2 unresolved conversations');
+
+			await context.deleteComment({ id: 100, pullRequestReviewId: 1 });
+			assert.strictEqual(unresolvedCount(out), '1 unresolved conversation');
+		});
+
+		it('shows the timeline when asked to scroll to the pending review', function () {
+			const { context, out, tabs, selectedTab } = renderAgentsOverview();
+			fireEvent.click(tabs[1]);
+			const scrollIntoView = sinon.spy();
+			HTMLElement.prototype.scrollIntoView = scrollIntoView;
+			try {
+				act(() => context.handleMessage({ command: 'pr.scrollToPendingReview' }));
+			} finally {
+				Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+			}
+
+			const textarea = out.container.querySelector(`#${COMMENT_TEXTAREA_ID}`);
+			assert.strictEqual(selectedTab(), 'Timeline');
+			assert(scrollIntoView.calledOn(textarea));
+			assert.strictEqual(document.activeElement, textarea);
+		});
+
+		it('shows the stack from the header badge before the link scrolls to it', function () {
+			const { out, tabs, selectedTab } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).number(794).stack({
+				position: 2,
+				size: 2,
+				base: 'main',
+				pullRequests: [
+					{ position: 1, number: 793, title: 'First Change', head: 'D1', url: 'https://example.com/793', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+					{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
+				],
+			}).build());
+			const stack = out.container.querySelector('#pull-request-stack')!;
+
+			for (const tab of [tabs[0], tabs[2]]) {
+				fireEvent.click(tab);
+				assert(stack.closest('[hidden]'));
+
+				// VS Code scrolls to the target of a link within the page in a click listener on the window.
+				let stackVisibleWhenScrolled: boolean | undefined;
+				const scrollToTarget = () => {
+					stackVisibleWhenScrolled = !stack.closest('[hidden]');
+				};
+				window.addEventListener('click', scrollToTarget);
+				try {
+					// Unlike fireEvent, a user's click is not wrapped in act(), which would only render after the click.
+					out.container.querySelector('.stack-badge')!.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+				} finally {
+					window.removeEventListener('click', scrollToTarget);
+				}
+
+				assert.strictEqual(selectedTab(), 'Checks/Merge', `from ${tab.textContent}`);
+				assert.strictEqual(stackVisibleWhenScrolled, true, `from ${tab.textContent}`);
+			}
+		});
+	});
+
+	it('keeps the sidebar layout without tabs unless the experimental tabs are on in the agents window', function () {
+		for (const [isAgentSessionsWorkspace, agentsOverviewTabs] of [[false, false], [true, false], [false, true]]) {
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(isAgentSessionsWorkspace).agentsOverviewTabs(agentsOverviewTabs).build();
+			const out = render(
+				<PullRequestContext.Provider value={new PRContext(pr)}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+
+			const description = `agents window: ${isAgentSessionsWorkspace}, setting: ${agentsOverviewTabs}`;
+			assert.strictEqual(out.container.querySelector('[role="tablist"]'), null, description);
+			assert(out.container.querySelector('#main > #status-checks'), description);
+			cleanup();
+		}
 	});
 
 	it('applies sticky class when scrolled', function () {

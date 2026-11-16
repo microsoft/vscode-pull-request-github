@@ -262,6 +262,18 @@ export default defineConfig([
 		}
 	},
 
+	// Shared extension code is also bundled for the web extension host, which can't load 'fs'.
+	{
+		files: ['src/**/*.ts'],
+		ignores: ['src/env/node/**/*'],
+		rules: {
+			'no-restricted-imports': ['error', ...['fs', 'fs/promises', 'node:fs', 'node:fs/promises'].map(name => ({
+				name,
+				message: 'The web extension host can\'t load \'fs\'. Put Node.js file system access in src/env/node with a src/env/browser counterpart aliased in webpack.config.js.',
+			}))],
+		},
+	},
+
 	// Webviews
 	{
 		files: ['webviews/**/*.{ts,tsx}'],

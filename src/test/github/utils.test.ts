@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType, isITeam, reviewerLabel } from '../../github/interface';
-import { getPRFetchQuery, insertNewCommitsSinceReview, parseGraphQLIssue, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, parseGraphQLIssue, parseGraphQLComment, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -15,6 +15,30 @@ import * as GraphQL from '../../github/graphql';
 import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
+
+	describe('getPullRequestBranchLabels', () => {
+		const sameOwner = { base: { owner: 'owner', ref: 'main' }, head: { owner: 'owner', ref: 'feature' } };
+		const fork = { base: { owner: 'owner', ref: 'main' }, head: { owner: 'contributor', ref: 'feature' } };
+
+		it('shows only the branch names for a same-owner pull request in a single-repo workspace', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, sameOwner.head, false), { base: 'main', head: 'feature' });
+		});
+
+		it('shows the owners only when the base and head owners differ', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, fork.head, false), { base: 'owner:main', head: 'contributor:feature' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, { owner: 'OWNER', ref: 'feature' }, false), { base: 'main', head: 'feature' });
+		});
+
+		it('shows the repository name only in a multi-repo workspace', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', sameOwner.base, sameOwner.head, true), { base: 'repo:main', head: 'repo:feature' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, fork.head, true), { base: 'owner/repo:main', head: 'contributor/repo:feature' });
+		});
+
+		it('has no head label and no owner when the head repository is gone', () => {
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, undefined, false), { base: 'main', head: '' });
+			assert.deepStrictEqual(getPullRequestBranchLabels('repo', fork.base, undefined, true), { base: 'repo:main', head: '' });
+		});
+	});
 
 	describe('transformHtmlUrlsToExtensionUrls', () => {
 		let sinon: SinonSandbox;
@@ -409,6 +433,35 @@ describe('utils', () => {
 			assert.strictEqual(events[2].event, EventType.Reviewed);
 			assert.strictEqual(events[3].event, EventType.NewCommitsSinceReview);
 			assert.strictEqual((events[4] as CommitEvent).sha, HEAD_SHA);
+		});
+	});
+
+	describe('parseGraphQLComment', () => {
+		it('handles review comment with null commit gracefully without throwing (#9159)', () => {
+			const githubRepository = {} as any;
+			const comment = {
+				id: 'comment-node-id',
+				databaseId: 123456,
+				url: 'https://github.com/llvm/llvm-project/pull/171234#discussion_r2600682231',
+				body: 'Review comment on a rebased/detached commit',
+				bodyHTML: '<p>Review comment on a rebased/detached commit</p>',
+				path: 'src/main.cpp',
+				diffHunk: '@@ -1,5 +1,5 @@',
+				position: 10,
+				originalPosition: 10,
+				commit: null,
+				originalCommit: { oid: 'orig1234567890' },
+				author: null,
+				createdAt: '2026-11-04T16:06:57Z',
+				viewerCanDelete: false,
+				viewerCanUpdate: false,
+				reactionGroups: [],
+			} as any;
+
+			const parsed = parseGraphQLComment(comment, false, false, githubRepository);
+			assert.strictEqual(parsed.id, 123456);
+			assert.strictEqual(parsed.commitId, undefined);
+			assert.strictEqual(parsed.originalCommitId, 'orig1234567890');
 		});
 	});
 });

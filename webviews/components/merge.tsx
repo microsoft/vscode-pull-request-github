@@ -95,6 +95,37 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	) : null;
 };
 
+const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
+	const { approveWorkflowRuns } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const workflowRunIds = pr.status?.workflowRunIdsAwaitingApproval;
+	if (pr.state !== GithubItemStateEnum.Open || !workflowRunIds?.length) {
+		return null;
+	}
+
+	const approve = () => {
+		setBusy(true);
+		approveWorkflowRuns(workflowRunIds).finally(() => setBusy(false));
+	};
+	const isPlural = workflowRunIds.length > 1;
+	return (
+		<div className="status-section">
+			<div className="status-item">
+				<span className="workflow-approval-icon">{warningIcon}</span>
+				<div>
+					<p className="workflow-approval-heading">{workflowRunIds.length} {isPlural ? 'workflows' : 'workflow'} awaiting approval</p>
+					<p className="workflow-approval-description">{isPlural ? 'These workflows require' : 'This workflow requires'} approval from a maintainer.</p>
+				</div>
+				{pr.hasWritePermission ? (
+					<div className="button-container">
+						<button className="secondary" onClick={approve} disabled={isBusy}>Approve workflows to run</button>
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
+};
+
 const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
 	const { state, reviewRequirement } = pr;
 	if (!reviewRequirement || state !== GithubItemStateEnum.Open) {
@@ -161,6 +192,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 				<>
 					<PRStatusMessage pr={pr} isSimple={isSimple} />
 					<RequiredReviewers pr={pr} />
+					<WorkflowsAwaitingApproval pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
 					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
@@ -462,10 +494,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		if (pr.stackLoaded === false) {
 			return <div className="status-item">Checking whether the stack can be merged...</div>;
 		}
-		// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
-		const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
-		return (mergeable === PullRequestMergeability.Mergeable || isBottom && mergeable === PullRequestMergeability.Behind)
-			&& isStackMergeable(pr.stack, pr.number) ? <MergeStack pr={pr} /> : null;
+		return isReadyToMerge(pr) ? <MergeStack pr={pr} /> : null;
 	}
 
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
@@ -488,6 +517,58 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 
 	return null;
 };
+
+/** Whether the pull request can be merged now, whether or not the user is allowed to merge it. */
+function isReadyToMerge(pr: PullRequest): boolean {
+	if (pr.isDraft) {
+		return false;
+	}
+	if (!pr.stack) {
+		return pr.mergeable === PullRequestMergeability.Mergeable;
+	}
+	// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
+	const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
+	return (pr.mergeable === PullRequestMergeability.Mergeable || isBottom && pr.mergeable === PullRequestMergeability.Behind)
+		&& isStackMergeable(pr.stack, pr.number);
+}
+
+export type MergeReadiness = 'ready' | 'checks-failed' | 'blocked';
+
+/** The pull request as it would be once it is marked ready for review. */
+function asReadyForReview(pr: PullRequest): PullRequest {
+	return {
+		...pr,
+		isDraft: false,
+		stack: pr.stack && {
+			...pr.stack,
+			pullRequests: pr.stack.pullRequests.map(entry => entry.number === pr.number ? { ...entry, isDraft: false } : entry),
+		},
+	};
+}
+
+/**
+ * Whether an open pull request can be merged and, if it cannot, whether a check failed. Undefined for pull requests
+ * that are not open, for drafts that could otherwise be merged, and while it is not known whether it can be merged.
+ */
+export function getMergeReadiness(pr: PullRequest): MergeReadiness | undefined {
+	if (pr.isIssue || pr.state !== GithubItemStateEnum.Open) {
+		return undefined;
+	}
+	if (pr.mergeable === PullRequestMergeability.Unknown || pr.stackLoadError || !isStackMembershipKnown(pr)
+		|| (pr.stack && pr.stackLoaded === false)) {
+		return undefined;
+	}
+	// Merging a stack also merges the open pull requests below this one, so it depends on their mergeability too.
+	const stack = pr.stack;
+	if (stack?.pullRequests.some(entry => entry.position <= stack.position && entry.state === GithubItemStateEnum.Open
+		&& entry.mergeable === PullRequestMergeability.Unknown)) {
+		return undefined;
+	}
+	if (isReadyToMerge(pr.isDraft ? asReadyForReview(pr) : pr)) {
+		return pr.isDraft ? undefined : 'ready';
+	}
+	return pr.status?.statuses.some(status => status.state === CheckState.Failure) ? 'checks-failed' : 'blocked';
+}
 
 export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 	const { mergeStack, updatePR } = useContext(PullRequestContext);
@@ -684,7 +765,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
 		case 'merge':
-			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.head}`;
+			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.qualifiedHead}`;
 		case 'squash':
 			return pr.squashCommitMeta?.title ?? `${pr.title} (#${pr.number})`;
 		default:

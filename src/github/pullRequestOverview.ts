@@ -44,8 +44,8 @@ import {
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
-import { getIssueOrURLExpression, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
+import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -53,7 +53,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_AGENTS_OVERVIEW_TABS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -681,10 +681,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				canRequestCopilotReview: false,
 				isCurrentlyCheckedOut: pullRequestModel.equals(this._folderRepositoryManager.activePullRequest),
 				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-				base: `${pullRequest.base.owner}/${pullRequest.remote.repositoryName}:${pullRequest.base.ref}`,
 				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 				isLocalHeadDeleted: false,
-				head: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
+				...this.getBranchLabels(pullRequest),
+				qualifiedHead: pullRequest.head ? `${pullRequest.head.owner}/${pullRequest.remote.repositoryName}:${pullRequest.head.ref}` : '',
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch: doneCheckoutBranch,
 				status: null,
@@ -708,6 +708,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
+				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				agentsOverviewTabs: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_AGENTS_OVERVIEW_TABS, false),
 				stack: initialStack,
 				stackLoaded: false,
 				stackLoadError: false,
@@ -1027,7 +1029,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected override getPreview(repository: GitHubRepository, number: number): Promise<PullRequestPreview> {
-		return repository.getPullRequestPreview(number);
+		return repository.getPullRequestPreview(number, PullRequestOverviewPanel.isMultiRepoWorkspace());
+	}
+
+	private getBranchLabels(pullRequest: PullRequestModel, baseRef: string = pullRequest.base.ref): { base: string; head: string } {
+		return getPullRequestBranchLabels(
+			pullRequest.remote.repositoryName,
+			{ owner: pullRequest.base.owner, ref: baseRef },
+			pullRequest.head ?? undefined,
+			PullRequestOverviewPanel.isMultiRepoWorkspace(),
+		);
 	}
 
 	public override async updateWithIdentity(
@@ -1115,6 +1126,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.view-check-logs':
 				return this.viewCheckLogs(message);
+			case 'pr.approve-workflow-runs':
+				return this.approveWorkflowRuns(message);
 			case 'pr.openCommitChanges':
 				return this.openCommitChanges(message);
 			case 'pr.delete-review':
@@ -1301,6 +1314,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			Logger.error(`View check run logs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 			return this._replyMessage(message, { error: formatError(e) });
+		}
+	}
+
+	private async approveWorkflowRuns(message: IRequestMessage<ApproveWorkflowRunsArgs>): Promise<void> {
+		const results = await Promise.allSettled(message.args.workflowRunIds.map(id => this._item.githubRepository.approveWorkflowRun(id)));
+		const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+		if (failure) {
+			Logger.error(`Approving workflow runs failed: ${formatError(failure.reason)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Approving workflows failed. {0}', formatError(failure.reason)));
+		}
+		// Refresh the checks even after a failure, since some of the workflows may have been approved.
+		try {
+			const [status, reviewRequirement] = await this._item.getStatusChecks();
+			const reply: ApproveWorkflowRunsReply = { status, reviewRequirement };
+			return this._replyMessage(message, reply);
+		} catch (e) {
+			Logger.error(`Refreshing checks after approving workflow runs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			return this._throwError(message, formatError(e));
 		}
 	}
 
@@ -1933,7 +1964,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					await this._item.updateBaseBranch(selectedBranch);
 					const events = await this._getTimeline();
 					const reply: ChangeBaseReply = {
-						base: selectedBranch,
+						base: this.getBranchLabels(this._item, selectedBranch).base,
 						events
 					};
 					await this._replyMessage(message, reply);

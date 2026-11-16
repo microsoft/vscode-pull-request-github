@@ -27,6 +27,7 @@ export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 export const CombinedStatusBuilder = createBuilderClass<PullRequestChecks>()({
 	state: { default: CheckState.Success },
 	statuses: { default: [] },
+	workflowRunIdsAwaitingApproval: { default: undefined },
 });
 
 export type CombinedStatusBuilder = InstanceType<typeof CombinedStatusBuilder>;

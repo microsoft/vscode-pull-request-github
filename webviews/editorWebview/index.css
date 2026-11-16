@@ -41,6 +41,111 @@ html {
 	grid-row: 1;
 }
 
+/* In the agents window, the overview is split into tabs below the title. */
+#overview-tabs {
+	grid-column: 1 / 3;
+	grid-row: 3;
+	min-width: 0;
+}
+
+/* The tab list takes the place of the line below the title. */
+.title:has(+ #overview-tabs) {
+	margin-bottom: 12px;
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
+.overview-tab-list {
+	display: flex;
+	gap: 20px;
+	margin-bottom: 24px;
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+#overview-tabs .overview-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: -1px;
+	padding: 6px 2px;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: none;
+	color: var(--vscode-panelTitle-inactiveForeground);
+}
+
+#overview-tabs .overview-tab:hover,
+#overview-tabs .overview-tab[aria-selected='true'] {
+	color: var(--vscode-panelTitle-activeForeground);
+}
+
+#overview-tabs .overview-tab[aria-selected='true'] {
+	border-bottom-color: var(--vscode-panelTitle-activeBorder);
+}
+
+#overview-tabs .overview-tab:focus {
+	outline: none;
+}
+
+#overview-tabs .overview-tab:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.overview-tab-badge {
+	display: flex;
+}
+
+.overview-tab-badge.ready {
+	color: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.checks-failed {
+	color: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.checks-failed svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.blocked {
+	color: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-badge.blocked svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-count {
+	box-sizing: border-box;
+	min-width: 18px;
+	padding: 0 5px;
+	border-radius: 9px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	text-align: center;
+}
+
+/* Without the narrow sidebar column, the metadata sections are laid out side by side. */
+#overview-tabs #sidebar {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 24px 32px;
+}
+
+#overview-tabs .section {
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
 #project a {
 	cursor: pointer;
 }
@@ -298,7 +403,6 @@ body .comment-container.review {
 
 .review-comment-container {
 	width: 100%;
-	max-width: 1000px;
 	display: flex;
 	flex-direction: column;
 	position: relative;
@@ -445,6 +549,31 @@ button.input-box {
 
 .status-check-detail-text {
 	margin-right: 8px;
+}
+
+.workflow-approval-icon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background-color: var(--vscode-statusBarItem-warningBackground);
+	color: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-icon svg path {
+	fill: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-heading {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflow-approval-description {
+	color: var(--vscode-descriptionForeground);
 }
 
 .status-section p {
@@ -618,6 +747,7 @@ body .comment-container .review-comment-container .review-comment-body {
 body .comment-container .comment-body>p,
 body .comment-container .comment-body>div>p,
 body .comment-container .comment-body>div>ul,
+body .comment-container .comment-body>div>ol,
 .comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
@@ -671,7 +801,7 @@ body button .icon {
 }
 
 .overview-title h2 {
-	font-size: 32px;
+	font-size: 28px;
 	margin-right: 6px;
 }
 
@@ -1735,17 +1865,61 @@ blockquote p:last-child {
 	border-bottom: 2px solid;
 }
 
-.comment-body h1 {
+h2,
+h3 {
+	font-weight: normal;
+}
+
+/* Markdown headings, lists, and inline code follow github.com's markdown styles. */
+.comment-body h1,
+.comment-body h2,
+.comment-body h3,
+.comment-body h4,
+.comment-body h5,
+.comment-body h6 {
+	display: block;
+	margin-top: 24px;
+	margin-bottom: 16px;
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.comment-body h1,
+.comment-body h2 {
 	padding-bottom: 0.3em;
-	line-height: 1.2;
 	border-bottom-width: 1px;
 	border-bottom-style: solid;
 }
 
-.comment-body h1,
-h2,
-h3 {
-	font-weight: normal;
+.comment-body h1 {
+	font-size: 2em;
+}
+
+.comment-body h2 {
+	font-size: 1.5em;
+}
+
+.comment-body h3 {
+	font-size: 1.25em;
+}
+
+.comment-body h4 {
+	font-size: 1em;
+}
+
+.comment-body h5 {
+	font-size: 0.875em;
+}
+
+.comment-body h6 {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.comment-body :not(pre)>code {
+	padding: 0.2em 0.4em;
+	font-size: 85%;
+	border-radius: 6px;
 }
 
 .comment-body h1 code,
@@ -1754,8 +1928,26 @@ h3 {
 .comment-body h4 code,
 .comment-body h5 code,
 .comment-body h6 code {
+	padding: 0 0.2em;
 	font-size: inherit;
 	line-height: auto;
+}
+
+.comment-body ul,
+.comment-body ol {
+	padding-left: 2em;
+}
+
+.comment-body li+li {
+	margin-top: 0.25em;
+}
+
+.markdown-body>:first-child {
+	margin-top: 0;
+}
+
+.markdown-body>:last-child {
+	margin-bottom: 0;
 }
 
 .comment-body table {
@@ -1848,14 +2040,23 @@ code {
 	background-color: rgba(10, 10, 10, 0.4);
 }
 
+.vscode-light .comment-body :not(pre)>code {
+	background-color: rgba(129, 139, 152, 0.12);
+}
+
+.vscode-dark .comment-body :not(pre)>code {
+	background-color: rgba(101, 108, 118, 0.2);
+}
+
 .vscode-high-contrast .comment-body pre:not(.hljs),
 .vscode-high-contrast .comment-body code>div {
 	background-color: var(--vscode-editor-background);
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .comment-body h1 {
-	border: 1px solid rgb(0, 0, 0);
+.vscode-high-contrast .comment-body h1,
+.vscode-high-contrast .comment-body h2 {
+	border-color: var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .comment-container .review-comment-header,
@@ -1878,12 +2079,14 @@ code {
 }
 
 .vscode-light .comment-body h1,
+.vscode-light .comment-body h2,
 .vscode-light .comment-body hr,
 .vscode-light .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(0, 0, 0, 0.18);
 }
 
 .vscode-dark .comment-body h1,
+.vscode-dark .comment-body h2,
 .vscode-dark .comment-body hr,
 .vscode-dark .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(255, 255, 255, 0.18);
@@ -2021,7 +2224,42 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 768px) {
+/*
+ * While the main column is narrower than its maximum width, let the timeline use the full width once it is below the sidebar.
+ * The lower bound must match singleColumnLayoutQuery in overview.tsx, and the upper bound must match the body max-width.
+ */
+@media (1000px < width <= 1280px) {
+	#app {
+		display: flow-root;
+	}
+
+	/* The sidebar is before #main in the DOM so that the timeline can flow around it. */
+	#app > #sidebar {
+		float: right;
+		width: 300px;
+		margin: 0 0 16px 32px;
+	}
+
+	#app > #main {
+		display: block;
+	}
+
+	/* Each item establishes its own formatting context so that it narrows next to the sidebar instead of going under it. */
+	#app > #main > * {
+		width: auto;
+	}
+
+	#app > #main > :not(.comment-container) {
+		display: flow-root;
+	}
+
+	#app > #main > * + * {
+		margin-top: 16px;
+	}
+}
+
+/* Keep in sync with singleColumnLayoutQuery in overview.tsx */
+@media (max-width: 1000px) {
 	.title {
 		border-bottom: none;
 		padding-bottom: 0px;

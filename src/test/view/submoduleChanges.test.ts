@@ -61,6 +61,7 @@ describe('Submodule changes', function () {
 		folderManager = {
 			repository,
 			activePullRequest: pr,
+			findRepo: () => pr.githubRepository,
 			setFileViewedContext: () => { },
 			telemetry: { sendTelemetryEvent: () => { } },
 		} as unknown as FolderRepositoryManager;

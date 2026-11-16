@@ -5,13 +5,14 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
-import { COMMENT_TEXTAREA_ID } from './constants';
+import { COMMENT_TEXTAREA_ID, REVEAL_TIMELINE_EVENT } from './constants';
+import emitter from './events';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
-import { CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -548,6 +549,11 @@ export class PRContext {
 
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
+	public approveWorkflowRuns = async (workflowRunIds: number[]) => {
+		const result: ApproveWorkflowRunsReply = await this.postMessage({ command: 'pr.approve-workflow-runs', args: { workflowRunIds } satisfies ApproveWorkflowRunsArgs });
+		this.updatePR({ status: result.status, reviewRequirement: result.reviewRequirement });
+	};
+
 	public openCommitChanges = async (commitSha: string) => {
 		this.updatePR({ loadingCommit: commitSha });
 		try {
@@ -620,6 +626,7 @@ export class PRContext {
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 			case 'pr.scrollToPendingReview':
+				emitter.emit(REVEAL_TIMELINE_EVENT);
 				const pendingReview = document.getElementById('pending-review') ?? document.getElementById(COMMENT_TEXTAREA_ID);
 				if (pendingReview) {
 					pendingReview.scrollIntoView();

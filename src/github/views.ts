@@ -98,12 +98,18 @@ export interface PullRequest extends Issue {
 	stackMergeStatus?: 'pending' | 'enqueued';
 	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
+	/** Whether the overview is shown in the agents window, where pull requests are not checked out. */
+	isAgentSessionsWorkspace?: boolean;
+	/** Whether the experimental agents overview tabs setting is on. The tabs are only shown in the agents window. */
+	agentsOverviewTabs?: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;
 	isRemoteHeadDeleted?: boolean;
 	isLocalHeadDeleted?: boolean;
 	head: string;
+	/** The head branch with its owner and repository (`owner/repo:branch`), used in the default merge commit title. */
+	qualifiedHead: string;
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	repositoryDefaultBranch: string;
@@ -244,6 +250,15 @@ export interface ChangeTemplateReply {
 
 export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
+}
+
+export interface ApproveWorkflowRunsArgs {
+	workflowRunIds: number[];
+}
+
+export interface ApproveWorkflowRunsReply {
+	status: PullRequestChecks | null;
+	reviewRequirement: PullRequestReviewRequirement | null;
 }
 
 export interface FileUploadPlaceholder {

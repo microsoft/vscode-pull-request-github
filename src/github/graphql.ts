@@ -266,12 +266,12 @@ export interface ReviewComment {
 	pullRequestReview: {
 		databaseId: number;
 	};
-	commit: {
+	commit?: {
 		oid: string;
-	};
-	originalCommit: {
+	} | null;
+	originalCommit?: {
 		oid: string;
-	};
+	} | null;
 	createdAt: string;
 	replyTo: {
 		databaseId: number;
@@ -1260,6 +1260,7 @@ export interface CheckSuiteForRollup {
 	| 'TIMED_OUT'
 	| null;
 	workflowRun?: {
+		databaseId: number | null;
 		event: string;
 		workflow: {
 			name: string;
