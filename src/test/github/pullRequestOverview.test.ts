@@ -18,6 +18,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { Repository } from '../../api/api';
@@ -29,7 +30,7 @@ import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestMergeability, PullRequestStack, StackablePullRequest } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest } from '../../github/interface';
 import { GitHubRepository } from '../../github/githubRepository';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -161,7 +162,7 @@ describe('PullRequestOverview', function () {
 	function previewLoadingTests<TItem extends IssueModel, TPreview extends OverviewItemPreview>(fixture: () => {
 		model: TItem;
 		preview: TPreview;
-		getPreview: SinonStub<[number], Promise<TPreview>>;
+		getPreview: SinonStub<[number, boolean?], Promise<TPreview>>;
 		getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
@@ -923,7 +924,7 @@ describe('PullRequestOverview', function () {
 		let usersPromise: Promise<{ [key: string]: IAccount[] }>;
 		let getAssignableUsers: SinonStub<Parameters<FolderRepositoryManager['getAssignableUsers']>, ReturnType<FolderRepositoryManager['getAssignableUsers']>>;
 		let getReviewRequests: SinonStub<[], ReturnType<PullRequestModel['getReviewRequests']>>;
-		let getPreview: SinonStub<[number], Promise<PullRequestPreview>>;
+		let getPreview: SinonStub<Parameters<GitHubRepository['getPullRequestPreview']>, Promise<PullRequestPreview>>;
 		let getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		let getMergeQueueMethod: SinonStub;
@@ -1094,6 +1095,62 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
 		});
 
+
+		describe('branch labels', function () {
+			const initialized = () => messages.find(message => message.command === 'pr.initialize')?.pullrequest;
+			const branchLabels = () => [initialized()?.base, initialized()?.head];
+
+			beforeEach(function () {
+				sinon.stub(pullRequestManager, 'gitHubRepositories').get(() => [repo]);
+				repositoriesManager.insertFolderManager(pullRequestManager);
+				PullRequestOverviewPanel.registerGlobalCommands(context, telemetry, repositoriesManager);
+			});
+
+			function insertOtherFolder(gitHubRepositories: GitHubRepository[]): void {
+				const otherRepository = new MockRepository();
+				otherRepository.rootUri = vscode.Uri.file('/other');
+				const otherManager = new FolderRepositoryManager(1, context, otherRepository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
+				context.subscriptions.push(otherManager);
+				sinon.stub(otherManager, 'gitHubRepositories').get(() => gitHubRepositories);
+				repositoriesManager.insertFolderManager(otherManager);
+			}
+
+			it('shows only the branch names in a single-repo workspace', async function () {
+				await openPanel(Promise.resolve(prModel));
+
+				assert.deepStrictEqual(branchLabels(), ['new-feature', 'new-feature']);
+				assert.strictEqual(initialized()?.qualifiedHead, 'octocat/bbb:new-feature', 'the merge commit title keeps the owner and repository');
+				sinon.assert.calledWithExactly(getPreview, 1000, false);
+			});
+
+			it('shows the repository name in a multi-repo workspace', async function () {
+				insertOtherFolder([repo]);
+
+				await openPanel(Promise.resolve(prModel));
+
+				assert.deepStrictEqual(branchLabels(), ['bbb:new-feature', 'bbb:new-feature']);
+				sinon.assert.calledWithExactly(getPreview, 1000, true);
+			});
+
+			it('does not count a workspace folder without a GitHub repository', async function () {
+				insertOtherFolder([]);
+
+				await openPanel();
+
+				assert.deepStrictEqual(branchLabels(), ['new-feature', 'new-feature']);
+			});
+
+			it('shows the owners when the pull request is from a fork', async function () {
+				prModel.update(convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000)
+					.head(h => h.ref('feature').repo((r: RepositoryBuilder) => r.owner(o => o.login('contributor'))))
+					.build(), repo));
+
+				await openPanel();
+
+				assert.deepStrictEqual(branchLabels(), ['octocat:new-feature', 'contributor:feature']);
+				assert.strictEqual(initialized()?.qualifiedHead, 'contributor/bbb:feature');
+			});
+		});
 
 		it('loads the stack while the rest of the page loads, and shows it after the page', async function () {
 			const getStack = sinon.stub(prModel, 'getStack').resolves(undefined);
@@ -1549,7 +1606,7 @@ describe('PullRequestOverview', function () {
 				branch: 'new-feature',
 				createdForPullRequest: false,
 			});
-			const showWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+			const showQuickPick = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
 			const replyMessage = sinon.stub(panel as any, '_replyMessage');
 
 			await (panel as any).mergePullRequest({
@@ -1557,12 +1614,11 @@ describe('PullRequestOverview', function () {
 				args: { title: '', description: '', method: 'squash' },
 			});
 
-			assert.strictEqual(showWarningMessage.calledOnce, true);
-			assert.strictEqual((showWarningMessage.firstCall.args[1] as vscode.MessageOptions).modal, true);
-			const actions = showWarningMessage.firstCall.args.slice(2) as vscode.MessageItem[];
-			assert.deepStrictEqual(actions.map(action => action.title), ['Delete Local Branch']);
+			assert.strictEqual(showQuickPick.calledOnce, true);
+			const actions = showQuickPick.firstCall.args[0] as readonly (vscode.QuickPickItem & { type: string })[];
+			assert.deepStrictEqual(actions.map(action => action.type), ['local']);
 			assert.strictEqual(replyMessage.firstCall.args[1].state, GithubItemStateEnum.Merged);
-			sinon.assert.callOrder(replyMessage, showWarningMessage);
+			sinon.assert.callOrder(replyMessage, showQuickPick);
 		});
 	});
 
@@ -1677,12 +1733,12 @@ describe('PullRequestOverview', function () {
 		sinon.stub(model, 'getReviewRequests').resolves([]);
 		const timeline = sinon.stub(model, 'getTimelineEvents').resolves([]);
 		sinon.stub(model, 'validateDraftMode').resolves(false);
-		sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+		const statusChecks = sinon.stub(model, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 		sinon.stub(model, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
 		sinon.stub(model, 'getCoAuthors').resolves([]);
 		sinon.stub(model, 'getLastUpdateTime').resolves(new Date(0));
 		const stack = sinon.stub(model, 'getStack').resolves(undefined);
-		return { stack, timeline };
+		return { stack, timeline, statusChecks };
 	}
 
 	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
@@ -3273,6 +3329,57 @@ describe('PullRequestOverview', function () {
 
 			sinon.assert.calledOnce(getTimelineEvents);
 			assert.deepStrictEqual(sent, ['reply:change']);
+		});
+	});
+
+	describe('approveWorkflowRuns', function () {
+		let panel: TestPullRequestOverviewPanel;
+		let services: ReturnType<typeof stubPanelServices>;
+		let statusChecks: SinonStub<[], Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]>>;
+		const refreshed: PullRequestChecks = { state: CheckState.Pending, statuses: [] };
+
+		function approval(runId: number) {
+			return [{ owner: remote.owner, repo: remote.repositoryName, run_id: runId }];
+		}
+
+		beforeEach(function () {
+			const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			services = panelServices ??= stubPanelServices();
+			services.models.set(model.number, model);
+			statusChecks = stubModelServices(model).statusChecks;
+			panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			panel.setItem(model);
+			context.subscriptions.push(panel);
+		});
+
+		it('approves every workflow run and replies with the refreshed checks', async function () {
+			const approve = sinon.spy(repo, 'approveWorkflowRun');
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(11), {}, 201);
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(12), {}, 201);
+			statusChecks.resolves([refreshed, null]);
+			const reply = sinon.stub(panel, '_replyMessage').resolves();
+			const message = { req: 'approve', command: 'pr.approve-workflow-runs', args: { workflowRunIds: [11, 12] } };
+
+			await panel._onDidReceiveMessage(message);
+
+			assert.deepStrictEqual(approve.args, [[11], [12]]);
+			sinon.assert.notCalled(services.showError);
+			assert(reply.calledOnceWithExactly(message, { status: refreshed, reviewRequirement: null }));
+		});
+
+		it('reports a workflow run that could not be approved and still refreshes the checks', async function () {
+			repo.queryProvider.expectOctokitRequest(['actions', 'approveWorkflowRun'], approval(11), {}, 201);
+			repo.queryProvider.expectOctokitError(['actions', 'approveWorkflowRun'], approval(12), new Error('Must have write access'));
+			statusChecks.resolves([refreshed, null]);
+			const reply = sinon.stub(panel, '_replyMessage').resolves();
+			const message = { req: 'approve', command: 'pr.approve-workflow-runs', args: { workflowRunIds: [11, 12] } };
+
+			await panel._onDidReceiveMessage(message);
+
+			sinon.assert.calledOnce(services.showError);
+			assert.match(services.showError.firstCall.args[0], /Must have write access/);
+			assert(reply.calledOnceWithExactly(message, { status: refreshed, reviewRequirement: null }));
 		});
 	});
 
