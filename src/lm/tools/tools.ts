@@ -11,17 +11,21 @@ import { FetchIssueTool } from './fetchIssueTool';
 import { FetchLabelsTool } from './fetchLabelsTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
 import { OpenPullRequestTool } from './openPullRequestTool';
+import { OpenPullRequestWebviewTool } from './openPullRequestWebviewTool';
 import { PullRequestStatusChecksTool } from './pullRequestStatusChecksTool';
 import { ResolveReviewThreadTool } from './resolveReviewThreadTool';
 import { SearchTool } from './searchTools';
+import { ITelemetry } from '../../common/telemetry';
 import { CredentialStore } from '../../github/credentials';
+import { FolderRepositoryManagerResolver } from '../../github/folderRepositoryManagerResolver';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 
-export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
+export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, folderRepositoryManagerResolver: FolderRepositoryManagerResolver, telemetry: ITelemetry) {
 	registerFetchingTools(context, credentialStore, repositoriesManager);
 	registerSearchTools(context, credentialStore, repositoriesManager);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestTool.toolId, new OpenPullRequestTool(repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool(OpenPullRequestWebviewTool.toolId, new OpenPullRequestWebviewTool(credentialStore, repositoriesManager, folderRepositoryManagerResolver, telemetry, context.extensionUri)));
 	context.subscriptions.push(vscode.lm.registerTool(PullRequestStatusChecksTool.toolId, new PullRequestStatusChecksTool(credentialStore, repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(CreatePullRequestTool.toolId, new CreatePullRequestTool(credentialStore, repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool(ResolveReviewThreadTool.toolId, new ResolveReviewThreadTool(repositoriesManager)));

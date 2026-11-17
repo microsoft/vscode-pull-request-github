@@ -465,6 +465,8 @@
 	"languageModelTools.github-pull-request_pullRequestStatusChecks.description": "Get the status checks and CI results for a GitHub pull request.",
 	"languageModelTools.github-pull-request_pullRequestInViewport.displayName": "Open Pull Request",
 	"languageModelTools.github-pull-request_pullRequestInViewport.description": "Get information about the open GitHub pull request. This information includes: comments, files changed, pull request title + description, and pull request state.",
+	"languageModelTools.github-pull-request_openPullRequestWebview.displayName": "Open Pull Request Webview",
+	"languageModelTools.github-pull-request_openPullRequestWebview.description": "Open a GitHub pull request in the pull request webview.",
 	"languageModelTools.github-pull-request_resolveReviewThread.displayName": "Resolve Review Thread",
 	"languageModelTools.github-pull-request_resolveReviewThread.description": "Resolve a review thread on the active GitHub pull request.",
 	"languageModelTools.github-pull-request_create_pull_request.displayName": "Create a GitHub pull request",
