@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.180.0
+
+### Changes
+
+- When GitHub Actions workflows are waiting for a maintainer's approval, such as for a pull request from a first-time contributor, the checks section of the pull request overview has an "Approve workflows to run" button.
+- Comments and other timeline items in the pull request overview use the full width once they're below the sidebar, and the overview switches to a single column below 1000px wide instead of 768px.
+- The pull request overview in the Agents window doesn't show the checkout button.
+- In the Agents window, the pull request overview can be split into Timeline, Checks/Merge, and Metadata tabs with the experimental setting `"githubPullRequests.experimental.agentsOverviewTabs"`. The Timeline tab shows the number of unresolved conversations, and the Checks/Merge tab shows whether the pull request is ready to merge.
+
+### Fixes
+
+- Pull requests fail to open when a review comment's commit is null: "Cannot read properties of null (reading 'oid')". https://github.com/microsoft/vscode-pull-request-github/issues/9159
+- Opening a comment's file from the pull request overview in the Agents window fails. https://github.com/microsoft/vscode-pull-request-github/pull/9186
+
+**_Thank You_**
+
+* [@hungud (Uong Dong Hung)](https://github.com/hungud): Handle null review comment commit in parseGraphQLComment [PR #9168](https://github.com/microsoft/vscode-pull-request-github/pull/9168)
+
 ## 0.178.0
 
 ### Changes
