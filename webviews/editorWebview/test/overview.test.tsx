@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, RenderResult, wait, waitForElement } from 'react-testing-library';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
@@ -1430,8 +1430,9 @@ describe('Overview', function () {
 	});
 
 	describe('agents window tabs', function () {
-		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build()) {
+		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build(), beforeRender?: (context: PRContext) => void) {
 			const context = new PRContext(pr);
+			beforeRender?.(context);
 			const out = render(
 				<PullRequestContext.Provider value={context}>
 					<Overview {...pr} />
@@ -1442,6 +1443,122 @@ describe('Overview', function () {
 			const visiblePanels = () => [...out.container.querySelectorAll<HTMLElement>('[role="tabpanel"]')].filter(panel => !panel.hidden);
 			return { context, out, tabs, selectedTab, visiblePanels };
 		}
+
+		const failedCheckRun: PullRequestCheckStatus = {
+			id: 'build', state: CheckState.Failure, context: 'Build',
+			description: null, targetUrl: null, workflowName: undefined, event: undefined,
+			url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: true, databaseId: 1,
+		};
+
+		function reviewEvent(comments: Partial<IComment>[]): ReviewEvent {
+			return {
+				id: 1,
+				event: EventType.Reviewed,
+				submittedAt: '2019-01-01T10:00:00Z',
+				body: '',
+				htmlUrl: 'https://github.com/owner/name/pull/1234#pullrequestreview-1',
+				user: new AccountBuilder().build(),
+				authorAssociation: 'MEMBER',
+				state: 'COMMENTED',
+				comments: comments.map((comment, index) => ({
+					id: index,
+					url: '',
+					diffHunk: '',
+					body: 'Please rename this.',
+					createdAt: '2019-01-01T10:00:00Z',
+					htmlUrl: '',
+					graphNodeId: `comment-${index}`,
+					user: new AccountBuilder().build(),
+					path: 'src/file.ts',
+					position: 1,
+					threadId: `thread-${index}`,
+					isResolved: false,
+					...comment,
+				})),
+			};
+		}
+
+		/** The session action shown on the right of the tabs, if any. */
+		function visibleSessionAction(container: HTMLElement) {
+			const visible = [...container.querySelectorAll<HTMLElement>('.overview-session-action')].filter(action => !action.hidden);
+			assert(visible.length <= 1);
+			return visible[0]?.querySelector('button');
+		}
+
+		/** The label of the session action shown with each tab selected, by tab. */
+		function sessionActionsByTab(container: HTMLElement, tabs: HTMLElement[]) {
+			return Object.fromEntries(tabs.map(tab => {
+				fireEvent.click(tab);
+				return [tab.textContent, visibleSessionAction(container)?.textContent ?? null];
+			}));
+		}
+
+		/** An open pull request in the agents window with `overrides`. */
+		const agentsPullRequestWith = (overrides: Partial<PullRequest>): PullRequest =>
+			({ ...new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build(), ...overrides });
+
+		it('puts failed checks and unresolved comments in the session from the right of their tabs', async function () {
+			const stubs: { fixChecks?: SinonStub; addressComments?: SinonStub } = {};
+			let finishFixChecks = () => { };
+			const { out, tabs } = renderAgentsOverview(agentsPullRequestWith({
+				status: { state: CheckState.Failure, statuses: [failedCheckRun] },
+				events: [reviewEvent([{}])],
+			}), context => {
+				stubs.fixChecks = sinon.stub(context, 'fixChecksInSession').returns(new Promise<void>(resolve => { finishFixChecks = resolve; }));
+				stubs.addressComments = sinon.stub(context, 'addressCommentsInSession').resolves();
+			});
+			const [timelineTab, checksTab] = tabs;
+
+			assert.deepStrictEqual(sessionActionsByTab(out.container, tabs), {
+				'Checks/Merge': 'Fix Checks in Session',
+				'Timeline': 'Address Comments in Session',
+				'Metadata': null,
+			});
+			// In the bar with the tabs, but not in the tab list, which only has tabs.
+			const actions = [...out.container.querySelectorAll('.overview-session-action')];
+			assert.deepStrictEqual(actions.map(action => action.parentElement?.className), ['overview-tab-bar', 'overview-tab-bar']);
+			assert.strictEqual(out.container.querySelector('[role="tablist"] .overview-session-action, [role="tabpanel"] .overview-session-action'), null);
+
+			fireEvent.click(checksTab);
+			const fixChecks = visibleSessionAction(out.container);
+			assert(fixChecks);
+			fireEvent.click(fixChecks);
+			fireEvent.click(timelineTab);
+			const addressComments = visibleSessionAction(out.container);
+			assert(addressComments);
+			fireEvent.click(addressComments);
+			await wait(() => assert(stubs.fixChecks?.calledOnce && stubs.addressComments?.calledOnce));
+
+			// A running action stays disabled when its tab is selected again.
+			fireEvent.click(checksTab);
+			assert.strictEqual(visibleSessionAction(out.container), fixChecks);
+			assert.strictEqual(fixChecks.disabled, true);
+			finishFixChecks();
+			await wait(() => assert.strictEqual(fixChecks.disabled, false));
+		});
+
+		it('only offers the session actions for failed checks and posted unresolved comments of open pull requests', function () {
+			const none = { 'Checks/Merge': null, 'Timeline': null, 'Metadata': null };
+			const cases: [string, Partial<PullRequest>][] = [
+				['no failures or threads', {
+					status: { state: CheckState.Success, statuses: [{ ...failedCheckRun, state: CheckState.Success }] },
+					events: [reviewEvent([{ threadId: undefined, isResolved: undefined }])],
+				}],
+				['resolved and draft comments', {
+					events: [reviewEvent([{ isResolved: true }, { isDraft: true }])],
+				}],
+				['closed', {
+					state: GithubItemStateEnum.Closed,
+					status: { state: CheckState.Failure, statuses: [failedCheckRun] },
+					events: [reviewEvent([{}])],
+				}],
+			];
+			for (const [description, overrides] of cases) {
+				const { out, tabs } = renderAgentsOverview(agentsPullRequestWith(overrides));
+				assert.deepStrictEqual(sessionActionsByTab(out.container, tabs), none, description);
+				cleanup();
+			}
+		});
 
 		it('splits the overview into timeline, checks, and metadata tabs', function () {
 			const { out, tabs, selectedTab, visiblePanels } = renderAgentsOverview();

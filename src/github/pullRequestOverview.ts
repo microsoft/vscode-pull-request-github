@@ -43,6 +43,7 @@ import {
 } from './pullRequestStackUpdate';
 import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
+import { addressCommentsInSession, fixChecksInSession } from './sessionPrompts';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
 import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
@@ -1095,6 +1096,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.view-check-logs':
 				return this.viewCheckLogs(message);
+			case 'pr.fix-checks-in-session':
+				return this.fixChecksInSession(message);
+			case 'pr.address-comments-in-session':
+				return this.addressCommentsInSession(message);
 			case 'pr.approve-workflow-runs':
 				return this.approveWorkflowRuns(message);
 			case 'pr.openCommitChanges':
@@ -1284,6 +1289,36 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(`View check run logs failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 			return this._replyMessage(message, { error: formatError(e) });
 		}
+	}
+
+	private async fixChecksInSession(message: IRequestMessage<void>): Promise<void> {
+		/* __GDPR__
+			"pr.fixChecksInSession" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('pr.fixChecksInSession');
+		try {
+			await fixChecksInSession(this._item, this._folderRepositoryManager.context.globalStorageUri);
+		} catch (e) {
+			Logger.error(`Fix checks in session failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to fix the checks in the session: {0}', formatError(e)));
+		}
+		return this._replyMessage(message, {});
+	}
+
+	private async addressCommentsInSession(message: IRequestMessage<void>): Promise<void> {
+		/* __GDPR__
+			"pr.addressCommentsInSession" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('pr.addressCommentsInSession');
+		try {
+			// The lines that comments are on are only those of the checked out files when the pull request is checked out.
+			const checkoutRoot = this._item.equals(this._folderRepositoryManager.activePullRequest) ? this._folderRepositoryManager.repository.rootUri : undefined;
+			await addressCommentsInSession(this._item, checkoutRoot);
+		} catch (e) {
+			Logger.error(`Address comments in session failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to address the comments in the session: {0}', formatError(e)));
+		}
+		return this._replyMessage(message, {});
 	}
 
 	private async approveWorkflowRuns(message: IRequestMessage<ApproveWorkflowRunsArgs>): Promise<void> {

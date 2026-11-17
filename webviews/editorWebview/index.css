@@ -55,11 +55,21 @@ html {
 	border-bottom: none;
 }
 
-.overview-tab-list {
+/* The tabs, with the action of the selected tab on their right. */
+.overview-tab-bar {
 	display: flex;
+	align-items: center;
 	gap: 20px;
 	margin-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+/* At the bottom of the bar, so that the selected tab's underline covers its border. */
+.overview-tab-list {
+	display: flex;
+	flex-shrink: 0;
+	align-self: flex-end;
+	gap: 20px;
 }
 
 #overview-tabs .overview-tab {
@@ -144,6 +154,19 @@ html {
 #overview-tabs .section {
 	padding-bottom: 0;
 	border-bottom: none;
+}
+
+/* Not `display`, so that `hidden` hides the actions of the other tabs. */
+#overview-tabs .overview-session-action {
+	min-width: 0;
+	margin-left: auto;
+}
+
+/* Narrow overviews shorten the label rather than wrap the bar; the title has the full label. */
+#overview-tabs .overview-session-action button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 #project a {
