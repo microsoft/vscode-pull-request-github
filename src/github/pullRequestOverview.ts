@@ -569,19 +569,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			// PR list models may contain Markdown without rendered description HTML.
 			// Resolve it before the initial webview context is sent.
 			if (pullRequestModel.body?.trim() && !pullRequestModel.bodyHTML?.trim()) {
-				const resolvedModel = await this.resolveModel({
-					owner: pullRequestModel.remote.owner,
-					repo: pullRequestModel.remote.repositoryName,
-					number: pullRequestModel.number,
-				});
+				// Preview data is detached from the shared model cache until freshness is checked.
+				const description = await pullRequestModel.githubRepository.getPullRequestPreview(pullRequestModel.number);
 				if (isStale()) {
 					return;
 				}
-				if (!resolvedModel) {
-					throw new Error(`Failed to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
-				}
-				pullRequestModel = resolvedModel;
-				this._item = resolvedModel;
+				pullRequestModel.bodyHTML = description.bodyHTML;
+				pullRequestModel.update({ ...pullRequestModel.item, body: description.body, bodyHTML: description.bodyHTML });
 			}
 
 			if (this._panel.visible) {
