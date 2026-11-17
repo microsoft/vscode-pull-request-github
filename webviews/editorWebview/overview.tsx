@@ -4,12 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { EventType } from '../../src/common/timelineEvent';
+import { CheckState, GithubItemStateEnum } from '../../src/github/interface';
 import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
 import { REVEAL_TIMELINE_EVENT } from '../common/constants';
+import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { AddComment, CommentPreview, CommentView } from '../components/comment';
 import { Header, HeaderPreview } from '../components/header';
+import { loadingIcon } from '../components/icon';
 import { StatusChecksSection } from '../components/merge';
 import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
 import { StackRecommendationBanner } from '../components/stackRecommendation';
@@ -68,11 +72,44 @@ const overviewTabs = [
 
 type OverviewTabId = typeof overviewTabs[number]['id'];
 
+const hasFailedChecks = (pr: PullRequest) =>
+	pr.state === GithubItemStateEnum.Open && !!pr.status?.statuses.some(status => status.state === CheckState.Failure);
+
+// Draft comments are not posted yet, so they are not part of a review thread that can be resolved.
+const hasUnresolvedComments = (pr: PullRequest) =>
+	pr.state === GithubItemStateEnum.Open && pr.events.some(event => event.event === EventType.Reviewed
+		&& event.comments.some(comment => !!comment.threadId && !comment.isResolved && !comment.isDraft));
+
+interface SessionActionProps {
+	label: string;
+	run: () => Promise<unknown>;
+}
+
+/** Puts a prompt to act on what the selected tab shows in the input of the agent session. It is on the right of the tabs. */
+const SessionAction = ({ label, run, hidden }: SessionActionProps & { hidden: boolean }) => {
+	const [busy, setBusy] = React.useState(false);
+	const onClick = async () => {
+		setBusy(true);
+		try {
+			await run();
+		} finally {
+			setBusy(false);
+		}
+	};
+	return <div className="overview-session-action" hidden={hidden}>
+		<button type="button" title={label} disabled={busy} onClick={onClick}>
+			{busy ? <span className="loading-button">{loadingIcon}</span> : null}
+			{label}
+		</button>
+	</div>;
+};
+
 /**
  * Pull requests in the agents window are there to be reviewed and merged, so with the experimental setting on, the
  * overview is split into tabs that start with merging and checks.
  */
 const OverviewTabs = (pr: PullRequest) => {
+	const { fixChecksInSession, addressCommentsInSession } = React.useContext(PullRequestContext);
 	const [selected, setSelected] = React.useState<OverviewTabId>('checks');
 	const tabs = React.useRef<HTMLButtonElement[]>([]);
 
@@ -107,25 +144,37 @@ const OverviewTabs = (pr: PullRequest) => {
 			{content}
 		</div>;
 
+	const sessionActions: Partial<Record<OverviewTabId, SessionActionProps>> = {
+		checks: hasFailedChecks(pr) ? { label: 'Fix Checks in Session', run: fixChecksInSession } : undefined,
+		timeline: hasUnresolvedComments(pr) ? { label: 'Address Comments in Session', run: addressCommentsInSession } : undefined,
+	};
+
 	return <div id="overview-tabs">
-		<div role="tablist" aria-label="Pull request overview" className="overview-tab-list">
-			{overviewTabs.map((tab, index) =>
-				<button
-					key={tab.id}
-					ref={element => { tabs.current[index] = element; }}
-					id={`overview-tab-${tab.id}`}
-					className="overview-tab"
-					type="button"
-					role="tab"
-					aria-selected={selected === tab.id}
-					aria-controls={`overview-panel-${tab.id}`}
-					tabIndex={selected === tab.id ? 0 : -1}
-					onClick={() => setSelected(tab.id)}
-					onKeyDown={event => onKeyDown(event, index)}
-				>
-					{tab.label}
-				</button>
-			)}
+		<div className="overview-tab-bar">
+			<div role="tablist" aria-label="Pull request overview" className="overview-tab-list">
+				{overviewTabs.map((tab, index) =>
+					<button
+						key={tab.id}
+						ref={element => { tabs.current[index] = element; }}
+						id={`overview-tab-${tab.id}`}
+						className="overview-tab"
+						type="button"
+						role="tab"
+						aria-selected={selected === tab.id}
+						aria-controls={`overview-panel-${tab.id}`}
+						tabIndex={selected === tab.id ? 0 : -1}
+						onClick={() => setSelected(tab.id)}
+						onKeyDown={event => onKeyDown(event, index)}
+					>
+						{tab.label}
+					</button>
+				)}
+			</div>
+			{/* Like the panels, the actions of the other tabs stay rendered, so that one that is running stays disabled. */}
+			{overviewTabs.map(tab => {
+				const action = sessionActions[tab.id];
+				return action ? <SessionAction key={tab.id} {...action} hidden={selected !== tab.id} /> : null;
+			})}
 		</div>
 		{panel('checks', <StatusChecksSection pr={pr} isSimple={false} />)}
 		{panel('timeline', <Main pr={pr} showStatusChecks={false} />)}

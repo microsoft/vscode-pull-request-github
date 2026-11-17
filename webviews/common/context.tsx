@@ -549,6 +549,10 @@ export class PRContext {
 
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
+	public fixChecksInSession = () => this.postMessage({ command: 'pr.fix-checks-in-session' });
+
+	public addressCommentsInSession = () => this.postMessage({ command: 'pr.address-comments-in-session' });
+
 	public openCommitChanges = async (commitSha: string) => {
 		this.updatePR({ loadingCommit: commitSha });
 		try {
