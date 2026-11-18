@@ -319,7 +319,7 @@ async function init(
 	// Resume any pending checkout request stored before workspace reopened.
 	await resumePendingCheckout(reviewsManager, context, reposManager);
 
-	initChat(context, credentialStore, reposManager);
+	initChat(context, credentialStore, reposManager, folderRepositoryManagerResolver);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, reviewsManager, telemetry, context, git, folderRepositoryManagerResolver)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
@@ -330,12 +330,13 @@ async function init(
 	telemetry.sendTelemetryEvent('startup');
 }
 
-function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, folderRepositoryManagerResolver: FolderRepositoryManagerResolver) {
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
+	const register = () => registerTools(context, credentialStore, reposManager, folderRepositoryManagerResolver, telemetry);
 	if (chatEnabled()) {
-		registerTools(context, credentialStore, reposManager);
+		register();
 	} else {
-		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_CHAT, chatEnabled, () => registerTools(context, credentialStore, reposManager), context.subscriptions);
+		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_CHAT, chatEnabled, register, context.subscriptions);
 	}
 }
 
