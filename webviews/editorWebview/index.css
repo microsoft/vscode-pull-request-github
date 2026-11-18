@@ -41,7 +41,7 @@ html {
 	grid-row: 1;
 }
 
-/* In the agents window, the overview is split into tabs below the title. */
+/* With the experimental setting on, the overview is split into tabs below the title. */
 #overview-tabs {
 	grid-column: 1 / 3;
 	grid-row: 3;

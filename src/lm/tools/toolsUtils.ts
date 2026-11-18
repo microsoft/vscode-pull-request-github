@@ -34,10 +34,18 @@ export interface IssueResult {
 	}[];
 }
 
-interface RepoInfo {
+interface RepoName {
 	owner: string;
 	name: string;
+}
+
+interface RepoInfo extends RepoName {
 	folderManager: FolderRepositoryManager;
+}
+
+// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
+function isGivenRepo(options: { owner?: string, name?: string }): options is RepoName {
+	return !!options.owner && !!options.name && !options.owner.includes('owner') && !options.name.includes('name');
 }
 
 export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
@@ -65,8 +73,7 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<RepoInfo> {
 		this.ensureAuthenticated();
 
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.owner && options.name && !options.owner.includes('owner') && !options.name.includes('name')) {
+		if (isGivenRepo(options)) {
 			return this.resolveRepoInfo(options.owner, options.name);
 		}
 
@@ -80,6 +87,18 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 		}
 		const remote = folderManager.gitHubRepositories[0].remote;
 		return { owner: remote.owner, name: remote.repositoryName, folderManager };
+	}
+
+	/**
+	 * Like {@link getRepoInfo}, but a given repository does not need to be open in the workspace.
+	 */
+	protected async getRepoName(options: { owner?: string, name?: string }): Promise<RepoName> {
+		if (isGivenRepo(options)) {
+			this.ensureAuthenticated();
+			return { owner: options.owner, name: options.name };
+		}
+		const { owner, name } = await this.getRepoInfo(options);
+		return { owner, name };
 	}
 
 	/**

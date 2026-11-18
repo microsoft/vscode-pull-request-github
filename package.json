@@ -44,7 +44,7 @@
 		"treeItemMarkdownLabel",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.178.0",
+	"version": "0.180.0",
 	"publisher": "GitHub",
 	"engines": {
 		"node": ">=20",
@@ -651,9 +651,22 @@
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
 					"default": false
 				},
-				"githubPullRequests.experimental.agentsOverviewTabs": {
-					"type": "boolean",
-					"markdownDescription": "%githubPullRequests.experimental.agentsOverviewTabs.description%",
+				"githubPullRequests.experimental.overviewTabs": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						true,
+						"agents"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.experimental.overviewTabs.false%",
+						"%githubPullRequests.experimental.overviewTabs.true%",
+						"%githubPullRequests.experimental.overviewTabs.agents%"
+					],
+					"markdownDescription": "%githubPullRequests.experimental.overviewTabs.description%",
 					"default": false,
 					"tags": [
 						"experimental"
@@ -4227,6 +4240,50 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_pullRequestInViewport.description%",
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_openPullRequestWebview",
+				"tags": [
+					"github",
+					"pull request"
+				],
+				"toolReferenceName": "openPullRequestWebview",
+				"displayName": "%languageModelTools.github-pull-request_openPullRequestWebview.displayName%",
+				"modelDescription": "Open a GitHub pull request (PR) in the pull request webview in the editor, so that the user can see it. The webview shows the PR's description, timeline, comments, reviews, and status checks, and lets the user review and merge it. Use this tool when the user asks to open, show, or view a pull request. This tool does not return the details of the pull request; use other tools to read them.",
+				"icon": "$(git-pull-request)",
+				"canBeReferencedInPrompt": true,
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository of the pull request. Defaults to the repository of the workspace.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"pullRequestNumber": {
+							"type": "number",
+							"description": "The number of the pull request to open."
+						}
+					},
+					"required": [
+						"pullRequestNumber"
+					]
+				},
+				"userDescription": "%languageModelTools.github-pull-request_openPullRequestWebview.description%",
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{

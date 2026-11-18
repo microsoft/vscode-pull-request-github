@@ -76,7 +76,7 @@ export const EXPERIMENTAL_CHAT = 'experimental.chat';
 export const EXPERIMENTAL_USE_QUICK_CHAT = 'experimental.useQuickChat';
 export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsViewPageSize';
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
-export const EXPERIMENTAL_AGENTS_OVERVIEW_TABS = 'experimental.agentsOverviewTabs';
+export const EXPERIMENTAL_OVERVIEW_TABS = 'experimental.overviewTabs';
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
 export const DEV_MODE = 'devMode';
 
