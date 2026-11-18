@@ -15,7 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { chooseStackAutoMerge, enableAutoMergeForStack, getStackAutoMergeMethod } from './pullRequestStack';
+import { chooseStackAutoMerge, enableAutoMergeForStack } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
@@ -1646,7 +1646,7 @@ Don't forget to commit your template file to the repository so that it can be us
 								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
 								return;
 							}
-							stackAutoMergeMethod = autoMergeChoice.enableForStack ? getStackAutoMergeMethod([stackParent]) : undefined;
+							stackAutoMergeMethod = autoMergeChoice.stackAutoMergeMethod;
 						}
 						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}

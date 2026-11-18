@@ -1780,23 +1780,27 @@ describe('PullRequestOverview', function () {
 			stackAutoMerge.onSecondCall().resolves(enabled);
 			const enable = sinon.stub(model, 'enableAutoMerge').resolves();
 
-			const reply = await request({ autoMerge: true, autoMergeMethod: 'squash' });
+			const reply = await request({ autoMerge: true, autoMergeMethod: 'squash', expectedEnabledThrough: undefined });
 
 			assert(enable.calledOnceWithExactly('squash', true));
 			assert.deepStrictEqual(reply.res, enabled);
 		});
 
-		it('changes its merge method by enabling it through this pull request again', async function () {
-			const { model, stackAutoMerge, request } = await openPanel();
-			stackAutoMerge.resolves(enabled);
+		it('is disabled only while it is the request that was shown, since disabling it affects every pull request it covers', async function () {
+			const { model, stackAutoMerge, showError, request } = await openPanel();
+			const enabledAbove: StackAutoMerge = { ...enabled, enabledThrough: 1001 };
+			stackAutoMerge.resolves(enabledAbove);
 			const disable = sinon.stub(model, 'disableAutoMerge').resolves();
-			const enable = sinon.stub(model, 'enableAutoMerge').resolves();
 
-			await request({ autoMergeMethod: 'merge' });
+			const stale = await request({ autoMerge: false, autoMergeMethod: 'squash', expectedEnabledThrough: 1000 });
+
+			assert(disable.notCalled);
+			assert.deepStrictEqual(stale.res, enabledAbove);
+			assert.match(showError.lastCall.args[0], /Auto-merge for the stack was changed on GitHub/);
+
+			await request({ autoMerge: false, autoMergeMethod: 'squash', expectedEnabledThrough: 1001 });
 
 			assert(disable.calledOnceWithExactly(true));
-			assert(enable.calledOnceWithExactly('merge', true));
-			sinon.assert.callOrder(disable, enable);
 		});
 
 		it('reports a change that fails and replies with auto-merge as it is', async function () {
@@ -1804,7 +1808,7 @@ describe('PullRequestOverview', function () {
 			stackAutoMerge.resolves(notEnabled);
 			sinon.stub(model, 'enableAutoMerge').rejects(new Error('Checks are already passing'));
 
-			const reply = await request({ autoMerge: true, autoMergeMethod: 'merge' });
+			const reply = await request({ autoMerge: true, autoMergeMethod: 'merge', expectedEnabledThrough: undefined });
 
 			assert.deepStrictEqual(reply.res, notEnabled);
 			assert.match(showError.lastCall.args[0], /Unable to update auto-merge for the stack: Checks are already passing/);

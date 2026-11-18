@@ -224,11 +224,15 @@ export interface StackMergeResult {
 	state?: GithubItemStateEnum;
 }
 
-/** Changes auto-merge for a stacked pull request together with the unmerged pull requests below it. */
+/** Enables or disables auto-merge for a stacked pull request together with the unmerged pull requests below it. */
 export interface UpdateStackAutoMergeArgs {
-	/** Whether to enable or disable auto-merge, or `undefined` to only change its merge method. */
-	autoMerge?: boolean;
+	autoMerge: boolean;
 	autoMergeMethod: MergeMethod;
+	/**
+	 * The pull request that the request covering this one was enabled through when the user acted, if there was one.
+	 * Disabling a request disables it for every pull request it covers, so a request that changed since then is not acted on.
+	 */
+	expectedEnabledThrough: number | undefined;
 }
 
 export interface UnstackAllResult {

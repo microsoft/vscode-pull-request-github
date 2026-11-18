@@ -97,7 +97,7 @@ export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
 		return null;
 	}
 	const enabled = stackAutoMerge.enabledThrough !== undefined;
-	// A request enabled on a pull request above this one covers it too, and only that pull request can change its method.
+	// A request enabled on a pull request above this one covers it too.
 	const enabledAbove = enabled && stackAutoMerge.enabledThrough !== pr.number ? stackAutoMerge.enabledThrough : undefined;
 	const count = 1 + stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open && entry.position < stack.position).length;
 	const availability = pr.mergeMethodsAvailability;
@@ -110,7 +110,17 @@ export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
 		? `${action} (enabled through #${enabledAbove})`
 		: `${action} (${count} pull request${count === 1 ? '' : 's'})`;
 	return <AutoMerge
-		updateState={params => ctx.updateStackAutoMerge({ autoMerge: params.autoMerge, autoMergeMethod: params.autoMergeMethod ?? defaultMergeMethod ?? 'merge' })}
+		// The merge method is only chosen before enabling: GitHub can't change it on a request, and replacing the request
+		// would leave the stack without auto-merge if enabling it again failed.
+		updateState={async ({ autoMerge, autoMergeMethod }) => {
+			if (autoMerge !== undefined) {
+				await ctx.updateStackAutoMerge({
+					autoMerge,
+					autoMergeMethod: autoMergeMethod ?? defaultMergeMethod ?? 'merge',
+					expectedEnabledThrough: stackAutoMerge.enabledThrough,
+				});
+			}
+		}}
 		baseHasMergeQueue={queue}
 		allowAutoMerge={enabled ? stackAutoMerge.viewerCanDisable : stackAutoMerge.viewerCanEnable}
 		defaultMergeMethod={defaultMergeMethod}
@@ -118,7 +128,7 @@ export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
 		autoMerge={enabled}
 		isDraft={pr.isDraft}
 		label={label}
-		canChangeMethod={enabledAbove === undefined}
+		canChangeMethod={!enabled}
 	/>;
 };
 

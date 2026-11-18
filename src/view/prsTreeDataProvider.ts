@@ -21,11 +21,11 @@ import { formatError } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PullRequestChangeEvent } from '../github/githubRepository';
-import { PRType } from '../github/interface';
+import { MergeMethod, PRType } from '../github/interface';
 import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
-import { addPullRequestsToStack, getStackAutoMergeWarning, getStackCandidateForPullRequests, orderStackablePullRequests, refreshPullRequestsForStack } from '../github/pullRequestStack';
+import { addPullRequestsToStack, getStackAutoMergeOffer, getStackCandidateForPullRequests, orderStackablePullRequests, refreshPullRequestsForStack } from '../github/pullRequestStack';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -83,10 +83,10 @@ function enterpriseSettingsMessage(text: string | undefined, actions: { github: 
 
 /**
  * @returns The action that stacks the pull requests and, when some have auto-merge enabled, `autoMergeAction`, which also
- * enables auto-merge for the entire stack. `action` then disables it.
+ * enables auto-merge for the entire stack with `stackAutoMergeMethod`, as the detail describes. `action` then disables it.
  */
 export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate,
-	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string; autoMergeAction?: string } {
+	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string; autoMergeAction?: string; stackAutoMergeMethod?: MergeMethod } {
 	const existing = candidate.stackNumber !== undefined;
 	const additions = ordered.slice(1);
 	const message = existing
@@ -97,12 +97,13 @@ export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], 
 	const pullRequests = existing
 		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
 		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
-	const autoMergeWarning = getStackAutoMergeWarning(autoMerge);
-	if (autoMergeWarning) {
-		const detail = `${pullRequests}\n\n${autoMergeWarning}`;
+	const autoMergeOffer = getStackAutoMergeOffer(autoMerge);
+	if (autoMergeOffer) {
+		const detail = `${pullRequests}\n\n${autoMergeOffer.warning}`;
+		const stackAutoMergeMethod = autoMergeOffer.method;
 		return existing
-			? { message, detail, action: vscode.l10n.t('Add to Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Add to Stack with Auto-Merge') }
-			: { message, detail, action: vscode.l10n.t('Create Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Create Stack with Auto-Merge') };
+			? { message, detail, action: vscode.l10n.t('Add to Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Add to Stack with Auto-Merge'), stackAutoMergeMethod }
+			: { message, detail, action: vscode.l10n.t('Create Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Create Stack with Auto-Merge'), stackAutoMergeMethod };
 	}
 	return { message, detail: pullRequests, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
 }
@@ -298,7 +299,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (approved === undefined || !actions.includes(approved)) {
 				return;
 			}
-			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number), approved === confirmation.autoMergeAction);
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number),
+				approved === confirmation.autoMergeAction ? confirmation.stackAutoMergeMethod : undefined);
 			this.refreshAll(true);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {

@@ -494,10 +494,14 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		if (pr.stackLoaded === false) {
 			return <div className="status-item">Checking whether the stack can be merged...</div>;
 		}
-		if (isReadyToMerge(pr)) {
-			return <MergeStack pr={pr} />;
-		}
-		return isSimple ? null : <StackAutoMerge pr={pr} />;
+		const ready = isReadyToMerge(pr);
+		// A pull request that is ready is merged rather than given a new request, but a request that already covers it,
+		// which may have been enabled through a pull request above that is not ready, is still shown so it can be disabled.
+		const showAutoMerge = !isSimple && (!ready || pr.stackAutoMerge?.enabledThrough !== undefined);
+		return <>
+			{ready ? <MergeStack pr={pr} /> : null}
+			{showAutoMerge ? <StackAutoMerge pr={pr} /> : null}
+		</>;
 	}
 
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {

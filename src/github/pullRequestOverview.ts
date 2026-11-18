@@ -1500,7 +1500,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return;
 			}
 			Logger.appendLine(`Stacking ${ordered.map(pullRequest => `#${pullRequest.number}`).join(', ')} as recommended for #${this._item.number}`, PullRequestOverviewPanel.ID);
-			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pullRequest => pullRequest.number), autoMergeChoice.enableForStack);
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pullRequest => pullRequest.number), autoMergeChoice.stackAutoMergeMethod);
 			await this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to stack the recommended pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
@@ -1799,29 +1799,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	/**
-	 * Changes the auto-merge request that covers this pull request together with the unmerged pull requests below it, and
-	 * replies with the request as it is now, also when the change failed.
+	 * Enables or disables the auto-merge request that covers this pull request together with the unmerged pull requests
+	 * below it, and replies with the request as it is now, also when the change failed.
 	 */
 	private async updateStackAutoMerge(message: IRequestMessage<UpdateStackAutoMergeArgs>): Promise<void> {
-		const { autoMerge, autoMergeMethod } = message.args;
-		let updateError: unknown;
+		const { autoMerge, autoMergeMethod, expectedEnabledThrough } = message.args;
 		try {
-			const current = await this._item.getStackAutoMerge();
-			const enabledThrough = current.enabledThrough;
-			if (autoMerge === false && enabledThrough !== undefined) {
-				await this._item.disableAutoMerge(true);
-			} else if (autoMerge === true && enabledThrough === undefined) {
+			const { enabledThrough } = await this._item.getStackAutoMerge();
+			if (enabledThrough !== expectedEnabledThrough) {
+				throw new Error(vscode.l10n.t('Auto-merge for the stack was changed on GitHub. Review it and try again.'));
+			}
+			if (autoMerge && enabledThrough === undefined) {
 				await this._item.enableAutoMerge(autoMergeMethod, true);
-			} else if (autoMerge === undefined && enabledThrough === this._item.number && autoMergeMethod !== current.mergeMethod) {
+			} else if (!autoMerge && enabledThrough !== undefined) {
 				await this._item.disableAutoMerge(true);
-				await this._item.enableAutoMerge(autoMergeMethod, true);
 			}
 		} catch (error) {
-			updateError = error;
 			Logger.error(`Failed to update auto-merge for the stack of #${this._item.number}: ${formatError(error)}`, PullRequestOverviewPanel.ID);
-		}
-		if (updateError) {
-			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to update auto-merge for the stack: {0}', formatError(updateError)));
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to update auto-merge for the stack: {0}', formatError(error)));
 		}
 		await this._replyMessage(message, await this.fetchStackAutoMerge(this._item));
 		await this.refreshTimeline();
