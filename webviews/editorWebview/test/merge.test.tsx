@@ -9,9 +9,9 @@ import { cleanup, fireEvent, render } from 'react-testing-library';
 import { createSandbox, SinonFakeTimers, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
-import { PullRequestMergeability } from '../../../src/github/interface';
+import { CheckState, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { Merge, MergeStatusAndActions } from '../../components/merge';
+import { Merge, MergeStatusAndActions, StatusChecksSection } from '../../components/merge';
 
 describe('Merge status and actions', function () {
 	let sinon: SinonSandbox;
@@ -70,5 +70,59 @@ describe('Merge status and actions', function () {
 		fireEvent.click(view.getByText('Merge Pull Request'));
 
 		assert.strictEqual(view.container.querySelector<HTMLInputElement>('input[name="title"]')?.value, 'Merge pull request #1234 from contributor/repo:feature');
+	});
+});
+
+describe('Status checks', function () {
+	afterEach(function () {
+		cleanup();
+	});
+
+	function check(context: string, state: CheckState, isRequired: boolean): PullRequestCheckStatus {
+		return {
+			id: context,
+			databaseId: undefined,
+			url: undefined,
+			avatarUrl: undefined,
+			state,
+			description: null,
+			targetUrl: null,
+			context,
+			workflowName: undefined,
+			event: undefined,
+			isRequired,
+			isCheckRun: false,
+		};
+	}
+
+	it('lists required checks first, each group ordered by state', function () {
+		const pr = new PullRequestBuilder()
+			.status(s => s
+				.state(CheckState.Failure)
+				.statuses([
+					check('optional-success', CheckState.Success, false),
+					check('required-success', CheckState.Success, true),
+					check('optional-failure', CheckState.Failure, false),
+					check('required-pending', CheckState.Pending, true),
+					check('optional-pending', CheckState.Pending, false),
+					check('required-failure', CheckState.Failure, true),
+				]))
+			.build();
+
+		const view = render(
+			<PullRequestContext.Provider value={new PRContext(pr)}>
+				<StatusChecksSection pr={pr} isSimple={false} />
+			</PullRequestContext.Provider>,
+		);
+
+		const listed = Array.from(view.container.querySelectorAll('.status-check-detail-text')).map(e => e.textContent?.trim());
+		assert.deepStrictEqual(listed, [
+			'required-failure',
+			'required-pending',
+			'required-success',
+			'optional-failure',
+			'optional-pending',
+			'optional-success',
+		]);
 	});
 });

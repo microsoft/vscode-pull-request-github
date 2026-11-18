@@ -806,7 +806,7 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 	},
 );
 
-// State order for sorting status checks: failure first, then pending, neutral, success, and unknown
+// State order for sorting status checks: failure first, then pending, unknown, neutral, and success
 const CHECK_STATE_ORDER: Record<CheckState, number> = {
 	[CheckState.Failure]: 0,
 	[CheckState.Pending]: 1,
@@ -819,9 +819,12 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	const { viewCheckLogs } = useContext(PullRequestContext);
 	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
-	// Sort statuses to group by state: failure first, then pending, neutral, and success
+	// Required checks come first, then each group is ordered by state.
 	// Use slice() to avoid mutating the original array
 	const sortedStatuses = statuses.slice().sort((a, b) => {
+		if (a.isRequired !== b.isRequired) {
+			return a.isRequired ? -1 : 1;
+		}
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
 
