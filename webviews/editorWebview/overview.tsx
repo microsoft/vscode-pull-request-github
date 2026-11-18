@@ -42,6 +42,7 @@ export const Overview = (pr: PullRequest) => {
 	const isSingleColumnLayout = useMediaQuery(singleColumnLayoutQuery);
 	const titleRef = React.useRef<HTMLDivElement>(null);
 	const isStuck = useStickyHeader(titleRef);
+	const showTabs = pr.overviewTabs === true || (pr.overviewTabs === 'agents' && pr.isAgentSessionsWorkspace);
 
 	return <>
 		<StickyHeader pr={pr} visible={isStuck} />
@@ -51,7 +52,7 @@ export const Overview = (pr: PullRequest) => {
 				<Header {...pr} />
 			</div>
 		</div>
-		{pr.isAgentSessionsWorkspace && pr.agentsOverviewTabs ?
+		{showTabs ?
 			<OverviewTabs {...pr} />
 			:
 			<>
@@ -112,8 +113,7 @@ const OverviewTabBadges = ({ id, pr }: { id: OverviewTabId; pr: PullRequest }) =
 };
 
 /**
- * With the experimental setting on, the overview of pull requests in the agents window is split into tabs that start
- * with the timeline.
+ * With the experimental setting on, the overview of pull requests is split into tabs that start with the timeline.
  */
 const OverviewTabs = (pr: PullRequest) => {
 	const [selected, setSelected] = React.useState<OverviewTabId>('timeline');
