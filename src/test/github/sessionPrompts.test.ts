@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs';
+import { existsSync, promises as fs, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
@@ -63,13 +63,31 @@ describe('Session prompts', function () {
 	}
 
 	describe('fixChecksInSession', function () {
-		// The logs are written to disk through vscode.workspace.fs, which is slow in the extension host shared by all the tests,
-		// so these can exceed the default timeout that CI runs the tests with.
-		this.timeout(10000);
 		let storage: string;
+
+		/**
+		 * `vscode.workspace.fs` on the disk directly. Each call of the real one first makes a round trip to the renderer,
+		 * which can take seconds when the renderer is busy, as it is on CI, so writing the logs would time out.
+		 */
+		const diskFileSystem: vscode.FileSystem = {
+			stat: async uri => {
+				const stat = await fs.stat(uri.fsPath);
+				return { type: stat.isDirectory() ? vscode.FileType.Directory : vscode.FileType.File, ctime: stat.ctimeMs, mtime: stat.mtimeMs, size: stat.size };
+			},
+			readDirectory: async uri => (await fs.readdir(uri.fsPath, { withFileTypes: true }))
+				.map((entry): [string, vscode.FileType] => [entry.name, entry.isDirectory() ? vscode.FileType.Directory : vscode.FileType.File]),
+			createDirectory: async uri => { await fs.mkdir(uri.fsPath, { recursive: true }); },
+			readFile: uri => fs.readFile(uri.fsPath),
+			writeFile: (uri, content) => fs.writeFile(uri.fsPath, content),
+			delete: (uri, options) => fs.rm(uri.fsPath, { recursive: options?.recursive }),
+			rename: (source, target) => fs.rename(source.fsPath, target.fsPath),
+			copy: (source, target) => fs.copyFile(source.fsPath, target.fsPath),
+			isWritableFileSystem: () => true,
+		};
 
 		beforeEach(function () {
 			storage = mkdtempSync(path.join(os.tmpdir(), 'session-prompts-'));
+			sinon.stub(vscode.workspace, 'fs').value(diskFileSystem);
 		});
 
 		afterEach(function () {
