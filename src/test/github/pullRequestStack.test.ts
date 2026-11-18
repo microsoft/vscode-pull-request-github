@@ -250,10 +250,37 @@ describe('Pull request stack selection', function () {
 		const disableMiddle = sinon.stub(middle, 'disableAutoMerge').resolves();
 		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
 		const enable = sinon.stub(top, 'enableAutoMerge').resolves();
+		const changed = sinon.spy();
+		repository.onDidChangeStack(changed);
 
 		assert.deepStrictEqual(await addPullRequestsToStack([bottom, middle, top], candidate, [1, 2], 'squash'), [1, 2, 3]);
 		assert(enable.calledOnceWithExactly('squash', true));
 		sinon.assert.callOrder(disableBottom, disableMiddle, add, enable);
+		// The overviews of the pull requests that were already in the stack don't know the new top, but they know the bottom.
+		assert(changed.calledOnceWithExactly([1, 2, 3]));
+	});
+
+	it('enables auto-merge again, with the methods it had, when stacking fails, and reports where it could not be', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => number === bottom.number ? bottom : top);
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		bottom.item.autoMerge = true;
+		bottom.item.autoMergeMethod = 'rebase';
+		top.item.autoMerge = true;
+		top.item.autoMergeMethod = 'squash';
+		sinon.stub(bottom, 'disableAutoMerge').resolves();
+		sinon.stub(top, 'disableAutoMerge').resolves();
+		sinon.stub(repository, 'addPullRequestsToStack').rejects(new Error('Stack is locked'));
+		const restoreBottom = sinon.stub(bottom, 'enableAutoMerge').resolves();
+		const restoreTop = sinon.stub(top, 'enableAutoMerge').rejects(new Error('Not allowed'));
+
+		await assert.rejects(addPullRequestsToStack([bottom, top], candidate, [1, 2], 'squash'),
+			/^Error: Stack is locked \(auto-merge could not be enabled again for #2\)$/);
+		assert(restoreBottom.calledOnceWithExactly('rebase'));
+		assert(restoreTop.calledOnceWithExactly('squash'));
 	});
 
 	it('does not stack the pull requests when auto-merge would be enabled with another merge method than the one confirmed', async function () {

@@ -984,7 +984,7 @@ describe('PullRequestModel', function () {
 
 	describe('stack creation', function () {
 		function parentModel() {
-			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			const pr = new PullRequestBuilder().number(795).base(base => base.ref('D2')).head(head => head.ref('D3')).build();
 			pr.html_url = 'https://github.com/github/test/pull/795';
 			pr.head.repo.name = 'test';
 			pr.head.repo.owner.login = 'github';
@@ -1014,7 +1014,7 @@ describe('PullRequestModel', function () {
 			}], { pull_requests: [{ number: 795 }, { number: 796 }] });
 
 			const candidate = await repo.getStackCandidate('D3');
-			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795', base: 'D2' });
 			assert(candidate);
 			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [795, 796]);
 			assert(changed.calledOnceWithExactly([795, 796]));
@@ -1061,6 +1061,8 @@ describe('PullRequestModel', function () {
 			parent.url = 'https://github.com/github/test/pull/795';
 			parent.headRefName = 'D3';
 			parent.headRef!.name = 'D3';
+			parent.baseRefName = 'D2';
+			parent.baseRef!.name = 'D2';
 			parent.headRef!.repository.owner.login = 'github';
 			parent.headRef!.repository.url = 'https://github.com/github/test';
 			parent.headRepository!.owner.login = 'github';
@@ -1081,7 +1083,7 @@ describe('PullRequestModel', function () {
 			});
 			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
 
-			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795', base: 'D2' });
 		});
 
 		it('surfaces a failed GraphQL parent lookup rather than treating the branch as unstackable', async function () {
@@ -1095,6 +1097,7 @@ describe('PullRequestModel', function () {
 			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
 			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
 				number: 12,
+				base: { ref: 'main' },
 				pull_requests: [{ number: 793 }, { number: 795 }],
 			}]);
 			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
@@ -1106,7 +1109,7 @@ describe('PullRequestModel', function () {
 			}], { pull_requests: [{ number: 793 }, { number: 795 }, { number: 796 }] });
 
 			const candidate = await repo.getStackCandidate('D3');
-			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795', base: 'main' });
 			assert(candidate);
 			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [793, 795, 796]);
 		});

@@ -1052,7 +1052,7 @@ export class GitHubRepository extends Disposable {
 			throw new Error('GitHub returned an invalid pull request stack list.');
 		}
 		if (data.length === 0) {
-			return { parentPullRequestNumber: parent.number, size: 1, url: parent.html_url };
+			return { parentPullRequestNumber: parent.number, size: 1, url: parent.html_url, base: parent.base.ref };
 		}
 		const stack: unknown = data[0];
 		if (!isObject(stack) || typeof stack.number !== 'number' || !Array.isArray(stack.pull_requests)
@@ -1066,7 +1066,8 @@ export class GitHubRepository extends Disposable {
 		if (top.number !== parent.number) {
 			return;
 		}
-		return { parentPullRequestNumber: parent.number, stackNumber: stack.number, size: stack.pull_requests.length, url: parent.html_url };
+		const base = isObject(stack.base) && typeof stack.base.ref === 'string' ? stack.base.ref : undefined;
+		return { parentPullRequestNumber: parent.number, stackNumber: stack.number, size: stack.pull_requests.length, url: parent.html_url, base };
 	}
 
 	async addPullRequestToStack(candidate: StackCandidate, number: number): Promise<number[]> {

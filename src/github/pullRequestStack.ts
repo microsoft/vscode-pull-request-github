@@ -176,13 +176,48 @@ export async function chooseStackAutoMerge(pullRequests: readonly PullRequestMod
 /**
  * Enables auto-merge for the pull request at the top of a stack together with every unmerged pull request below it.
  * The pull requests are already stacked, so a failure is reported instead of thrown.
+ * @param stacked The pull requests that were just stacked, including the one they were stacked on top of. The overviews
+ * of pull requests that were already in the stack may not know the new top yet, but they know that one.
  */
-export async function enableAutoMergeForStack(top: PullRequestModel, mergeMethod: MergeMethod): Promise<void> {
+export async function enableAutoMergeForStack(top: PullRequestModel, mergeMethod: MergeMethod, stacked: readonly number[]): Promise<void> {
 	try {
 		await top.enableAutoMerge(mergeMethod, true);
 	} catch (error) {
 		Logger.error(`Failed to enable auto-merge for the stack through #${top.number}: ${formatError(error)}`, 'PullRequestStack');
 		void vscode.window.showErrorMessage(vscode.l10n.t('The pull requests were stacked, but auto-merge could not be enabled for the stack: {0}', formatError(error)));
+		return;
+	}
+	// Refreshing for having been stacked may have loaded auto-merge before it was enabled.
+	top.githubRepository.notifyStackChanged(stacked);
+}
+
+/**
+ * Disables auto-merge on the pull requests, one at a time, and then stacks them. If either fails, auto-merge is enabled
+ * again, with the merge method it had, on the pull requests it was disabled on, so that they are left as they were.
+ */
+export async function stackWithoutAutoMerge<T>(autoMerge: readonly PullRequestModel[], stack: () => Promise<T>): Promise<T> {
+	const disabled: { pr: PullRequestModel; method: MergeMethod }[] = [];
+	try {
+		for (const pr of autoMerge) {
+			const method = pr.autoMergeMethod ?? 'merge';
+			await pr.disableAutoMerge();
+			disabled.push({ pr, method });
+		}
+		return await stack();
+	} catch (error) {
+		const notRestored: string[] = [];
+		for (const { pr, method } of disabled) {
+			try {
+				await pr.enableAutoMerge(method);
+			} catch (restoreError) {
+				Logger.error(`Failed to enable auto-merge again for #${pr.number}: ${formatError(restoreError)}`, 'PullRequestStack');
+				notRestored.push(`#${pr.number}`);
+			}
+		}
+		if (notRestored.length) {
+			throw new Error(vscode.l10n.t('{0} (auto-merge could not be enabled again for {1})', formatError(error), notRestored.join(', ')));
+		}
+		throw error;
 	}
 }
 
@@ -227,13 +262,10 @@ export async function addPullRequestsToStack(pullRequests: readonly PullRequestM
 	if (confirmedStackAutoMergeMethod && getStackAutoMergeMethod(autoMerge) !== confirmedStackAutoMergeMethod) {
 		throw new Error(vscode.l10n.t('Auto-merge changed on the pull requests being stacked. Refresh the view and try again.'));
 	}
-	// One at a time, so a failure leaves auto-merge enabled on the pull requests after it.
-	for (const pr of autoMerge) {
-		await pr.disableAutoMerge();
-	}
-	await repository.addPullRequestsToStack(candidate, ordered.slice(1).map(pr => pr.number));
+	await stackWithoutAutoMerge(autoMerge, () => repository.addPullRequestsToStack(candidate, ordered.slice(1).map(pr => pr.number)));
+	const stacked = ordered.map(pr => pr.number);
 	if (confirmedStackAutoMergeMethod) {
-		await enableAutoMergeForStack(ordered[ordered.length - 1], confirmedStackAutoMergeMethod);
+		await enableAutoMergeForStack(ordered[ordered.length - 1], confirmedStackAutoMergeMethod, stacked);
 	}
-	return ordered.map(pr => pr.number);
+	return stacked;
 }

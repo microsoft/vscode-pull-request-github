@@ -62,49 +62,70 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(out.queryByText(/other pull requests/), null);
 	});
 
-	it('keeps auto-merge menu choices when adding to the stack', function () {
+	it('explains that auto-merge also merges the pull requests below before it can be chosen from the menu', function () {
+		const description = (props: { checked: boolean; autoMergeOffered: boolean }) => render(
+			<StackOption candidate={candidate} disabled={false} onChange={() => { }} {...props} />,
+		).container.querySelector('.stack-option-description')?.textContent;
+
+		assert.match(description({ checked: true, autoMergeOffered: true }) ?? '', /\. Auto-merge for this pull request also merges the pull requests below it\.$/);
+		assert.doesNotMatch(description({ checked: false, autoMergeOffered: true }) ?? '', /Auto-merge/);
+		assert.doesNotMatch(description({ checked: true, autoMergeOffered: false }) ?? '', /Auto-merge/);
+	});
+
+	it('offers the merge queue of the stack base in the menu when adding to the stack', function () {
 		const context = new CreatePRContextNew();
 		const params = {
 			...context.createParams,
 			allowAutoMerge: true,
 			baseHasMergeQueue: false,
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
-			addToStack: true,
+			stackCandidate: { ...candidate, baseHasMergeQueue: true },
 		};
-		assert.strictEqual(JSON.parse(makeCreateMenuContext(params))['github:createPrMenuSquash'], true);
-		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, baseHasMergeQueue: true }))['github:createPrMenuMergeWhenReady'], true);
+		const menu = (change: Partial<typeof params>) => JSON.parse(makeCreateMenuContext({ ...params, ...change }));
+
+		assert.strictEqual(menu({ addToStack: false })['github:createPrMenuSquash'], true);
+		assert.strictEqual(menu({ addToStack: false })['github:createPrMenuMergeWhenReady'], undefined);
+		assert.strictEqual(menu({ addToStack: true })['github:createPrMenuMergeWhenReady'], true);
+		assert.strictEqual(menu({ addToStack: true })['github:createPrMenuSquash'], undefined);
+		const unqueuedStack = { addToStack: true, baseHasMergeQueue: true, stackCandidate: { ...candidate, baseHasMergeQueue: false } };
+		assert.strictEqual(menu(unqueuedStack)['github:createPrMenuSquash'], true);
+		assert.strictEqual(menu(unqueuedStack)['github:createPrMenuMergeWhenReady'], undefined);
 	});
 
-	it('keeps auto-merge selected when stacking a pull request', function () {
-		const app = document.createElement('div');
-		app.id = 'app';
-		document.body.appendChild(app);
-		const context = CreatePRContextNew.instance;
-		context.updateState({
-			defaultBaseRemote: { owner: 'owner', repositoryName: 'repo' },
-			defaultBaseBranch: 'D3',
-			baseRemote: { owner: 'owner', repositoryName: 'repo' },
-			baseBranch: 'D3',
-			compareRemote: { owner: 'owner', repositoryName: 'repo' },
-			compareBranch: 'D4',
-			pendingTitle: 'Fourth change',
-			pendingDescription: '',
-			stackCandidate: candidate,
-			allowAutoMerge: true,
-			autoMerge: true,
-			autoMergeMethod: 'squash',
-			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
-		}, true);
-		act(() => { main(); });
-		const checkbox = app.querySelector<HTMLInputElement>('.stack-option input');
-		assert(checkbox);
+	for (const { stackHasMergeQueue, label } of [
+		{ stackHasMergeQueue: false, label: 'Create + Auto-Squash' },
+		{ stackHasMergeQueue: true, label: 'Create + Merge When Ready' },
+	]) {
+		it(`keeps auto-merge selected when stacking a pull request onto a stack ${stackHasMergeQueue ? 'with' : 'without'} a merge queue`, function () {
+			const app = document.createElement('div');
+			app.id = 'app';
+			document.body.appendChild(app);
+			const context = CreatePRContextNew.instance;
+			context.updateState({
+				defaultBaseRemote: { owner: 'owner', repositoryName: 'repo' },
+				defaultBaseBranch: 'D3',
+				baseRemote: { owner: 'owner', repositoryName: 'repo' },
+				baseBranch: 'D3',
+				compareRemote: { owner: 'owner', repositoryName: 'repo' },
+				compareBranch: 'D4',
+				pendingTitle: 'Fourth change',
+				pendingDescription: '',
+				stackCandidate: { ...candidate, baseHasMergeQueue: stackHasMergeQueue },
+				allowAutoMerge: true,
+				autoMerge: true,
+				autoMergeMethod: 'squash',
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			}, true);
+			act(() => { main(); });
+			const checkbox = app.querySelector<HTMLInputElement>('.stack-option input');
+			assert(checkbox);
 
-		act(() => { fireEvent.click(checkbox); });
+			act(() => { fireEvent.click(checkbox); });
 
-		assert.strictEqual(checkbox.checked, true);
-		assert.strictEqual(app.querySelector('.group-actions .split-left')?.textContent, 'Create + Auto-Squash');
-		assert.match(app.querySelector('.stack-option-description')?.textContent ?? '', /Auto-merge will include the pull requests below it\.$/);
-	});
+			assert.strictEqual(checkbox.checked, true);
+			assert.strictEqual(app.querySelector('.group-actions .split-left')?.textContent, label);
+		});
+	}
 
 	it('submits a stack request with auto-merge', async function () {
 		const handler = new MessageHandler(null);

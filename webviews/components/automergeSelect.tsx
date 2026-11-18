@@ -71,6 +71,9 @@ export const AutoMerge = ({
 			{baseHasMergeQueue ? null :
 				<div className="merge-select-container">
 					<MergeSelect
+						// A method that can't be changed is that of the active request, so the select follows it, rather than
+						// keeping the method that was chosen before the request was enabled.
+						key={canChangeMethod ? undefined : defaultMergeMethod}
 						ref={select}
 						defaultMergeMethod={defaultMergeMethod}
 						mergeMethodsAvailability={mergeMethodsAvailability}

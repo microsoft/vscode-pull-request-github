@@ -15,7 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { chooseStackAutoMerge, enableAutoMergeForStack } from './pullRequestStack';
+import { chooseStackAutoMerge, enableAutoMergeForStack, stackWithoutAutoMerge } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
@@ -1147,12 +1147,21 @@ Don't forget to commit your template file to the repository so that it can be us
 			if (!candidate || !baseRemote) {
 				return candidate;
 			}
-			const url = await toOpenPullRequestWebviewUri({
-				owner: baseRemote.owner,
-				repo: baseRemote.repositoryName,
-				pullRequestNumber: candidate.parentPullRequestNumber,
-			});
-			return { ...candidate, url: url.toString() };
+			const [url, stackMergeQueue] = await Promise.all([
+				toOpenPullRequestWebviewUri({
+					owner: baseRemote.owner,
+					repo: baseRemote.repositoryName,
+					pullRequestNumber: candidate.parentPullRequestNumber,
+				}),
+				candidate.base !== undefined
+					? this._folderRepositoryManager.mergeQueueMethodForBranch(candidate.base, baseRemote.owner, baseRemote.repositoryName)
+					: undefined,
+			]);
+			return {
+				...candidate,
+				url: url.toString(),
+				...(candidate.base !== undefined ? { baseHasMergeQueue: !!stackMergeQueue } : {}),
+			};
 		} catch (error) {
 			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
 			// The check can finish after the view is gone, when there is nothing left to warn about.
@@ -1618,12 +1627,12 @@ Don't forget to commit your template file to the repository so that it can be us
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
 				let createdPR: PullRequestModel | undefined = undefined;
 				let stackAdditionFailed = false;
+				let stackAutoMergeMethod: MergeMethod | undefined;
 				// Auto-merge for a stacked pull request is enabled for the stack once the pull request is in it.
 				const detailsMessage = message.args.addToStack ? { ...message, args: { ...message.args, autoMerge: false } } : message;
 				try {
 					let stackCandidate: StackCandidate | undefined;
 					let stackParentWithAutoMerge: PullRequestModel | undefined;
-					let stackAutoMergeMethod: MergeMethod | undefined;
 					if (message.args.addToStack) {
 						stackCandidate = await this.getStackCandidate(
 							{ owner: message.args.owner, repositoryName: message.args.repo }, message.args.base,
@@ -1776,15 +1785,17 @@ Don't forget to commit your template file to the repository so that it can be us
 							Logger.error(`Failed to set pull request details: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
 						}
 						if (stackCandidate) {
+							const candidate = stackCandidate;
+							const created = createdPR;
 							try {
-								await stackParentWithAutoMerge?.disableAutoMerge();
-								await createdPR.githubRepository.addPullRequestToStack(stackCandidate, createdPR.number);
+								await stackWithoutAutoMerge(stackParentWithAutoMerge ? [stackParentWithAutoMerge] : [],
+									() => created.githubRepository.addPullRequestToStack(candidate, created.number));
 							} catch (error) {
 								stackAdditionFailed = true;
 								throw error;
 							}
 							if (stackAutoMergeMethod) {
-								await enableAutoMergeForStack(createdPR, stackAutoMergeMethod);
+								await enableAutoMergeForStack(createdPR, stackAutoMergeMethod, [candidate.parentPullRequestNumber, createdPR.number]);
 							}
 						}
 						if (postCreateError) {
@@ -1804,9 +1815,11 @@ Don't forget to commit your template file to the repository so that it can be us
 							await this.postCreate(detailsMessage, createdPR);
 						}
 						// All of these errors occur after the PR is created, so the error is not critical.
-						vscode.window.showErrorMessage(stackAdditionFailed
-							? vscode.l10n.t('Pull request #{0} was created but could not be added to its stack: {1}', createdPR.number, formatError(e))
-							: vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
+						vscode.window.showErrorMessage(!stackAdditionFailed
+							? vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message)
+							: stackAutoMergeMethod
+								? vscode.l10n.t('Pull request #{0} was created but could not be added to its stack, so auto-merge was not enabled for it: {1}', createdPR.number, formatError(e))
+								: vscode.l10n.t('Pull request #{0} was created but could not be added to its stack: {1}', createdPR.number, formatError(e)));
 					}
 				} finally {
 					commands.setContext(contexts.CREATING, false);

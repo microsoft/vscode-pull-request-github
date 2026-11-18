@@ -268,6 +268,22 @@ describe('Create pull request stack', function () {
 		assert.deepStrictEqual(fromOpenOrCheckoutPullRequestWebviewUri(link), { owner: 'github', repo: 'test', pullRequestNumber: 795 });
 	});
 
+	it('checks the merge queue of the branch that the stack merges into, rather than the base of the new pull request', async function () {
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		sinon.stub(githubRepository, 'getStackCandidate').resolves({
+			parentPullRequestNumber: 795, stackNumber: 12, size: 3, url: 'https://github.com/github/test/pull/795', base: 'main',
+		});
+		const mergeQueue = sinon.stub(folderManager, 'mergeQueueMethodForBranch').callsFake(async branch => branch === 'main' ? 'squash' : undefined);
+
+		const candidate = await provider.getStackCandidateForTest(
+			{ owner: 'github', repositoryName: 'test' }, 'D3',
+			{ owner: 'github', repositoryName: 'test' }, 'D4',
+		);
+
+		assert.strictEqual(candidate?.baseHasMergeQueue, true);
+		assert(mergeQueue.calledWithExactly('main', 'github', 'test'));
+	});
+
 	it('updates compare owner before detecting stacks after switching to a fork with the same branch name', async function () {
 		await repository.createBranch('D3', false, 'new-commit-sha');
 		sinon.stub(githubRepository, 'getViewerPermission').resolves(ViewerPermission.Write);
@@ -516,6 +532,8 @@ describe('Create pull request stack', function () {
 		const enable = sinon.stub(createdPR, 'enableAutoMerge').resolves();
 		const setDetails = sinon.stub(provider, 'postCreate').resolves();
 		const throwError = sinon.stub(provider, '_throwError').resolves();
+		const changed = sinon.spy();
+		githubRepository.onDidChangeStack(changed);
 		const done = asPromise(provider.onDone);
 
 		await provider.createForTest({
@@ -532,6 +550,45 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(setDetails.firstCall.args[0].args.autoMerge, false, 'auto-merge is not enabled for the pull request alone');
 		assert(enable.calledOnceWithExactly('squash', true));
 		sinon.assert.callOrder(disableParent, addToStack, enable);
+		assert(changed.calledOnceWithExactly([795, 796]), 'the overviews already in the stack know the parent');
+		cancellation.dispose();
+	});
+
+	it('enables auto-merge again on the stack parent, and reports that the chosen auto-merge was not enabled, when the new pull request cannot be stacked', async function () {
+		const cancellation = new vscode.CancellationTokenSource();
+		sinon.stub(vscode.window, 'withProgress').callsFake((_options, task) => task({ report: () => undefined }, cancellation.token));
+		sinon.stub(githubRepository, 'getStackCandidate').resolves({ parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+		sinon.stub(folderManager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+		const parent = stubStackParent(true);
+		parent.item.autoMergeMethod = 'rebase';
+		sinon.stub(parent, 'disableAutoMerge').resolves();
+		const restoreParent = sinon.stub(parent, 'enableAutoMerge').resolves();
+		sinon.stub(model, 'filesHaveChanges').resolves(false);
+		repository.expectFetch('origin', 'D4');
+		const createdPR = new PullRequestModel(credentials, new MockTelemetry(), githubRepository, githubRepository.remote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(796).build(), githubRepository));
+		sinon.stub(folderManager, 'createPullRequest').resolves(createdPR);
+		sinon.stub(githubRepository, 'addPullRequestToStack').rejects(new Error('Stack is locked'));
+		const enable = sinon.stub(createdPR, 'enableAutoMerge').resolves();
+		sinon.stub(provider, 'postCreate').resolves();
+		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const done = asPromise(provider.onDone);
+
+		await provider.createForTest({
+			command: 'pr.create', req: '7',
+			args: {
+				title: 'Second change', body: '', owner: 'github', repo: 'test', base: 'D3',
+				compareOwner: 'github', compareRepo: 'test', compareBranch: 'D4',
+				draft: false, autoMerge: true, autoMergeMethod: 'squash', labels: [], projects: [], assignees: [], reviewers: [],
+				addToStack: true, stackParentPullRequest: 795,
+			},
+		});
+		assert.strictEqual(await done, createdPR);
+		assert(restoreParent.calledOnceWithExactly('rebase'));
+		assert(enable.notCalled);
+		assert(showError.calledOnce);
+		assert.strictEqual(showError.firstCall.args[0],
+			'Pull request #796 was created but could not be added to its stack, so auto-merge was not enabled for it: Stack is locked');
 		cancellation.dispose();
 	});
 

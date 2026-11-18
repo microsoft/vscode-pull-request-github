@@ -1287,6 +1287,29 @@ describe('Overview', function () {
 			assert(out.getByLabelText('Auto-merge (1 pull request)'));
 		});
 
+		it('shows the merge method of a request that is enabled elsewhere, instead of the one chosen here', async function () {
+			const pr = new PullRequestBuilder().number(794).mergeable(PullRequestMergeability.NotMergeable).stack(stack)
+				.stackAutoMerge({ viewerCanEnable: true, viewerCanDisable: false }).build();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			sinon.stub(context, 'postMessage').resolves();
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			const method = () => out.container.querySelector<HTMLSelectElement>('.automerge-section select');
+			fireEvent.change(method()!, { target: { value: 'rebase' } });
+
+			context.handleMessage({
+				command: 'pr.update',
+				pullrequest: { stackAutoMerge: { enabledThrough: 795, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true } },
+			});
+
+			await wait(() => assert.strictEqual(method()?.value, 'squash'));
+			assert.strictEqual(method()?.disabled, true);
+		});
+
 		it('disables the request that was shown, which can only be disabled and not changed, since GitHub cannot change its merge method', async function () {
 			const pr = new PullRequestBuilder().number(794).mergeable(PullRequestMergeability.NotMergeable).stack(stack)
 				.stackAutoMerge({ enabledThrough: 795, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true }).build();
