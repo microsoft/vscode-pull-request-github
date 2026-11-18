@@ -35,6 +35,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	stackLoaded: { default: true },
 	stackLoadError: { default: false },
 	stackMergeStatus: { default: undefined },
+	stackAutoMerge: { default: undefined },
 	labels: { default: [] },
 	isAuthor: { default: true },
 	commitsCount: { default: 10 },

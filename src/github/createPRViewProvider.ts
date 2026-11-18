@@ -15,7 +15,7 @@ import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, Re
 import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { confirmDisablingAutoMergeForStack } from './pullRequestStack';
+import { chooseStackAutoMerge, enableAutoMergeForStack, getStackAutoMergeMethod } from './pullRequestStack';
 import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
@@ -1618,13 +1618,13 @@ Don't forget to commit your template file to the repository so that it can be us
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
 				let createdPR: PullRequestModel | undefined = undefined;
 				let stackAdditionFailed = false;
+				// Auto-merge for a stacked pull request is enabled for the stack once the pull request is in it.
+				const detailsMessage = message.args.addToStack ? { ...message, args: { ...message.args, autoMerge: false } } : message;
 				try {
 					let stackCandidate: StackCandidate | undefined;
 					let stackParentWithAutoMerge: PullRequestModel | undefined;
+					let stackAutoMergeMethod: MergeMethod | undefined;
 					if (message.args.addToStack) {
-						if (message.args.autoMerge) {
-							throw new Error(vscode.l10n.t('Auto-merge is not available for stacked pull requests.'));
-						}
 						stackCandidate = await this.getStackCandidate(
 							{ owner: message.args.owner, repositoryName: message.args.repo }, message.args.base,
 							{ owner: message.args.compareOwner, repositoryName: message.args.compareRepo }, message.args.compareBranch);
@@ -1632,15 +1632,21 @@ Don't forget to commit your template file to the repository so that it can be us
 							|| stackCandidate.stackNumber !== message.args.stackNumber) {
 							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
 						}
-						// The new pull request can't have auto-merge, but the one it is stacked on can.
 						const baseRepo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(message.args.owner, message.args.repo);
 						const stackParent = await baseRepo?.getPullRequest(stackCandidate.parentPullRequestNumber, 'createPullRequest');
 						if (!stackParent) {
 							throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', stackCandidate.parentPullRequestNumber));
 						}
-						if (!(await confirmDisablingAutoMergeForStack([stackParent]))) {
-							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
-							return;
+						if (message.args.autoMerge) {
+							// The new pull request is the top of the stack, so its auto-merge covers the parent too.
+							stackAutoMergeMethod = message.args.autoMergeMethod ?? 'merge';
+						} else {
+							const autoMergeChoice = await chooseStackAutoMerge([stackParent]);
+							if (!autoMergeChoice) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							stackAutoMergeMethod = autoMergeChoice.enableForStack ? getStackAutoMergeMethod([stackParent]) : undefined;
 						}
 						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
 					}
@@ -1764,7 +1770,7 @@ Don't forget to commit your template file to the repository so that it can be us
 						this.saveRecentlyUsedBranch(message.args.owner, message.args.repo, message.args.base);
 						let postCreateError: unknown;
 						try {
-							await this.postCreate(message, createdPR);
+							await this.postCreate(detailsMessage, createdPR);
 						} catch (error) {
 							postCreateError = error;
 							Logger.error(`Failed to set pull request details: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
@@ -1776,6 +1782,9 @@ Don't forget to commit your template file to the repository so that it can be us
 							} catch (error) {
 								stackAdditionFailed = true;
 								throw error;
+							}
+							if (stackAutoMergeMethod) {
+								await enableAutoMergeForStack(createdPR, stackAutoMergeMethod);
 							}
 						}
 						if (postCreateError) {
@@ -1792,7 +1801,7 @@ Don't forget to commit your template file to the repository so that it can be us
 					} else {
 						if ((e as Error).message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
 							// This error can happen if the PR isn't fully created by the time we try to set properties on it. Try again.
-							await this.postCreate(message, createdPR);
+							await this.postCreate(detailsMessage, createdPR);
 						}
 						// All of these errors occur after the PR is created, so the error is not critical.
 						vscode.window.showErrorMessage(stackAdditionFailed

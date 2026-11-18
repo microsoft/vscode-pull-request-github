@@ -313,7 +313,7 @@ describe('GitHub Pull Requests view', function () {
 		}
 	});
 
-	it('warns that auto-merge will be disabled when only refreshing the pull requests shows it', async function () {
+	it('offers auto-merge for the entire stack when only refreshing the pull requests shows it', async function () {
 		const url = 'https://github.com/aaa/bbb';
 		const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		const repository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
@@ -329,8 +329,9 @@ describe('GitHub Pull Requests view', function () {
 			});
 			const disable = sinon.stub(bottom, 'disableAutoMerge').resolves();
 			const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+			const enable = sinon.stub(top, 'enableAutoMerge').resolves();
 			const confirm = sinon.stub(vscode.window, 'showInformationMessage');
-			confirm.onFirstCall().resolves('Create Stack' as never);
+			confirm.onFirstCall().resolves('Create Stack with Auto-Merge' as never);
 			confirm.onSecondCall().resolves(undefined);
 			const addToStack = (vscode.commands.registerCommand as SinonStub).getCalls()
 				.filter(call => call.args[0] === 'pr.addToStack').pop();
@@ -338,9 +339,10 @@ describe('GitHub Pull Requests view', function () {
 
 			await addToStack.args[1](selected[0], selected);
 
-			assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #1\.$/);
-			sinon.assert.callOrder(confirm, disable, add);
-			assert(add.calledOnce);
+			assert.match(confirm.firstCall.args[1].detail ?? '', /Auto-merge is enabled for #1\. Enable auto-merge \(merge\) for the entire stack, or disable it\.$/);
+			assert.deepStrictEqual(confirm.firstCall.args.slice(2), ['Create Stack with Auto-Merge', 'Create Stack without Auto-Merge']);
+			assert(enable.calledOnceWithExactly('merge', true));
+			sinon.assert.callOrder(confirm, disable, add, enable);
 		} finally {
 			repository.dispose();
 		}

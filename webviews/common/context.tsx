@@ -11,8 +11,8 @@ import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview } from '../../src/github/interface';
-import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview, StackAutoMerge } from '../../src/github/interface';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackAutoMergeArgs, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -482,6 +482,11 @@ export class PRContext {
 		state.autoMergeMethod = response.autoMergeMethod;
 		this.updatePR(state);
 	}
+
+	public updateStackAutoMerge = async (args: UpdateStackAutoMergeArgs): Promise<void> => {
+		const stackAutoMerge: StackAutoMerge | null = await this.postMessage({ command: 'pr.update-stack-automerge', args });
+		this.updatePR({ stackAutoMerge });
+	};
 
 	public updateBranch = async () => {
 		const { pr: state } = this;

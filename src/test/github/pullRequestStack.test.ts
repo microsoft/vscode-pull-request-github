@@ -5,6 +5,7 @@
 
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
+import * as vscode from 'vscode';
 import { StackCandidate } from '../../../common/views';
 import { Protocol } from '../../common/protocol';
 import { GitHubServerType } from '../../common/authentication';
@@ -95,15 +96,22 @@ describe('Pull request stack selection', function () {
 		});
 	});
 
-	it('warns in the confirmation only about pull requests whose auto-merge will be disabled', function () {
+	it('offers auto-merge for the entire stack in the confirmation only for pull requests with auto-merge', function () {
 		const bottom = pullRequest(1, 'main', 'D1');
 		const top = pullRequest(2, 'D1', 'D2');
 		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
 		top.item.autoMerge = true;
+		top.item.autoMergeMethod = 'squash';
 
-		assert.strictEqual(getAddToStackConfirmation([bottom, top], candidate, [top]).detail,
-			'#1 New feature\n#2 New feature\n\nAuto-merge is not available for stacked pull requests, so it will be disabled for #2.');
-		assert.strictEqual(getAddToStackConfirmation([bottom, top], candidate, [bottom]).detail, '#1 New feature\n#2 New feature');
+		assert.deepStrictEqual(getAddToStackConfirmation([bottom, top], candidate, [top]), {
+			message: 'Create a stack with 2 pull requests?',
+			detail: '#1 New feature\n#2 New feature\n\nAuto-merge is enabled for #2. Enable auto-merge (squash) for the entire stack, or disable it.',
+			action: 'Create Stack without Auto-Merge',
+			autoMergeAction: 'Create Stack with Auto-Merge',
+		});
+		assert.deepStrictEqual(getAddToStackConfirmation([bottom, top], candidate, [bottom]), {
+			message: 'Create a stack with 2 pull requests?', detail: '#1 New feature\n#2 New feature', action: 'Create Stack',
+		});
 	});
 
 	it('hides the action for unrelated, duplicate, closed and forked PRs', function () {
@@ -222,6 +230,48 @@ describe('Pull request stack selection', function () {
 		await assert.rejects(addPullRequestsToStack([bottom, top], candidate, [1, 2]), /Disable auto-merge failed/);
 		assert(disableTop.notCalled);
 		assert(add.notCalled);
+	});
+
+	it('replaces auto-merge with auto-merge for the entire stack through its new top once stacked', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const middle = pullRequest(2, 'D1', 'D2');
+		const top = pullRequest(3, 'D2', 'D3');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => [bottom, middle, top].find(pr => pr.number === number));
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(middle, 'getStack').resolves(undefined);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		bottom.item.autoMerge = true;
+		bottom.item.autoMergeMethod = 'rebase';
+		middle.item.autoMerge = true;
+		middle.item.autoMergeMethod = 'squash';
+		const disableBottom = sinon.stub(bottom, 'disableAutoMerge').resolves();
+		const disableMiddle = sinon.stub(middle, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+		const enable = sinon.stub(top, 'enableAutoMerge').resolves();
+
+		assert.deepStrictEqual(await addPullRequestsToStack([bottom, middle, top], candidate, [1, 2], true), [1, 2, 3]);
+		assert(enable.calledOnceWithExactly('squash', true), 'uses the method of the highest pull request with auto-merge');
+		sinon.assert.callOrder(disableBottom, disableMiddle, add, enable);
+	});
+
+	it('still stacks the pull requests when auto-merge cannot be enabled for the stack', async function () {
+		const bottom = pullRequest(1, 'main', 'D1');
+		const top = pullRequest(2, 'D1', 'D2');
+		sinon.stub(repository, 'getPullRequest').callsFake(async number => number === bottom.number ? bottom : top);
+		const candidate = { parentPullRequestNumber: 1, size: 1, url: bottom.html_url };
+		sinon.stub(repository, 'getStackCandidate').resolves(candidate);
+		sinon.stub(top, 'getStack').resolves(undefined);
+		top.item.autoMerge = true;
+		sinon.stub(top, 'disableAutoMerge').resolves();
+		const add = sinon.stub(repository, 'addPullRequestsToStack').resolves();
+		sinon.stub(top, 'enableAutoMerge').rejects(new Error('Not allowed'));
+		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+		assert.deepStrictEqual(await addPullRequestsToStack([bottom, top], candidate, [2], true), [1, 2]);
+		assert(add.calledOnce);
+		assert(showError.calledOnce);
+		assert.match(showError.firstCall.args[0], /stacked, but auto-merge could not be enabled for the stack: Not allowed/);
 	});
 
 	it('rejects a pull request whose auto-merge was enabled after confirmation', async function () {

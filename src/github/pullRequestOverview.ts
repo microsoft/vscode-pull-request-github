@@ -25,11 +25,12 @@ import {
 	PullRequestStack,
 	ReviewEventEnum,
 	ReviewState,
+	StackAutoMerge,
 } from './interface';
 import { IssueOverviewPanel, panelKey } from './issueOverview';
 import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestReviewCommon, ReviewContext } from './pullRequestReviewCommon';
-import { addPullRequestsToStack, confirmDisablingAutoMergeForStack, getStackCandidateForPullRequests, orderStackablePullRequests } from './pullRequestStack';
+import { addPullRequestsToStack, chooseStackAutoMerge, getStackCandidateForPullRequests, orderStackablePullRequests } from './pullRequestStack';
 import {
 	canUpdateStack,
 	findStackRepository,
@@ -45,7 +46,7 @@ import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
 import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult } from './views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult, UpdateStackAutoMergeArgs } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -67,6 +68,7 @@ interface StackData {
 	stack: PullRequestStack | undefined;
 	/** The merge queue of the branch that the pull request merges into: the stack's base, or its own when it is not stacked. */
 	mergeQueueMethod: MergeMethod | undefined;
+	stackAutoMerge: StackAutoMerge | null;
 	start: number;
 	duration: number;
 }
@@ -818,13 +820,32 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async fetchStackData(pullRequestModel: PullRequestModel): Promise<StackData> {
 		const start = performance.now();
+		// Auto-merge for the stack is loaded with the stack when the pull request is known to be in one, and after it otherwise.
+		const prefetchedAutoMerge = pullRequestModel.item.stack ? this.fetchStackAutoMerge(pullRequestModel) : undefined;
 		// The merge queue of the pull request's own base is only needed when it is not stacked, but that is not known yet.
 		const [stack, baseMergeQueueMethod] = await Promise.all([
 			pullRequestModel.getStack(),
 			this._folderRepositoryManager.mergeQueueMethodForBranch(
 				pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
 		]);
-		return { stack, mergeQueueMethod: stack ? stack.mergeQueueMethod : baseMergeQueueMethod, start, duration: performance.now() - start };
+		const stackAutoMerge = stack ? await (prefetchedAutoMerge ?? this.fetchStackAutoMerge(pullRequestModel)) : null;
+		return {
+			stack,
+			mergeQueueMethod: stack ? stack.mergeQueueMethod : baseMergeQueueMethod,
+			stackAutoMerge,
+			start,
+			duration: performance.now() - start,
+		};
+	}
+
+	/** `null` when it could not be loaded, which should not keep the stack from being shown. */
+	private async fetchStackAutoMerge(pullRequestModel: PullRequestModel): Promise<StackAutoMerge | null> {
+		try {
+			return await pullRequestModel.getStackAutoMerge();
+		} catch (error) {
+			Logger.error(`Failed to load auto-merge for the stack of #${pullRequestModel.number}: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			return null;
+		}
 	}
 
 	/**
@@ -860,6 +881,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					stack: linkedStack ?? null,
 					stackLoaded: true,
 					stackLoadError: false,
+					stackAutoMerge: data.stackAutoMerge,
 					canUpdateStack: this.canUpdateStack(pullRequestModel),
 					mergeQueueMethod: data.mergeQueueMethod ?? null,
 					// A recommendation that is shown stays until the search for a new one finishes.
@@ -875,7 +897,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._loadedStack = undefined;
 				void this._postMessage({
 					command: 'pr.update',
-					pullrequest: { stackLoadError: true, canUpdateStack: false, stackRecommendation: null } satisfies Partial<PullRequest>,
+					pullrequest: { stackLoadError: true, canUpdateStack: false, stackAutoMerge: null, stackRecommendation: null } satisfies Partial<PullRequest>,
 				});
 			}
 			return;
@@ -1075,6 +1097,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.changeReviewers(message);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
+			case 'pr.update-stack-automerge':
+				return this.updateStackAutoMerge(message);
 			case 'pr.dequeue':
 				return this.dequeue(message);
 			case 'pr.enqueue':
@@ -1470,12 +1494,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				throw new Error(changed);
 			}
 			const autoMerge = ordered.filter(pullRequest => pullRequest.autoMerge);
-			if (!(await confirmDisablingAutoMergeForStack(autoMerge))) {
+			const autoMergeChoice = await chooseStackAutoMerge(ordered);
+			if (!autoMergeChoice) {
 				await this._replyMessage(message, {});
 				return;
 			}
 			Logger.appendLine(`Stacking ${ordered.map(pullRequest => `#${pullRequest.number}`).join(', ')} as recommended for #${this._item.number}`, PullRequestOverviewPanel.ID);
-			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pullRequest => pullRequest.number));
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pullRequest => pullRequest.number), autoMergeChoice.enableForStack);
 			await this._replyMessage(message, {});
 		} catch (error) {
 			Logger.error(`Failed to stack the recommended pull requests: ${formatError(error)}`, PullRequestOverviewPanel.ID);
@@ -1770,6 +1795,35 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
 		}
 		await this._replyMessage(message, replyMessage);
+		await this.refreshTimeline();
+	}
+
+	/**
+	 * Changes the auto-merge request that covers this pull request together with the unmerged pull requests below it, and
+	 * replies with the request as it is now, also when the change failed.
+	 */
+	private async updateStackAutoMerge(message: IRequestMessage<UpdateStackAutoMergeArgs>): Promise<void> {
+		const { autoMerge, autoMergeMethod } = message.args;
+		let updateError: unknown;
+		try {
+			const current = await this._item.getStackAutoMerge();
+			const enabledThrough = current.enabledThrough;
+			if (autoMerge === false && enabledThrough !== undefined) {
+				await this._item.disableAutoMerge(true);
+			} else if (autoMerge === true && enabledThrough === undefined) {
+				await this._item.enableAutoMerge(autoMergeMethod, true);
+			} else if (autoMerge === undefined && enabledThrough === this._item.number && autoMergeMethod !== current.mergeMethod) {
+				await this._item.disableAutoMerge(true);
+				await this._item.enableAutoMerge(autoMergeMethod, true);
+			}
+		} catch (error) {
+			updateError = error;
+			Logger.error(`Failed to update auto-merge for the stack of #${this._item.number}: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+		}
+		if (updateError) {
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to update auto-merge for the stack: {0}', formatError(updateError)));
+		}
+		await this._replyMessage(message, await this.fetchStackAutoMerge(this._item));
 		await this.refreshTimeline();
 	}
 

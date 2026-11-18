@@ -81,8 +81,12 @@ function enterpriseSettingsMessage(text: string | undefined, actions: { github: 
 	return message;
 }
 
+/**
+ * @returns The action that stacks the pull requests and, when some have auto-merge enabled, `autoMergeAction`, which also
+ * enables auto-merge for the entire stack. `action` then disables it.
+ */
 export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate,
-	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string } {
+	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string; autoMergeAction?: string } {
 	const existing = candidate.stackNumber !== undefined;
 	const additions = ordered.slice(1);
 	const message = existing
@@ -94,8 +98,13 @@ export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], 
 		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
 		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
 	const autoMergeWarning = getStackAutoMergeWarning(autoMerge);
-	const detail = autoMergeWarning ? `${pullRequests}\n\n${autoMergeWarning}` : pullRequests;
-	return { message, detail, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
+	if (autoMergeWarning) {
+		const detail = `${pullRequests}\n\n${autoMergeWarning}`;
+		return existing
+			? { message, detail, action: vscode.l10n.t('Add to Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Add to Stack with Auto-Merge') }
+			: { message, detail, action: vscode.l10n.t('Create Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Create Stack with Auto-Merge') };
+	}
+	return { message, detail: pullRequests, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
 }
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
@@ -278,17 +287,18 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				return;
 			}
 			const candidate = await getStackCandidateForPullRequests(ordered);
-			// Pull request lists don't include auto-merge, which stacking disables, so get it before confirming.
+			// Pull request lists don't include auto-merge, which stacking changes, so get it before confirming.
 			const autoMerge = (await refreshPullRequestsForStack(ordered[0].githubRepository, ordered.map(pr => pr.number)))
 				.filter(pr => pr.autoMerge);
 			const confirmation = getAddToStackConfirmation(ordered, candidate, autoMerge);
+			const actions = confirmation.autoMergeAction ? [confirmation.autoMergeAction, confirmation.action] : [confirmation.action];
 			const approved = await vscode.window.showInformationMessage(
-				confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action,
+				confirmation.message, { modal: true, detail: confirmation.detail }, ...actions,
 			);
-			if (approved !== confirmation.action) {
+			if (approved === undefined || !actions.includes(approved)) {
 				return;
 			}
-			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number));
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number), approved === confirmation.autoMergeAction);
 			this.refreshAll(true);
 			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
 		} catch (error) {

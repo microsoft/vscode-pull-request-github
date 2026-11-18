@@ -12,7 +12,7 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
-import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { AutoMerge, QueuedToMerge, StackAutoMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
@@ -494,7 +494,10 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		if (pr.stackLoaded === false) {
 			return <div className="status-item">Checking whether the stack can be merged...</div>;
 		}
-		return isReadyToMerge(pr) ? <MergeStack pr={pr} /> : null;
+		if (isReadyToMerge(pr)) {
+			return <MergeStack pr={pr} />;
+		}
+		return isSimple ? null : <StackAutoMerge pr={pr} />;
 	}
 
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {

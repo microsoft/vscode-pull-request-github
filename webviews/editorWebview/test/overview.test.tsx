@@ -1248,6 +1248,54 @@ describe('Overview', function () {
 		assert.strictEqual(out.getByText('Merge stack (1 pull request)').hasAttribute('disabled'), false);
 	});
 
+	describe('stack auto-merge', function () {
+		const entry = (position: number): PullRequestStack['pullRequests'][number] => ({
+			position, number: 792 + position, title: `Change ${position}`, head: `D${position}`, url: `https://example.com/${792 + position}`,
+			state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.NotMergeable,
+		});
+		const stack: PullRequestStack = { position: 2, size: 3, base: 'main', pullRequests: [entry(1), entry(2), entry(3)] };
+
+		it('is offered for this pull request and the ones below it while the stack cannot be merged', async function () {
+			const pr = new PullRequestBuilder().number(794).mergeable(PullRequestMergeability.NotMergeable).stack(stack)
+				.mergeMethodsAvailability({ merge: true, squash: true, rebase: false })
+				.stackAutoMerge({ viewerCanEnable: true, viewerCanDisable: false }).build();
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			const enabled = { enabledThrough: 794, mergeMethod: 'merge', viewerCanEnable: false, viewerCanDisable: true };
+			const postMessage = sinon.stub(context, 'postMessage').resolves(enabled);
+			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			const checkbox = out.getByLabelText('Auto-merge (2 pull requests)') as HTMLInputElement;
+			assert.strictEqual(checkbox.checked, false);
+			assert.strictEqual(out.container.querySelector<HTMLOptionElement>('.automerge-section option[value="rebase"]')?.disabled, true);
+			fireEvent.click(checkbox);
+
+			await wait(() => assert.deepStrictEqual(context.pr?.stackAutoMerge, enabled));
+			assert(postMessage.calledOnceWithExactly({ command: 'pr.update-stack-automerge', args: { autoMerge: true, autoMergeMethod: 'merge' } }));
+		});
+
+		it('counts only this pull request at the bottom of the stack, since the ones above are not merged with it', function () {
+			const pr = new PullRequestBuilder().number(793).mergeable(PullRequestMergeability.NotMergeable).stack({ ...stack, position: 1 })
+				.stackAutoMerge({ viewerCanEnable: true, viewerCanDisable: false }).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			assert(out.getByLabelText('Auto-merge (1 pull request)'));
+		});
+
+		it('shows a request enabled through a pull request above, which only that pull request can change the method of', function () {
+			const pr = new PullRequestBuilder().number(794).mergeable(PullRequestMergeability.NotMergeable).stack(stack)
+				.stackAutoMerge({ enabledThrough: 795, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true }).build();
+			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
+
+			const checkbox = out.getByLabelText('Auto-merge (enabled through #795)') as HTMLInputElement;
+			assert.strictEqual(checkbox.checked, true);
+			assert.strictEqual(checkbox.disabled, false);
+			const method = out.container.querySelector<HTMLSelectElement>('.automerge-section select');
+			assert.strictEqual(method?.value, 'squash');
+			assert.strictEqual(method?.disabled, true);
+		});
+	});
+
 	describe('merge all', function () {
 		const entry = (position: number, change: Partial<PullRequestStack['pullRequests'][number]> = {}): PullRequestStack['pullRequests'][number] => ({
 			position, number: 792 + position, title: `Change ${position}`, head: `D${position}`, url: `https://example.com/${792 + position}`,

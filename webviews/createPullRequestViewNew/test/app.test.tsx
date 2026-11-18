@@ -62,22 +62,20 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(out.queryByText(/other pull requests/), null);
 	});
 
-	it('hides auto-merge menu choices only when adding to the stack', function () {
+	it('keeps auto-merge menu choices when adding to the stack', function () {
 		const context = new CreatePRContextNew();
 		const params = {
 			...context.createParams,
 			allowAutoMerge: true,
 			baseHasMergeQueue: false,
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			addToStack: true,
 		};
-		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, addToStack: false }))['github:createPrMenuSquash'], true);
-		const stacked = JSON.parse(makeCreateMenuContext({ ...params, addToStack: true }));
-		assert.strictEqual(stacked['github:createPrMenuDraft'], true);
-		assert.strictEqual(stacked['github:createPrMenuSquash'], undefined);
-		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, baseHasMergeQueue: true, addToStack: true }))['github:createPrMenuMergeWhenReady'], undefined);
+		assert.strictEqual(JSON.parse(makeCreateMenuContext(params))['github:createPrMenuSquash'], true);
+		assert.strictEqual(JSON.parse(makeCreateMenuContext({ ...params, baseHasMergeQueue: true }))['github:createPrMenuMergeWhenReady'], true);
 	});
 
-	it('updates the create button and menu when stacking is checked', function () {
+	it('keeps auto-merge selected when stacking a pull request', function () {
 		const app = document.createElement('div');
 		app.id = 'app';
 		document.body.appendChild(app);
@@ -98,26 +96,17 @@ describe('Create pull request stack', function () {
 			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
 		}, true);
 		act(() => { main(); });
-
 		const checkbox = app.querySelector<HTMLInputElement>('.stack-option input');
 		assert(checkbox);
-		const primary = app.querySelector('.group-actions .split-left');
-		const menu = app.querySelector('.group-actions .split-right');
-		assert.strictEqual(primary?.textContent, 'Create + Auto-Squash');
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], true);
 
 		act(() => { fireEvent.click(checkbox); });
 
 		assert.strictEqual(checkbox.checked, true);
-		assert.strictEqual(primary?.textContent, 'Create');
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], undefined);
-
-		act(() => { fireEvent.click(checkbox); });
-		assert.strictEqual(checkbox.checked, false);
-		assert.strictEqual(JSON.parse(menu!.getAttribute('data-vscode-context')!)['github:createPrMenuSquash'], true);
+		assert.strictEqual(app.querySelector('.group-actions .split-left')?.textContent, 'Create + Auto-Squash');
+		assert.match(app.querySelector('.stack-option-description')?.textContent ?? '', /Auto-merge will include the pull requests below it\.$/);
 	});
 
-	it('submits a stack request without auto-merge even when it was previously selected', async function () {
+	it('submits a stack request with auto-merge', async function () {
 		const handler = new MessageHandler(null);
 		const postMessage = sinon.stub(handler, 'postMessage').resolves({});
 		const context = new CreatePRContextNew(null, handler);
@@ -131,6 +120,7 @@ describe('Create pull request stack', function () {
 			stackCandidate: candidate,
 			addToStack: true,
 			autoMerge: true,
+			autoMergeMethod: 'squash',
 		});
 
 		await context.submit();
@@ -139,7 +129,8 @@ describe('Create pull request stack', function () {
 		assert.strictEqual(postMessage.firstCall.args[0].args.addToStack, true);
 		assert.strictEqual(postMessage.firstCall.args[0].args.stackParentPullRequest, 795);
 		assert.strictEqual(postMessage.firstCall.args[0].args.stackNumber, 12);
-		assert.strictEqual(postMessage.firstCall.args[0].args.autoMerge, false);
+		assert.strictEqual(postMessage.firstCall.args[0].args.autoMerge, true);
+		assert.strictEqual(postMessage.firstCall.args[0].args.autoMergeMethod, 'squash');
 	});
 
 	it('clears a checked stack option when the base branch changes', async function () {

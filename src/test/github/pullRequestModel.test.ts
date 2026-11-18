@@ -940,6 +940,48 @@ describe('PullRequestModel', function () {
 		});
 	});
 
+	describe('stack auto-merge', function () {
+		function createModel() {
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		}
+
+		it('loads the request covering the pull request and whether the viewer can change it', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStackAutoMerge,
+				variables: { owner: 'github', name: 'test', number: 794 },
+			}, {
+				data: {
+					repository: {
+						pullRequest: {
+							autoMergeRequest: { mergeMethod: 'SQUASH', pullRequest: { number: 795 } },
+							viewerCanEnableAutoMerge: false, viewerCanDisableAutoMerge: true,
+						},
+					},
+				},
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+
+			assert.deepStrictEqual(await model.getStackAutoMerge(), {
+				enabledThrough: 795, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true,
+			});
+		});
+
+		it('includes the stack only when asked to, and notifies that the stack changed', async function () {
+			const model = createModel();
+			const mutate = sinon.stub(repo, 'mutate').resolves({ data: { enablePullRequestAutoMerge: { pullRequest: { id: model.graphNodeId } } } });
+			const changed = sinon.spy();
+			context.subscriptions.push(repo.onDidChangeStack(changed));
+
+			await model.enableAutoMerge('merge');
+			await model.enableAutoMerge('squash', true);
+
+			assert.deepStrictEqual(mutate.firstCall.args[0].variables, { input: { mergeMethod: 'MERGE', pullRequestId: model.graphNodeId } });
+			assert.deepStrictEqual(mutate.secondCall.args[0].variables, { input: { mergeMethod: 'SQUASH', pullRequestId: model.graphNodeId, includeStack: true } });
+			assert(changed.calledOnceWithExactly([794]));
+		});
+	});
+
 	describe('stack creation', function () {
 		function parentModel() {
 			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
