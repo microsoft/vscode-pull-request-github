@@ -63,6 +63,9 @@ describe('Session prompts', function () {
 	}
 
 	describe('fixChecksInSession', function () {
+		// The logs are written to disk through vscode.workspace.fs, which is slow in the extension host shared by all the tests,
+		// so these can exceed the default timeout that CI runs the tests with.
+		this.timeout(10000);
 		let storage: string;
 
 		beforeEach(function () {
