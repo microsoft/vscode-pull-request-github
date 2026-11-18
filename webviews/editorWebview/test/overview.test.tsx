@@ -1429,8 +1429,8 @@ describe('Overview', function () {
 		}
 	});
 
-	describe('agents window tabs', function () {
-		function renderAgentsOverview(pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build()) {
+	describe('overview tabs', function () {
+		function renderTabbedOverview(pr = new PullRequestBuilder().overviewTabs(true).build()) {
 			const context = new PRContext(pr);
 			const out = render(
 				<PullRequestContext.Provider value={context}>
@@ -1444,7 +1444,7 @@ describe('Overview', function () {
 		}
 
 		it('splits the overview into timeline, checks, and metadata tabs', function () {
-			const { out, tabs, selectedTab, visiblePanels } = renderAgentsOverview();
+			const { out, tabs, selectedTab, visiblePanels } = renderTabbedOverview();
 
 			assert.deepStrictEqual(tabs.map(tab => tab.textContent), ['Timeline', 'Checks/Merge', 'Metadata']);
 			assert.strictEqual(selectedTab(), 'Timeline');
@@ -1465,7 +1465,7 @@ describe('Overview', function () {
 		});
 
 		it('moves between tabs with the arrow, Home, and End keys', function () {
-			const { tabs, selectedTab } = renderAgentsOverview();
+			const { tabs, selectedTab } = renderTabbedOverview();
 
 			for (const [from, key, expected] of [[0, 'ArrowLeft', 2], [2, 'ArrowRight', 0], [0, 'End', 2], [2, 'Home', 0], [0, 'ArrowRight', 1]] as const) {
 				fireEvent.keyDown(tabs[from], { key });
@@ -1476,20 +1476,20 @@ describe('Overview', function () {
 		});
 
 		it('shows on the checks tab whether the pull request can be merged', function () {
-			const agentsPullRequest = () => new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true);
+			const tabbedPullRequest = () => new PullRequestBuilder().overviewTabs(true);
 			const failedCheck: PullRequestCheckStatus = {
 				id: 'build', state: CheckState.Failure, context: 'build', description: null, targetUrl: null, workflowName: undefined,
 				event: undefined, url: undefined, avatarUrl: undefined, isRequired: false, isCheckRun: false, databaseId: undefined,
 			};
 			const cases: [string, PullRequest, string | undefined][] = [
-				['mergeable', agentsPullRequest().build(), 'Ready to merge'],
-				['mergeable with a failed check', agentsPullRequest()
+				['mergeable', tabbedPullRequest().build(), 'Ready to merge'],
+				['mergeable with a failed check', tabbedPullRequest()
 					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Ready to merge'],
-				['blocked with a failed check', agentsPullRequest().mergeable(PullRequestMergeability.NotMergeable)
+				['blocked with a failed check', tabbedPullRequest().mergeable(PullRequestMergeability.NotMergeable)
 					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
-				['conflicting', agentsPullRequest().mergeable(PullRequestMergeability.Conflict).build(), 'Cannot be merged yet'],
-				['draft that can otherwise be merged', agentsPullRequest().isDraft(true).build(), undefined],
-				['draft in a stack that can otherwise be merged', agentsPullRequest().isDraft(true).number(794).stack({
+				['conflicting', tabbedPullRequest().mergeable(PullRequestMergeability.Conflict).build(), 'Cannot be merged yet'],
+				['draft that can otherwise be merged', tabbedPullRequest().isDraft(true).build(), undefined],
+				['draft in a stack that can otherwise be merged', tabbedPullRequest().isDraft(true).number(794).stack({
 					position: 2,
 					size: 2,
 					base: 'main',
@@ -1498,9 +1498,9 @@ describe('Overview', function () {
 						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: true, mergeable: PullRequestMergeability.Mergeable },
 					],
 				}).build(), undefined],
-				['draft blocked by a failed check', agentsPullRequest().isDraft(true).mergeable(PullRequestMergeability.NotMergeable)
+				['draft blocked by a failed check', tabbedPullRequest().isDraft(true).mergeable(PullRequestMergeability.NotMergeable)
 					.status(status => status.state(CheckState.Failure).statuses([failedCheck])).build(), 'Cannot be merged, checks failed'],
-				['in a stack with a pull request below that is being checked', agentsPullRequest().number(794).stack({
+				['in a stack with a pull request below that is being checked', tabbedPullRequest().number(794).stack({
 					position: 2,
 					size: 2,
 					base: 'main',
@@ -1509,11 +1509,11 @@ describe('Overview', function () {
 						{ position: 2, number: 794, title: 'Second Change', head: 'D2', url: 'https://example.com/794', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 					],
 				}).build(), undefined],
-				['being checked', agentsPullRequest().mergeable(PullRequestMergeability.Unknown).build(), undefined],
-				['merged', agentsPullRequest().state(GithubItemStateEnum.Merged).build(), undefined],
+				['being checked', tabbedPullRequest().mergeable(PullRequestMergeability.Unknown).build(), undefined],
+				['merged', tabbedPullRequest().state(GithubItemStateEnum.Merged).build(), undefined],
 			];
 			for (const [description, pr, expected] of cases) {
-				const { tabs } = renderAgentsOverview(pr);
+				const { tabs } = renderTabbedOverview(pr);
 				assert.strictEqual(tabs[1].querySelector('.overview-tab-badge')?.getAttribute('aria-label'), expected, description);
 				cleanup();
 			}
@@ -1542,7 +1542,7 @@ describe('Overview', function () {
 				[[review(1, 'COMMENTED', { a: true })], undefined],
 			];
 			for (const [events, expected] of cases) {
-				const { out, tabs } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events(events).build());
+				const { out, tabs } = renderTabbedOverview(new PullRequestBuilder().overviewTabs(true).events(events).build());
 				assert.strictEqual(unresolvedCount(out), expected);
 				assert.strictEqual(tabs[0].querySelector('.overview-tab-count')?.textContent, expected?.split(' ')[0]);
 				cleanup();
@@ -1552,7 +1552,7 @@ describe('Overview', function () {
 		it('stops counting a conversation once its last comment is deleted', async function () {
 			const event = review(1, 'COMMENTED', { a: false, b: false });
 			event.comments.push(reviewComment(102, 1, 'b'));
-			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).events([event]).build();
+			const pr = new PullRequestBuilder().overviewTabs(true).events([event]).build();
 			const context = new PRContext(pr);
 			context.setPR(pr);
 			sinon.stub(context, 'postMessage').resolves();
@@ -1572,7 +1572,7 @@ describe('Overview', function () {
 		});
 
 		it('shows the timeline when asked to scroll to the pending review', function () {
-			const { context, out, tabs, selectedTab } = renderAgentsOverview();
+			const { context, out, tabs, selectedTab } = renderTabbedOverview();
 			fireEvent.click(tabs[1]);
 			const scrollIntoView = sinon.spy();
 			HTMLElement.prototype.scrollIntoView = scrollIntoView;
@@ -1589,7 +1589,7 @@ describe('Overview', function () {
 		});
 
 		it('shows the stack from the header badge before the link scrolls to it', function () {
-			const { out, tabs, selectedTab } = renderAgentsOverview(new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).number(794).stack({
+			const { out, tabs, selectedTab } = renderTabbedOverview(new PullRequestBuilder().overviewTabs(true).number(794).stack({
 				position: 2,
 				size: 2,
 				base: 'main',
@@ -1623,18 +1623,26 @@ describe('Overview', function () {
 		});
 	});
 
-	it('keeps the sidebar layout without tabs unless the experimental tabs are on in the agents window', function () {
-		for (const [isAgentSessionsWorkspace, agentsOverviewTabs] of [[false, false], [true, false], [false, true]]) {
-			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(isAgentSessionsWorkspace).agentsOverviewTabs(agentsOverviewTabs).build();
+	it('splits the overview into tabs according to the experimental setting and the window', function () {
+		const cases: [isAgentSessionsWorkspace: boolean, overviewTabs: boolean | 'agents', expectTabs: boolean][] = [
+			[false, false, false],
+			[true, false, false],
+			[false, true, true],
+			[true, true, true],
+			[false, 'agents', false],
+			[true, 'agents', true],
+		];
+		for (const [isAgentSessionsWorkspace, overviewTabs, expectTabs] of cases) {
+			const pr = new PullRequestBuilder().isAgentSessionsWorkspace(isAgentSessionsWorkspace).overviewTabs(overviewTabs).build();
 			const out = render(
 				<PullRequestContext.Provider value={new PRContext(pr)}>
 					<Overview {...pr} />
 				</PullRequestContext.Provider>,
 			);
 
-			const description = `agents window: ${isAgentSessionsWorkspace}, setting: ${agentsOverviewTabs}`;
-			assert.strictEqual(out.container.querySelector('[role="tablist"]'), null, description);
-			assert(out.container.querySelector('#main > #status-checks'), description);
+			const description = `agents window: ${isAgentSessionsWorkspace}, setting: ${overviewTabs}`;
+			assert.strictEqual(!!out.container.querySelector('[role="tablist"]'), expectTabs, description);
+			assert.strictEqual(!!out.container.querySelector('#main > #status-checks'), !expectTabs, description);
 			cleanup();
 		}
 	});

@@ -651,9 +651,22 @@
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
 					"default": false
 				},
-				"githubPullRequests.experimental.agentsOverviewTabs": {
-					"type": "boolean",
-					"markdownDescription": "%githubPullRequests.experimental.agentsOverviewTabs.description%",
+				"githubPullRequests.experimental.overviewTabs": {
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						true,
+						"agents"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.experimental.overviewTabs.false%",
+						"%githubPullRequests.experimental.overviewTabs.true%",
+						"%githubPullRequests.experimental.overviewTabs.agents%"
+					],
+					"markdownDescription": "%githubPullRequests.experimental.overviewTabs.description%",
 					"default": false,
 					"tags": [
 						"experimental"
