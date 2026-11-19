@@ -30,7 +30,7 @@ import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest, StackAutoMerge } from '../../github/interface';
 import { GitHubRepository } from '../../github/githubRepository';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -41,7 +41,7 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
-import { CreateRecommendedStackArgs, Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview } from '../../github/views';
+import { CreateRecommendedStackArgs, Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview, UpdateStackAutoMergeArgs } from '../../github/views';
 import * as stackGit from '../../github/updateStackBranches';
 import { lockedStacks } from '../../github/pullRequestStackUpdate';
 import { IRequestMessage } from '../../common/webview';
@@ -1629,7 +1629,8 @@ describe('PullRequestOverview', function () {
 		sinon.stub(model, 'getCoAuthors').resolves([]);
 		sinon.stub(model, 'getLastUpdateTime').resolves(new Date(0));
 		const stack = sinon.stub(model, 'getStack').resolves(undefined);
-		return { stack, timeline, statusChecks };
+		const stackAutoMerge = sinon.stub(model, 'getStackAutoMerge').resolves(undefined);
+		return { stack, stackAutoMerge, timeline, statusChecks };
 	}
 
 	async function createPanel(number = 1000, branches?: { base: string; head: string }) {
@@ -1639,7 +1640,7 @@ describe('PullRequestOverview', function () {
 		const model = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 		const services = panelServices ??= stubPanelServices();
 		services.models.set(number, model);
-		const { stack: stackQuery } = stubModelServices(model);
+		const { stack: stackQuery, stackAutoMerge } = stubModelServices(model);
 		const received = new vscode.EventEmitter<WebviewRequest>();
 		const posted = new vscode.EventEmitter<PanelMessage>();
 		const webviewPanel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, `#${number}`, vscode.ViewColumn.One, {});
@@ -1681,7 +1682,7 @@ describe('PullRequestOverview', function () {
 				{ position: 2, number: 1000, title: 'Second', url: '', head: 'D2', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable },
 			],
 		});
-		return { ...services, panel, model, stackQuery, webviewPostMessage, received, onDidPost: posted.event };
+		return { ...services, panel, model, stackQuery, stackAutoMerge, webviewPostMessage, received, onDidPost: posted.event };
 	}
 
 	describe('stack panel fixture', function () {
@@ -1732,6 +1733,85 @@ describe('PullRequestOverview', function () {
 			await (panel as any).loadStack(model, (panel as any)._updateSequence - 1);
 
 			assert(postMessage.notCalled);
+		});
+	});
+
+	describe('stack auto-merge', function () {
+		const notEnabled: StackAutoMerge = { viewerCanEnable: true, viewerCanDisable: false };
+		const enabled: StackAutoMerge = { enabledThrough: 1000, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true };
+		let requests = 0;
+
+		async function openPanel() {
+			const result = await createPanel();
+			/** Sends a request from the webview, and resolves with the panel's reply. */
+			const request = (args: UpdateStackAutoMergeArgs) => new Promise<PanelMessage>(resolve => {
+				const req = `stack-automerge-${++requests}`;
+				const listener = result.onDidPost(message => {
+					if (message.seq === req) {
+						listener.dispose();
+						resolve(message);
+					}
+				});
+				result.received.fire({ command: 'pr.update-stack-automerge', req, args });
+			});
+			return { ...result, request };
+		}
+
+		it('is posted with the stack once the pull request is found to be in one', async function () {
+			const { model, stackAutoMerge, onDidPost } = await openPanel();
+			stackAutoMerge.resolves(notEnabled);
+			const update = new Promise<Partial<PullRequest>>(resolve => {
+				const listener = onDidPost(message => {
+					if (message.res?.command === 'pr.update' && message.res.pullrequest?.stackLoaded) {
+						listener.dispose();
+						resolve(message.res.pullrequest);
+					}
+				});
+			});
+
+			repo.notifyStackChanged([model.number]);
+
+			assert.deepStrictEqual((await update).stackAutoMerge, notEnabled);
+		});
+
+		it('is enabled through this pull request', async function () {
+			const { model, stackAutoMerge, request } = await openPanel();
+			stackAutoMerge.onFirstCall().resolves(notEnabled);
+			stackAutoMerge.onSecondCall().resolves(enabled);
+			const enable = sinon.stub(model, 'enableAutoMerge').resolves();
+
+			const reply = await request({ autoMerge: true, autoMergeMethod: 'squash', expectedEnabledThrough: undefined });
+
+			assert(enable.calledOnceWithExactly('squash', true));
+			assert.deepStrictEqual(reply.res, enabled);
+		});
+
+		it('is disabled only while it is the request that was shown, since disabling it affects every pull request it covers', async function () {
+			const { model, stackAutoMerge, showError, request } = await openPanel();
+			const enabledAbove: StackAutoMerge = { ...enabled, enabledThrough: 1001 };
+			stackAutoMerge.resolves(enabledAbove);
+			const disable = sinon.stub(model, 'disableAutoMerge').resolves();
+
+			const stale = await request({ autoMerge: false, autoMergeMethod: 'squash', expectedEnabledThrough: 1000 });
+
+			assert(disable.notCalled);
+			assert.deepStrictEqual(stale.res, enabledAbove);
+			assert.match(showError.lastCall.args[0], /Auto-merge for the stack was changed on GitHub/);
+
+			await request({ autoMerge: false, autoMergeMethod: 'squash', expectedEnabledThrough: 1001 });
+
+			assert(disable.calledOnceWithExactly(true));
+		});
+
+		it('reports a change that fails and replies with auto-merge as it is', async function () {
+			const { model, stackAutoMerge, showError, request } = await openPanel();
+			stackAutoMerge.resolves(notEnabled);
+			sinon.stub(model, 'enableAutoMerge').rejects(new Error('Checks are already passing'));
+
+			const reply = await request({ autoMerge: true, autoMergeMethod: 'merge', expectedEnabledThrough: undefined });
+
+			assert.deepStrictEqual(reply.res, notEnabled);
+			assert.match(showError.lastCall.args[0], /Unable to update auto-merge for the stack: Checks are already passing/);
 		});
 	});
 
@@ -2281,10 +2361,11 @@ describe('PullRequestOverview', function () {
 				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
 			});
 
-			it('disables auto-merge on the pull requests being stacked once that is confirmed', async function () {
+			it('disables auto-merge on the pull requests being stacked once that is chosen', async function () {
 				const { above, candidate, addToStack, create } = await openCreatePanel();
 				above.item.autoMerge = true;
 				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				const enable = sinon.stub(above, 'enableAutoMerge').resolves();
 				const confirm = sinon.stub(vscode.window, 'showWarningMessage').resolves('Disable Auto-Merge' as never);
 
 				const reply = await create([1000, 1001]);
@@ -2292,12 +2373,28 @@ describe('PullRequestOverview', function () {
 				assert.strictEqual(reply.err, undefined);
 				assert(confirm.calledOnce);
 				assert.strictEqual(confirm.firstCall.args[1].modal, true);
-				assert.match(confirm.firstCall.args[1].detail ?? '', /so it will be disabled for #1001\.$/);
+				assert.match(confirm.firstCall.args[1].detail ?? '', /^Auto-merge is enabled for #1001\./);
 				sinon.assert.callOrder(confirm, disable, addToStack);
 				assert(addToStack.calledOnceWithExactly(candidate, [1001]));
+				assert(enable.notCalled);
 			});
 
-			it('does not stack pull requests when disabling auto-merge is declined', async function () {
+			it('replaces auto-merge on the pull requests being stacked with auto-merge for the entire stack once that is chosen', async function () {
+				const { above, addToStack, create } = await openCreatePanel();
+				above.item.autoMerge = true;
+				above.item.autoMergeMethod = 'squash';
+				const disable = sinon.stub(above, 'disableAutoMerge').resolves();
+				const enable = sinon.stub(above, 'enableAutoMerge').resolves();
+				sinon.stub(vscode.window, 'showWarningMessage').resolves('Enable Auto-Merge for Stack' as never);
+
+				const reply = await create([1000, 1001]);
+
+				assert.strictEqual(reply.err, undefined);
+				assert(enable.calledOnceWithExactly('squash', true));
+				sinon.assert.callOrder(disable, addToStack, enable);
+			});
+
+			it('does not stack pull requests when the auto-merge choice is cancelled', async function () {
 				const { above, addToStack, create } = await openCreatePanel();
 				above.item.autoMerge = true;
 				const disable = sinon.stub(above, 'disableAutoMerge').resolves();

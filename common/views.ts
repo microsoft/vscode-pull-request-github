@@ -176,6 +176,10 @@ export interface StackCandidate {
 	stackNumber?: number;
 	size: number;
 	url: string;
+	/** The branch that the stack merges into. */
+	base?: string;
+	/** Whether `base` has a merge queue, which the create view adds a stacked pull request to. */
+	baseHasMergeQueue?: boolean;
 }
 
 export interface TitleAndDescriptionArgs {

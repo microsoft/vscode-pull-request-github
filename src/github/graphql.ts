@@ -974,6 +974,19 @@ export interface PullRequestStackResponse {
 	} | null;
 }
 
+export interface PullRequestStackAutoMergeResponse {
+	repository: {
+		pullRequest: {
+			autoMergeRequest: {
+				mergeMethod: MergeMethod;
+				pullRequest: { number: number };
+			} | null;
+			viewerCanEnableAutoMerge: boolean;
+			viewerCanDisableAutoMerge: boolean;
+		} | null;
+	} | null;
+}
+
 export interface StackablePullRequestBranchesNode {
 	number: number;
 	baseRefName: string;

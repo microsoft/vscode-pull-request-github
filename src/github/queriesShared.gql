@@ -1136,6 +1136,23 @@ query PullRequestStack($owner: String!, $name: String!, $number: Int!, $after: S
 	}
 }
 
+# Auto-merge for a stacked pull request together with the unmerged pull requests below it. GitHub only accepts
+# `includeStack` for some repositories, so this is kept apart from the other pull request queries.
+query PullRequestStackAutoMerge($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			autoMergeRequest(includeStack: true) {
+				mergeMethod
+				pullRequest {
+					number
+				}
+			}
+			viewerCanEnableAutoMerge(includeStack: true)
+			viewerCanDisableAutoMerge(includeStack: true)
+		}
+	}
+}
+
 # Finds the open pull requests below and above a chain of branches, so they can be recommended as a stack.
 query StackablePullRequests($owner: String!, $name: String!, $base: String!, $head: String!, $includeBelow: Boolean!, $includeAbove: Boolean!) {
 	repository(owner: $owner, name: $name) {

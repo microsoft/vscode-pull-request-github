@@ -20,6 +20,7 @@ import {
 	PullRequestStackRecommendation,
 	Reaction,
 	ReviewState,
+	StackAutoMerge,
 	StateReason,
 } from './interface';
 import type { StackMergeOutcome } from './pullRequestModel';
@@ -96,6 +97,11 @@ export interface PullRequest extends Issue {
 	stackLoaded?: boolean;
 	stackLoadError?: boolean;
 	stackMergeStatus?: 'pending' | 'enqueued';
+	/**
+	 * Auto-merge for the pull request together with the unmerged pull requests below it in its stack. `null` when it is
+	 * not in a stack, or that could not be loaded.
+	 */
+	stackAutoMerge?: StackAutoMerge | null;
 	stackRecommendation?: PullRequestStackRecommendation | null;
 	isCopilotOnMyBehalf: boolean;
 	/** Whether the overview is shown in the agents window, where pull requests are not checked out. */
@@ -216,6 +222,17 @@ export interface MergeStackArgs {
 export interface StackMergeResult {
 	status: StackMergeOutcome;
 	state?: GithubItemStateEnum;
+}
+
+/** Enables or disables auto-merge for a stacked pull request together with the unmerged pull requests below it. */
+export interface UpdateStackAutoMergeArgs {
+	autoMerge: boolean;
+	autoMergeMethod: MergeMethod;
+	/**
+	 * The pull request that the request covering this one was enabled through when the user acted, if there was one.
+	 * Disabling a request disables it for every pull request it covers, so a request that changed since then is not acted on.
+	 */
+	expectedEnabledThrough: number | undefined;
 }
 
 export interface UnstackAllResult {

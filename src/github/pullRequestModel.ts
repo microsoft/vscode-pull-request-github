@@ -37,6 +37,7 @@ import {
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
 	PullRequestMergabilityResponse,
+	PullRequestStackAutoMergeResponse,
 	PullRequestStackResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
@@ -70,6 +71,7 @@ import {
 	PullRequestStack,
 	ReadyForReview,
 	ReviewEventEnum,
+	StackAutoMerge,
 } from './interface';
 import { IssueChangeEvent, IssueModel } from './issueModel';
 import { compareCommits, getErrorCode, GraphQLError, GraphQLErrorType } from './loggingOctokit';
@@ -89,6 +91,7 @@ import {
 	parseGraphQLReviewEvent,
 	parseGraphQLReviewThread,
 	parseMergeability,
+	parseMergeMethod,
 	parseMergeQueueEntry,
 	parseStackEntry,
 	RestAccount,
@@ -2661,7 +2664,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async enableAutoMerge(mergeMethod: MergeMethod): Promise<void> {
+	/**
+	 * @param includeStack Whether to enable auto-merge for this pull request together with the unmerged pull requests below
+	 * it in its stack.
+	 */
+	async enableAutoMerge(mergeMethod: MergeMethod, includeStack: boolean = false): Promise<void> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 			const { data } = await mutate({
@@ -2669,7 +2676,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				variables: {
 					input: {
 						mergeMethod: mergeMethod.toUpperCase(),
-						pullRequestId: this.graphNodeId
+						pullRequestId: this.graphNodeId,
+						...(includeStack ? { includeStack } : {}),
 					}
 				}
 			});
@@ -2679,6 +2687,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 			this.item.autoMerge = true;
 			this.item.autoMergeMethod = mergeMethod;
+			if (includeStack) {
+				this.githubRepository.notifyStackChanged([this.number]);
+			}
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
 				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
@@ -2688,14 +2699,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async disableAutoMerge(): Promise<void> {
+	/**
+	 * @param includeStack Whether to disable the auto-merge request that covers this pull request in its stack, which also
+	 * covers the other pull requests in its range.
+	 */
+	async disableAutoMerge(includeStack: boolean = false): Promise<void> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 			const { data } = await mutate({
 				mutation: schema.DisablePullRequestAutoMerge,
 				variables: {
 					input: {
-						pullRequestId: this.graphNodeId
+						pullRequestId: this.graphNodeId,
+						...(includeStack ? { includeStack } : {}),
 					}
 				}
 			});
@@ -2704,6 +2720,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				throw new Error('Disable auto-merge failed.');
 			}
 			this.item.autoMerge = false;
+			if (includeStack) {
+				this.githubRepository.notifyStackChanged([this.number]);
+			}
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
 				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
@@ -2711,6 +2730,29 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				throw e;
 			}
 		}
+	}
+
+	/**
+	 * Gets the auto-merge request that covers this pull request together with the unmerged pull requests below it in its
+	 * stack, and what the viewer can change about it.
+	 */
+	async getStackAutoMerge(): Promise<StackAutoMerge> {
+		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { data } = await query<PullRequestStackAutoMergeResponse>({
+			query: schema.PullRequestStackAutoMerge,
+			variables: { owner: remote.owner, name: remote.repositoryName, number: this.number },
+		}, false, undefined, false);
+		const pullRequest = data?.repository?.pullRequest;
+		if (!pullRequest) {
+			throw new Error(`Unable to load auto-merge for the stack of pull request #${this.number}.`);
+		}
+		const request = pullRequest.autoMergeRequest;
+		return {
+			enabledThrough: request?.pullRequest.number,
+			mergeMethod: parseMergeMethod(request?.mergeMethod),
+			viewerCanEnable: pullRequest.viewerCanEnableAutoMerge,
+			viewerCanDisable: pullRequest.viewerCanDisableAutoMerge,
+		};
 	}
 
 	async dequeuePullRequest(): Promise<boolean> {

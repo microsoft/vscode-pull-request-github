@@ -12,7 +12,7 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
-import { AutoMerge, QueuedToMerge } from './automergeSelect';
+import { AutoMerge, QueuedToMerge, StackAutoMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
 import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
@@ -494,7 +494,14 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		if (pr.stackLoaded === false) {
 			return <div className="status-item">Checking whether the stack can be merged...</div>;
 		}
-		return isReadyToMerge(pr) ? <MergeStack pr={pr} /> : null;
+		const ready = isReadyToMerge(pr);
+		// A pull request that is ready is merged rather than given a new request, but a request that already covers it,
+		// which may have been enabled through a pull request above that is not ready, is still shown so it can be disabled.
+		const showAutoMerge = !isSimple && (!ready || pr.stackAutoMerge?.enabledThrough !== undefined);
+		return <>
+			{ready ? <MergeStack pr={pr} /> : null}
+			{showAutoMerge ? <StackAutoMerge pr={pr} /> : null}
+		</>;
 	}
 
 	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {

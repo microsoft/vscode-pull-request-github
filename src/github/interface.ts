@@ -430,6 +430,16 @@ export type MergeMethodsAvailability = {
 	[method in MergeMethod]: boolean;
 };
 
+/** Auto-merge for a stacked pull request together with the unmerged pull requests below it. */
+export interface StackAutoMerge {
+	/** The pull request that the auto-merge request covering this one was enabled on, if there is one. */
+	enabledThrough?: number;
+	mergeMethod?: MergeMethod;
+	/** Whether auto-merge can be enabled through this pull request, with any merge method the repository allows. */
+	viewerCanEnable: boolean;
+	viewerCanDisable: boolean;
+}
+
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability;

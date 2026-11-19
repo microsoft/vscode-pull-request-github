@@ -28,7 +28,7 @@ interface CreateMenuContext {
 	'github:createPrMenuRebase'?: true;
 }
 
-export const StackOption = ({ candidate, checked, disabled, onChange }: { candidate: StackCandidate; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) => (
+export const StackOption = ({ candidate, checked, disabled, autoMergeOffered, onChange }: { candidate: StackCandidate; checked: boolean; disabled: boolean; autoMergeOffered?: boolean; onChange: (checked: boolean) => void }) => (
 	<div className='stack-option'>
 		<span className='checkbox-wrapper'>
 			<input id='stack-pr-checkbox' type='checkbox' checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
@@ -41,10 +41,19 @@ export const StackOption = ({ candidate, checked, disabled, onChange }: { candid
 			<span className='stack-option-description'>
 				This pull request will be stacked with <a href={candidate.url}>#{candidate.parentPullRequestNumber}</a>
 				{candidate.size > 1 ? ` and ${candidate.size - 1} other pull request${candidate.size === 2 ? '' : 's'}` : ''}.
+				{/* Shown before auto-merge is chosen, since choosing it from the menu creates the pull request right away. */}
+				{checked && autoMergeOffered ? ' Auto-merge for this pull request also merges the pull requests below it.' : ''}
 			</span>
 		</div>
 	</div>
 );
+
+/** A stacked pull request is merged into the stack's base, so it is that branch's merge queue that it is added to. */
+export function hasMergeQueue(params: CreateParamsNew): boolean {
+	return params.addToStack && params.stackCandidate?.baseHasMergeQueue !== undefined
+		? params.stackCandidate.baseHasMergeQueue
+		: params.baseHasMergeQueue;
+}
 
 export function makeCreateMenuContext(createParams: CreateParamsNew): string {
 	const createMenuContexts: CreateMenuContext = {
@@ -52,19 +61,17 @@ export function makeCreateMenuContext(createParams: CreateParamsNew): string {
 		'github:createPrMenu': true,
 		'github:createPrMenuDraft': true
 	};
-	if (!createParams.addToStack) {
-		if (createParams.baseHasMergeQueue) {
-			createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
-		} else {
-			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.merge) {
-				createMenuContexts['github:createPrMenuMerge'] = true;
-			}
-			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.squash) {
-				createMenuContexts['github:createPrMenuSquash'] = true;
-			}
-			if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.rebase) {
-				createMenuContexts['github:createPrMenuRebase'] = true;
-			}
+	if (hasMergeQueue(createParams)) {
+		createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
+	} else {
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.merge) {
+			createMenuContexts['github:createPrMenuMerge'] = true;
+		}
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.squash) {
+			createMenuContexts['github:createPrMenuSquash'] = true;
+		}
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.rebase) {
+			createMenuContexts['github:createPrMenuRebase'] = true;
 		}
 	}
 	return JSON.stringify(createMenuContexts);
@@ -183,7 +190,7 @@ export function main() {
 							autoMergeMethod = 'merge';
 							break;
 					}
-					ctx.updateState({ isDraft, autoMerge: autoMerge && !params.addToStack, autoMergeMethod });
+					ctx.updateState({ isDraft, autoMerge, autoMergeMethod });
 					return create();
 				};
 
@@ -387,8 +394,9 @@ export function main() {
 					</div>
 
 					{params.stackCandidate ? <StackOption candidate={params.stackCandidate} checked={!!params.addToStack}
+						autoMergeOffered={hasMergeQueue(params) || !!params.allowAutoMerge}
 						disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.initialized || !ctx.isCreatable}
-						onChange={checked => ctx.updateState({ addToStack: checked, autoMerge: checked ? false : params.autoMerge })} /> : null}
+						onChange={checked => ctx.updateState({ addToStack: checked })} /> : null}
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
 						<ErrorBoundary>
@@ -408,8 +416,8 @@ export function main() {
 
 						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
 							defaultAction={onCreateButton}
-							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, !ctx.createParams.addToStack && ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
-							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, !ctx.createParams.addToStack && ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
+							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, hasMergeQueue(ctx.createParams)).label}
+							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, hasMergeQueue(ctx.createParams)).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
 							spreadable={true}

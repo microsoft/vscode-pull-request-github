@@ -5,15 +5,16 @@
 
 import * as React from 'react';
 import { MergeSelect } from './merge';
-import { MergeMethod, MergeMethodsAvailability, MergeQueueEntry, MergeQueueState } from '../../src/github/interface';
+import { GithubItemStateEnum, MergeMethod, MergeMethodsAvailability, MergeQueueEntry, MergeQueueState } from '../../src/github/interface';
+import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
-const AutoMergeLabel = ({ busy, baseHasMergeQueue }: { busy: boolean, baseHasMergeQueue: boolean }) => {
+const AutoMergeLabel = ({ busy, baseHasMergeQueue, label }: { busy: boolean, baseHasMergeQueue: boolean, label?: string }) => {
 	if (busy) {
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Setting...</label>;
 	} else {
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">
-			{baseHasMergeQueue ? 'Merge when ready' : 'Auto-merge'}
+			{label ?? (baseHasMergeQueue ? 'Merge when ready' : 'Auto-merge')}
 		</label>;
 	}
 };
@@ -26,6 +27,8 @@ export const AutoMerge = ({
 	mergeMethodsAvailability,
 	autoMerge,
 	isDraft,
+	label,
+	canChangeMethod = true,
 }: {
 	updateState: (params: Partial<{ autoMerge: boolean; autoMergeMethod: MergeMethod }>) => Promise<void>;
 	baseHasMergeQueue: boolean;
@@ -34,6 +37,8 @@ export const AutoMerge = ({
 	mergeMethodsAvailability?: MergeMethodsAvailability;
 	autoMerge?: boolean;
 	isDraft?: boolean;
+	label?: string;
+	canChangeMethod?: boolean;
 }) => {
 	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
@@ -62,10 +67,13 @@ export const AutoMerge = ({
 					}}
 				></input>
 			</div>
-			<AutoMergeLabel busy={isBusy} baseHasMergeQueue={baseHasMergeQueue} />
+			<AutoMergeLabel busy={isBusy} baseHasMergeQueue={baseHasMergeQueue} label={label} />
 			{baseHasMergeQueue ? null :
 				<div className="merge-select-container">
 					<MergeSelect
+						// A method that can't be changed is that of the active request, so the select follows it, rather than
+						// keeping the method that was chosen before the request was enabled.
+						key={canChangeMethod ? undefined : defaultMergeMethod}
 						ref={select}
 						defaultMergeMethod={defaultMergeMethod}
 						mergeMethodsAvailability={mergeMethodsAvailability}
@@ -74,12 +82,57 @@ export const AutoMerge = ({
 							await updateState({ autoMergeMethod: selectedMethod() });
 							setBusy(false);
 						}}
-						disabled={isBusy}
+						disabled={isBusy || !canChangeMethod}
 					/>
 				</div>
 			}
 		</div>
 	);
+};
+
+const MERGE_METHOD_ORDER: MergeMethod[] = ['merge', 'squash', 'rebase'];
+
+/** Auto-merge for a stacked pull request together with the open pull requests below it, which GitHub merges with it. */
+export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
+	const ctx = React.useContext(PullRequestContext);
+	const { stack, stackAutoMerge } = pr;
+	if (!stack || !stackAutoMerge) {
+		return null;
+	}
+	const enabled = stackAutoMerge.enabledThrough !== undefined;
+	// A request enabled on a pull request above this one covers it too.
+	const enabledAbove = enabled && stackAutoMerge.enabledThrough !== pr.number ? stackAutoMerge.enabledThrough : undefined;
+	const count = 1 + stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open && entry.position < stack.position).length;
+	const availability = pr.mergeMethodsAvailability;
+	const defaultMergeMethod = stackAutoMerge.mergeMethod
+		?? (availability[pr.defaultMergeMethod] ? pr.defaultMergeMethod : MERGE_METHOD_ORDER.find(method => availability[method]));
+	const queue = !!pr.mergeQueueMethod;
+	const action = queue ? 'Merge when ready' : 'Auto-merge';
+	// Shown even for one pull request, so that it is clear that the pull requests above are not merged with it.
+	const label = enabledAbove !== undefined
+		? `${action} (enabled through #${enabledAbove})`
+		: `${action} (${count} pull request${count === 1 ? '' : 's'})`;
+	return <AutoMerge
+		// The merge method is only chosen before enabling: GitHub can't change it on a request, and replacing the request
+		// would leave the stack without auto-merge if enabling it again failed.
+		updateState={async ({ autoMerge, autoMergeMethod }) => {
+			if (autoMerge !== undefined) {
+				await ctx.updateStackAutoMerge({
+					autoMerge,
+					autoMergeMethod: autoMergeMethod ?? defaultMergeMethod ?? 'merge',
+					expectedEnabledThrough: stackAutoMerge.enabledThrough,
+				});
+			}
+		}}
+		baseHasMergeQueue={queue}
+		allowAutoMerge={enabled ? stackAutoMerge.viewerCanDisable : stackAutoMerge.viewerCanEnable}
+		defaultMergeMethod={defaultMergeMethod}
+		mergeMethodsAvailability={availability}
+		autoMerge={enabled}
+		isDraft={pr.isDraft}
+		label={label}
+		canChangeMethod={!enabled}
+	/>;
 };
 
 export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueueEntry }) => {

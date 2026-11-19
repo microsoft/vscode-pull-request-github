@@ -940,9 +940,51 @@ describe('PullRequestModel', function () {
 		});
 	});
 
+	describe('stack auto-merge', function () {
+		function createModel() {
+			return new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		}
+
+		it('loads the request covering the pull request and whether the viewer can change it', async function () {
+			const model = createModel();
+			repo.queryProvider.expectGraphQLQuery({
+				query: queries.PullRequestStackAutoMerge,
+				variables: { owner: 'github', name: 'test', number: 794 },
+			}, {
+				data: {
+					repository: {
+						pullRequest: {
+							autoMergeRequest: { mergeMethod: 'SQUASH', pullRequest: { number: 795 } },
+							viewerCanEnableAutoMerge: false, viewerCanDisableAutoMerge: true,
+						},
+					},
+				},
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+			});
+
+			assert.deepStrictEqual(await model.getStackAutoMerge(), {
+				enabledThrough: 795, mergeMethod: 'squash', viewerCanEnable: false, viewerCanDisable: true,
+			});
+		});
+
+		it('includes the stack only when asked to, and notifies that the stack changed', async function () {
+			const model = createModel();
+			const mutate = sinon.stub(repo, 'mutate').resolves({ data: { enablePullRequestAutoMerge: { pullRequest: { id: model.graphNodeId } } } });
+			const changed = sinon.spy();
+			context.subscriptions.push(repo.onDidChangeStack(changed));
+
+			await model.enableAutoMerge('merge');
+			await model.enableAutoMerge('squash', true);
+
+			assert.deepStrictEqual(mutate.firstCall.args[0].variables, { input: { mergeMethod: 'MERGE', pullRequestId: model.graphNodeId } });
+			assert.deepStrictEqual(mutate.secondCall.args[0].variables, { input: { mergeMethod: 'SQUASH', pullRequestId: model.graphNodeId, includeStack: true } });
+			assert(changed.calledOnceWithExactly([794]));
+		});
+	});
+
 	describe('stack creation', function () {
 		function parentModel() {
-			const pr = new PullRequestBuilder().number(795).head(head => head.ref('D3')).build();
+			const pr = new PullRequestBuilder().number(795).base(base => base.ref('D2')).head(head => head.ref('D3')).build();
 			pr.html_url = 'https://github.com/github/test/pull/795';
 			pr.head.repo.name = 'test';
 			pr.head.repo.owner.login = 'github';
@@ -972,7 +1014,7 @@ describe('PullRequestModel', function () {
 			}], { pull_requests: [{ number: 795 }, { number: 796 }] });
 
 			const candidate = await repo.getStackCandidate('D3');
-			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795', base: 'D2' });
 			assert(candidate);
 			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [795, 796]);
 			assert(changed.calledOnceWithExactly([795, 796]));
@@ -1019,6 +1061,8 @@ describe('PullRequestModel', function () {
 			parent.url = 'https://github.com/github/test/pull/795';
 			parent.headRefName = 'D3';
 			parent.headRef!.name = 'D3';
+			parent.baseRefName = 'D2';
+			parent.baseRef!.name = 'D2';
 			parent.headRef!.repository.owner.login = 'github';
 			parent.headRef!.repository.url = 'https://github.com/github/test';
 			parent.headRepository!.owner.login = 'github';
@@ -1039,7 +1083,7 @@ describe('PullRequestModel', function () {
 			});
 			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], []);
 
-			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(await repo.getStackCandidate('D3'), { parentPullRequestNumber: 795, size: 1, url: 'https://github.com/github/test/pull/795', base: 'D2' });
 		});
 
 		it('surfaces a failed GraphQL parent lookup rather than treating the branch as unstackable', async function () {
@@ -1053,6 +1097,7 @@ describe('PullRequestModel', function () {
 			sinon.stub(repo, 'getPullRequestForBranch').resolves(parentModel());
 			repo.queryProvider.expectOctokitRequest(['request'], [listRoute, listParams], [{
 				number: 12,
+				base: { ref: 'main' },
 				pull_requests: [{ number: 793 }, { number: 795 }],
 			}]);
 			repo.queryProvider.expectOctokitRequest(['request'], ['POST /repos/{owner}/{repo}/stacks/{stack_number}/add', {
@@ -1064,7 +1109,7 @@ describe('PullRequestModel', function () {
 			}], { pull_requests: [{ number: 793 }, { number: 795 }, { number: 796 }] });
 
 			const candidate = await repo.getStackCandidate('D3');
-			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795' });
+			assert.deepStrictEqual(candidate, { parentPullRequestNumber: 795, stackNumber: 12, size: 2, url: 'https://github.com/github/test/pull/795', base: 'main' });
 			assert(candidate);
 			assert.deepStrictEqual(await repo.addPullRequestToStack(candidate, 796), [793, 795, 796]);
 		});

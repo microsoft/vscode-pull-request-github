@@ -312,7 +312,7 @@ export class CreatePRContextNew {
 			compareOwner: this.createParams.compareRemote!.owner,
 			compareRepo: this.createParams.compareRemote!.repositoryName,
 			draft: !!this.createParams.isDraft,
-			autoMerge: !!this.createParams.autoMerge && !this.createParams.addToStack,
+			autoMerge: !!this.createParams.autoMerge,
 			autoMergeMethod: this.createParams.autoMergeMethod,
 			addToStack: !!this.createParams.addToStack,
 			stackParentPullRequest: this.createParams.stackCandidate?.parentPullRequestNumber,
