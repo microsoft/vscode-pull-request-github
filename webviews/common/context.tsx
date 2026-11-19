@@ -554,6 +554,10 @@ export class PRContext {
 
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
 
+	public fixChecksInSession = () => this.postMessage({ command: 'pr.fix-checks-in-session' });
+
+	public addressCommentsInSession = () => this.postMessage({ command: 'pr.address-comments-in-session' });
+
 	public approveWorkflowRuns = async (workflowRunIds: number[]) => {
 		const result: ApproveWorkflowRunsReply = await this.postMessage({ command: 'pr.approve-workflow-runs', args: { workflowRunIds } satisfies ApproveWorkflowRunsArgs });
 		this.updatePR({ status: result.status, reviewRequirement: result.reviewRequirement });
