@@ -669,7 +669,8 @@
 					"markdownDescription": "%githubPullRequests.experimental.overviewTabs.description%",
 					"default": false,
 					"tags": [
-						"experimental"
+						"experimental",
+						"onExp"
 					]
 				},
 				"githubPullRequests.webviewRefreshInterval": {
