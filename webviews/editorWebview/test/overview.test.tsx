@@ -1495,12 +1495,12 @@ describe('Overview', function () {
 
 		/** An open pull request in the agents window with `overrides`. */
 		const agentsPullRequestWith = (overrides: Partial<PullRequest>): PullRequest =>
-			({ ...new PullRequestBuilder().isAgentSessionsWorkspace(true).agentsOverviewTabs(true).build(), ...overrides });
+			({ ...new PullRequestBuilder().isAgentSessionsWorkspace(true).overviewTabs(true).build(), ...overrides });
 
 		it('puts failed checks and unresolved comments in the session from the right of their tabs', async function () {
 			const stubs: { fixChecks?: SinonStub; addressComments?: SinonStub } = {};
 			let finishFixChecks = () => { };
-			const { out, tabs } = renderAgentsOverview(agentsPullRequestWith({
+			const { out, tabs } = renderTabbedOverview(agentsPullRequestWith({
 				status: { state: CheckState.Failure, statuses: [failedCheckRun] },
 				events: [reviewEvent([{}])],
 			}), context => {
@@ -1554,7 +1554,7 @@ describe('Overview', function () {
 				}],
 			];
 			for (const [description, overrides] of cases) {
-				const { out, tabs } = renderAgentsOverview(agentsPullRequestWith(overrides));
+				const { out, tabs } = renderTabbedOverview(agentsPullRequestWith(overrides));
 				assert.deepStrictEqual(sessionActionsByTab(out.container, tabs), none, description);
 				cleanup();
 			}
