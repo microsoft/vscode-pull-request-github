@@ -31,7 +31,7 @@ extends:
 
     l10nSourcePaths: ./src
 
-    nodeVersion: "20.x"
+    nodeVersion: "24.x"
 
     buildSteps:
       - script: npm ci
