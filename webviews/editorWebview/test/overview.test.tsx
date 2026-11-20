@@ -251,7 +251,7 @@ describe('Overview', function () {
 
 			const heading = out.getByText('2 workflows awaiting approval');
 			assert(heading.compareDocumentPosition(out.getByLabelText('Show status checks')) & Node.DOCUMENT_POSITION_FOLLOWING);
-			fireEvent.click(out.getByText('Approve workflows to run'));
+			fireEvent.click(out.getByText('Approve Workflows'));
 
 			await wait(() => assert(approveWorkflowRuns.calledOnceWithExactly([11, 12])));
 		});
@@ -260,7 +260,7 @@ describe('Overview', function () {
 			const { out } = renderAwaitingApproval([11], false);
 
 			assert(out.getByText('1 workflow awaiting approval'));
-			assert.strictEqual(out.queryByText('Approve workflows to run'), null);
+			assert.strictEqual(out.queryByText('Approve Workflows'), null);
 		});
 	});
 
@@ -398,11 +398,11 @@ describe('Overview', function () {
 		assert.strictEqual(section.querySelector('.stack-base')?.textContent, 'main');
 		assert.strictEqual(out.container.querySelector('#merge-comment-form'), null);
 		assert(out.container.querySelector('.stack-merge .stack-merge-method select'));
-		const mergeButton = out.getByText('Merge partial stack (2 pull requests)');
+		const mergeButton = out.getByText('Merge Partial Stack (2 Pull Requests)');
 		fireEvent.change(out.getByLabelText('Select merge method'), { target: { value: 'squash' } });
 		fireEvent.click(mergeButton);
 		assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
-		fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
+		fireEvent.click(out.getByText('Merge Partial Stack (2 Pull Requests)'));
 		await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
 		assert(mergeStack.calledOnceWithExactly('squash'));
 		assert(openOnGitHub.notCalled);
@@ -529,7 +529,7 @@ describe('Overview', function () {
 						<Root>{current => <Component {...current} />}</Root>
 					</PullRequestContext.Provider>,
 				);
-				const stackAction = mergeQueueMethod ? 'Add stack to merge queue' : 'Merge stack (3 pull requests)';
+				const stackAction = mergeQueueMethod ? 'Add Stack to Merge Queue' : 'Merge Stack (3 Pull Requests)';
 				assert(out.getByText(stackAction));
 				if (view === 'editor') {
 					assert(out.container.querySelector('#pull-request-stack'));
@@ -575,7 +575,7 @@ describe('Overview', function () {
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
-		const button = out.getByText('Unstack all');
+		const button = out.getByText('Unstack All');
 		const section = button.closest('#pull-request-stack');
 		assert(section);
 		const header = section.querySelector('.stack-header');
@@ -591,13 +591,13 @@ describe('Overview', function () {
 				<Overview {...pr} hasWritePermission={false} />
 			</PullRequestContext.Provider>,
 		);
-		assert.strictEqual(out.queryByText('Unstack all'), null);
+		assert.strictEqual(out.queryByText('Unstack All'), null);
 		out.rerender(
 			<PullRequestContext.Provider value={new PRContext({ ...pr, stack: { ...stack, pullRequests: [stack.pullRequests[0]] } })}>
 				<Overview {...pr} stack={{ ...stack, pullRequests: [stack.pullRequests[0]] }} />
 			</PullRequestContext.Provider>,
 		);
-		assert.strictEqual(out.queryByText('Unstack all'), null);
+		assert.strictEqual(out.queryByText('Unstack All'), null);
 	});
 
 	it('shows an inline error when unstacking fails', async function () {
@@ -614,11 +614,11 @@ describe('Overview', function () {
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
-		fireEvent.click(out.getByText('Unstack all'));
+		fireEvent.click(out.getByText('Unstack All'));
 		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 		assert.strictEqual(alert?.textContent, 'Unable to unstack pull requests: Stack is locked');
 		assert(alert.closest('.stack-section'), 'the error is shown with the stack');
-		assert.strictEqual((out.getByText('Unstack all') as HTMLButtonElement).disabled, false);
+		assert.strictEqual((out.getByText('Unstack All') as HTMLButtonElement).disabled, false);
 	});
 
 	it('uses singular wording for single-member stacks, including a retained merged PR', function () {
@@ -658,13 +658,13 @@ describe('Overview', function () {
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
-		const button = out.getByText('Update stack');
+		const button = out.getByText('Update Stack');
 		const section = out.container.querySelector('#pull-request-stack');
 		assert(section);
 		assert.strictEqual(button.closest('.stack-section'), null);
 		assert(section.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING, 'the button is below the stack');
-		assert(button.closest('.status-item')?.textContent?.includes('This branch has no conflicts with the base branch.'));
-		assert.deepStrictEqual([...section.querySelectorAll('.stack-actions button')].map(action => action.textContent), ['Unstack all']);
+		assert(button.closest('.status-item')?.textContent?.includes('No conflicts with main'));
+		assert.deepStrictEqual([...section.querySelectorAll('.stack-actions button')].map(action => action.textContent), ['Unstack All']);
 		assert.strictEqual(fireEvent.click(button), true);
 		assert(updateStack.calledOnce);
 		assert.strictEqual(section.querySelector('.stack-chevron')?.getAttribute('aria-expanded'), 'true');
@@ -681,14 +681,14 @@ describe('Overview', function () {
 		assert(content);
 		assert.strictEqual(chevron.getAttribute('aria-controls'), content.id);
 		assert.strictEqual(content.hasAttribute('hidden'), false);
-		assert(out.getByText('Unstack all'));
+		assert(out.getByText('Unstack All'));
 
 		fireEvent.click(chevron);
 
 		assert.strictEqual(chevron.getAttribute('aria-expanded'), 'false');
 		assert.strictEqual(chevron.getAttribute('aria-label'), 'Expand pull request stack');
 		assert(content.hasAttribute('hidden'));
-		assert.strictEqual(out.queryByText('Unstack all'), null, 'the stack is only unstacked while it is shown');
+		assert.strictEqual(out.queryByText('Unstack All'), null, 'the stack is only unstacked while it is shown');
 
 		fireEvent.click(out.getByText('Pull request stack'));
 
@@ -702,7 +702,7 @@ describe('Overview', function () {
 		const pr = new PullRequestBuilder().stack(stack).canUpdateStack(true).build();
 		const context = new PRContext(pr);
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
-		assert(out.getByText('Update stack'));
+		assert(out.getByText('Update Stack'));
 		for (const change of [
 			{ canUpdateStack: false },
 			{ stackLoaded: false },
@@ -710,7 +710,7 @@ describe('Overview', function () {
 			{ stack: undefined },
 		]) {
 			out.rerender(<PullRequestContext.Provider value={context}><Overview {...pr} {...change} /></PullRequestContext.Provider>);
-			assert.strictEqual(out.queryByText('Update stack'), null);
+			assert.strictEqual(out.queryByText('Update Stack'), null);
 		}
 	});
 
@@ -722,11 +722,11 @@ describe('Overview', function () {
 		const context = new PRContext(pr);
 		sinon.stub(context, 'updateStack').rejects(new Error('Branch changed on GitHub'));
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
-		fireEvent.click(out.getByText('Update stack'));
+		fireEvent.click(out.getByText('Update Stack'));
 		const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 		assert.strictEqual(alert?.textContent, 'Unable to update the stack: Branch changed on GitHub');
 		assert.strictEqual(alert.closest('.stack-section'), null, 'the error is shown with the button');
-		assert.strictEqual((out.getByText('Update stack') as HTMLButtonElement).disabled, false);
+		assert.strictEqual((out.getByText('Update Stack') as HTMLButtonElement).disabled, false);
 	});
 
 	['update', 'unstack'].forEach(firstAction => {
@@ -762,15 +762,15 @@ describe('Overview', function () {
 					<Overview {...pr} />
 				</PullRequestContext.Provider>,
 			);
-			fireEvent.click(out.getByText(firstAction === 'update' ? 'Update stack' : 'Unstack all'));
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Update Stack' : 'Unstack All'));
 			const alert = await waitForElement(() => out.container.querySelector('.stack-action-error[role="alert"]'));
 			assert(alert?.textContent?.includes('Previous action failed'));
 
-			fireEvent.click(out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			fireEvent.click(out.getByText(firstAction === 'update' ? 'Unstack All' : 'Update Stack'));
 			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
 			assert(out.getByText(firstAction === 'update' ? 'Unstacking...' : 'Updating...'));
 			finish();
-			await waitForElement(() => out.getByText(firstAction === 'update' ? 'Unstack all' : 'Update stack'));
+			await waitForElement(() => out.getByText(firstAction === 'update' ? 'Unstack All' : 'Update Stack'));
 			assert.strictEqual(out.container.querySelector('.stack-action-error'), null);
 		});
 	});
@@ -852,7 +852,7 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.container.querySelector('#pull-request-stack'));
 			if (mergeable === PullRequestMergeability.Behind) {
-				assert(out.getByText('This branch is out-of-date with the base branch.'));
+				assert(out.getByText('Branch is out of date'));
 			}
 			assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 			out.unmount();
@@ -874,11 +874,11 @@ describe('Overview', function () {
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert(out.getByText('This branch is out-of-date with the base branch.'));
-		const button = out.getByText('Update stack');
+		assert(out.getByText('Branch is out of date'));
+		const button = out.getByText('Update Stack');
 		assert.strictEqual(button.closest('.stack-section'), null);
-		assert(button.closest('.status-item')?.textContent?.includes('This branch is out-of-date with the base branch.'));
-		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert(button.closest('.status-item')?.textContent?.includes('Branch is out of date'));
+		assert.strictEqual(out.queryAllByText('Update Stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
 		fireEvent.click(button);
 		assert(updateStack.calledOnce);
@@ -901,10 +901,10 @@ describe('Overview', function () {
 		const updateStack = sinon.stub(context, 'updateStack').resolves({ updatedPullRequests: [794, 795] });
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert.strictEqual(out.getByText('Update stack').closest('.stack-section'), null);
-		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert.strictEqual(out.getByText('Update Stack').closest('.stack-section'), null);
+		assert.strictEqual(out.queryAllByText('Update Stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
-		fireEvent.click(out.getByText('Update stack'));
+		fireEvent.click(out.getByText('Update Stack'));
 		assert(updateStack.calledOnce);
 	});
 
@@ -918,7 +918,7 @@ describe('Overview', function () {
 			],
 		}).build();
 		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-		assert.strictEqual(out.queryByText('Update stack'), null);
+		assert.strictEqual(out.queryByText('Update Stack'), null);
 	});
 
 	it('offers Update stack next to the no-conflicts status when the stack is behind but GitHub reports no conflicts', function () {
@@ -931,12 +931,12 @@ describe('Overview', function () {
 		}).build();
 		const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert(out.getByText('Update stack').closest('.status-item')?.textContent?.includes('This branch has no conflicts with the base branch.'));
-		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert(out.getByText('Update Stack').closest('.status-item')?.textContent?.includes('No conflicts with main'));
+		assert.strictEqual(out.queryAllByText('Update Stack').length, 1);
 		out.unmount();
 
 		const sidebar = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
-		assert.strictEqual(sidebar.queryByText('Update stack'), null, 'the sidebar only updates the stack to resolve conflicts');
+		assert.strictEqual(sidebar.queryByText('Update Stack'), null, 'the sidebar only updates the stack to resolve conflicts');
 	});
 
 	it('offers Update stack for other updateable stacked branches', function () {
@@ -950,10 +950,10 @@ describe('Overview', function () {
 		const updateBranch = sinon.stub(context, 'updateBranch');
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-		assert.strictEqual(out.getByText('Update stack').closest('.stack-section'), null);
-		assert.strictEqual(out.queryAllByText('Update stack').length, 1);
+		assert.strictEqual(out.getByText('Update Stack').closest('.stack-section'), null);
+		assert.strictEqual(out.queryAllByText('Update Stack').length, 1);
 		assert.strictEqual(out.queryByText(/Update with merge commit/i), null);
-		fireEvent.click(out.getByText('Update stack'));
+		fireEvent.click(out.getByText('Update Stack'));
 		assert(updateStack.calledOnce);
 		assert(updateBranch.notCalled);
 	});
@@ -969,7 +969,7 @@ describe('Overview', function () {
 		const context = new PRContext(pr);
 		const updateBranch = sinon.stub(context, 'updateBranch').resolves();
 		const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
-		fireEvent.click(out.getByText('Resolve conflicts'));
+		fireEvent.click(out.getByText('Resolve Conflicts'));
 		assert(updateBranch.calledOnce);
 	});
 
@@ -998,17 +998,17 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
 			assert(out.getByText('This branch has conflicts that must be resolved.'));
-			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
-			assert(out.getByText('Resolve conflicts').closest('.status-item')?.textContent?.includes('This branch has conflicts that must be resolved.'));
-			assert.strictEqual(out.queryByText('Update stack'), null);
-			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert.strictEqual(out.queryAllByText('Resolve Conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve Conflicts').closest('.status-item')?.textContent?.includes('This branch has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('Update Stack'), null);
+			fireEvent.click(out.getByText('Resolve Conflicts'));
 
 			assert(updateStack.calledOnce);
 			assert(updateBranch.notCalled);
 			await wait(() => assert.strictEqual(out.getByText('Updating...').closest('button')!.disabled, true));
-			assert.strictEqual(out.getByText('Unstack all').closest('button')!.disabled, true, 'stack actions share progress');
+			assert.strictEqual(out.getByText('Unstack All').closest('button')!.disabled, true, 'stack actions share progress');
 			finishUpdate();
-			await wait(() => assert.strictEqual(out.getByText('Resolve conflicts').closest('button')!.disabled, false));
+			await wait(() => assert.strictEqual(out.getByText('Resolve Conflicts').closest('button')!.disabled, false));
 		});
 
 		it('offers to resolve conflicts when another pull request in the stack has conflicts', function () {
@@ -1018,11 +1018,11 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
 			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
-			assert.strictEqual(out.queryByText('This branch has no conflicts with the base branch.'), null);
-			assert.strictEqual(out.queryAllByText('Resolve conflicts').length, 1, 'the stack has a single update action');
-			assert(out.getByText('Resolve conflicts').closest('.status-item')?.textContent?.includes('A pull request in this stack has conflicts that must be resolved.'));
-			assert.strictEqual(out.queryByText('Update stack'), null);
-			fireEvent.click(out.getByText('Resolve conflicts'));
+			assert.strictEqual([...out.container.querySelectorAll('.status-heading')].some(heading => heading.textContent?.startsWith('No conflicts')), false);
+			assert.strictEqual(out.queryAllByText('Resolve Conflicts').length, 1, 'the stack has a single update action');
+			assert(out.getByText('Resolve Conflicts').closest('.status-item')?.textContent?.includes('A pull request in this stack has conflicts that must be resolved.'));
+			assert.strictEqual(out.queryByText('Update Stack'), null);
+			fireEvent.click(out.getByText('Resolve Conflicts'));
 			assert(updateStack.calledOnce);
 		});
 
@@ -1033,7 +1033,7 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
 
 			assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
-			fireEvent.click(out.getByText('Resolve conflicts'));
+			fireEvent.click(out.getByText('Resolve Conflicts'));
 			assert(updateStack.calledOnce);
 		});
 
@@ -1042,7 +1042,7 @@ describe('Overview', function () {
 			for (const Component of [Overview, ActivityBarOverview]) {
 				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
 				assert(out.getByText('A pull request in this stack has conflicts that must be resolved.'));
-				assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+				assert.strictEqual(out.queryByText('Resolve Conflicts'), null);
 				out.unmount();
 			}
 		});
@@ -1056,8 +1056,8 @@ describe('Overview', function () {
 				],
 			}).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-			assert(out.getByText('Update stack'));
-			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert(out.getByText('Update Stack'));
+			assert.strictEqual(out.queryByText('Resolve Conflicts'), null);
 			assert.strictEqual(out.queryByText('A pull request in this stack has conflicts that must be resolved.'), null);
 		});
 
@@ -1068,7 +1068,7 @@ describe('Overview', function () {
 			sinon.stub(context, 'updateStack').rejects(new Error('Branch D1 changed on GitHub.'));
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			fireEvent.click(out.getByText('Resolve conflicts'));
+			fireEvent.click(out.getByText('Resolve Conflicts'));
 
 			await wait(() => assert.strictEqual(out.getByRole('alert').textContent, 'Unable to update the stack: Branch D1 changed on GitHub.'));
 			assert.strictEqual(out.getByRole('alert').closest('.stack-section'), null);
@@ -1079,13 +1079,13 @@ describe('Overview', function () {
 				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 			assert(out.getByText('This branch has conflicts that must be resolved.'));
-			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert.strictEqual(out.queryByText('Resolve Conflicts'), null);
 		});
 
 		it('does not offer conflict resolution before stack membership is known', function () {
 			const pr = { ...new PullRequestBuilder().canUpdateBranch(true).mergeable(PullRequestMergeability.Conflict).build(), stackLoaded: false };
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert.strictEqual(out.queryByText('Resolve Conflicts'), null);
 		});
 
 		it('resolves conflicts by updating the stack from the sidebar and shows failures there', async function () {
@@ -1096,7 +1096,7 @@ describe('Overview', function () {
 			const updateBranch = sinon.stub(context, 'updateBranch');
 			const out = render(<PullRequestContext.Provider value={context}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
 
-			fireEvent.click(out.getByText('Resolve conflicts'));
+			fireEvent.click(out.getByText('Resolve Conflicts'));
 
 			assert(updateStack.calledOnce);
 			assert(updateBranch.notCalled);
@@ -1107,7 +1107,7 @@ describe('Overview', function () {
 			const pr = new PullRequestBuilder().canUpdateBranch(true).canUpdateStack(false)
 				.mergeable(PullRequestMergeability.Conflict).stack(conflictingStack).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><ActivityBarOverview {...pr} /></PullRequestContext.Provider>);
-			assert.strictEqual(out.queryByText('Resolve conflicts'), null);
+			assert.strictEqual(out.queryByText('Resolve Conflicts'), null);
 		});
 	});
 
@@ -1190,7 +1190,7 @@ describe('Overview', function () {
 				<Overview {...pr} />
 			</PullRequestContext.Provider>,
 		);
-		assert(out.getByText('Merge partial stack (1 pull request)'));
+		assert(out.getByText('Merge Partial Stack (1 Pull Request)'));
 	});
 
 	it('does not offer to merge a stack without write permission', function () {
@@ -1228,7 +1228,7 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 
-		assert(out.getByText('Add stack to merge queue'));
+		assert(out.getByText('Add Stack to Merge Queue'));
 		assert.strictEqual(out.container.querySelector('.automerge-section select'), null);
 	});
 
@@ -1250,8 +1250,8 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 
-		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
-		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
+		fireEvent.click(out.getByText('Merge Stack (1 Pull Request)'));
+		fireEvent.click(out.getByText('Merge Stack (1 Pull Request)'));
 		await wait(() => assert.strictEqual(context.pr?.stackMergeStatus, 'pending'));
 
 		assert(mergeStack.calledOnceWithExactly('merge'));
@@ -1277,13 +1277,13 @@ describe('Overview', function () {
 			</PullRequestContext.Provider>,
 		);
 
-		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
-		fireEvent.click(out.getByText('Merge stack (1 pull request)'));
+		fireEvent.click(out.getByText('Merge Stack (1 Pull Request)'));
+		fireEvent.click(out.getByText('Merge Stack (1 Pull Request)'));
 
 		assert(mergeStack.calledOnce);
 		assert.strictEqual((await waitForElement(() => out.container.querySelector('[role="alert"]')))?.textContent, 'Unable to merge stack: Required checks failed');
 		assert.strictEqual(context.pr?.state, GithubItemStateEnum.Open);
-		assert.strictEqual(out.getByText('Merge stack (1 pull request)').hasAttribute('disabled'), false);
+		assert.strictEqual(out.getByText('Merge Stack (1 Pull Request)').hasAttribute('disabled'), false);
 	});
 
 	describe('stack auto-merge', function () {
@@ -1303,7 +1303,7 @@ describe('Overview', function () {
 			const postMessage = sinon.stub(context, 'postMessage').resolves(enabled);
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			const checkbox = out.getByLabelText('Auto-merge (2 pull requests)') as HTMLInputElement;
+			const checkbox = out.getByLabelText('Merge automatically when requirements are met (2 pull requests)') as HTMLInputElement;
 			assert.strictEqual(checkbox.checked, false);
 			assert.strictEqual(out.container.querySelector<HTMLOptionElement>('.automerge-section option[value="rebase"]')?.disabled, true);
 			// The merge method is chosen before enabling, without changing anything on GitHub.
@@ -1322,7 +1322,7 @@ describe('Overview', function () {
 				.stackAutoMerge({ viewerCanEnable: true, viewerCanDisable: false }).build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			assert(out.getByLabelText('Auto-merge (1 pull request)'));
+			assert(out.getByLabelText('Merge automatically when requirements are met (1 pull request)'));
 		});
 
 		it('shows the merge method of a request that is enabled elsewhere, instead of the one chosen here', async function () {
@@ -1356,7 +1356,7 @@ describe('Overview', function () {
 			const postMessage = sinon.stub(context, 'postMessage').resolves({ viewerCanEnable: true, viewerCanDisable: false });
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			const checkbox = out.getByLabelText('Auto-merge (enabled through #795)') as HTMLInputElement;
+			const checkbox = out.getByLabelText('Merge automatically when requirements are met (enabled through #795)') as HTMLInputElement;
 			assert.strictEqual(checkbox.checked, true);
 			assert.strictEqual(checkbox.disabled, false);
 			const method = out.container.querySelector<HTMLSelectElement>('.automerge-section select');
@@ -1380,7 +1380,7 @@ describe('Overview', function () {
 			const out = render(<PullRequestContext.Provider value={new PRContext(covered)}><Overview {...covered} /></PullRequestContext.Provider>);
 
 			assert(out.container.querySelector('.stack-merge'));
-			assert(out.getByLabelText('Auto-merge (enabled through #795)'));
+			assert(out.getByLabelText('Merge automatically when requirements are met (enabled through #795)'));
 
 			const uncovered = { ...covered, stackAutoMerge: { viewerCanEnable: true, viewerCanDisable: false } };
 			const other = render(<PullRequestContext.Provider value={new PRContext(uncovered)}><Overview {...uncovered} /></PullRequestContext.Provider>);
@@ -1402,7 +1402,7 @@ describe('Overview', function () {
 			const pr = middleOf().build();
 			for (const Component of [Overview, ActivityBarOverview]) {
 				const view = render(<PullRequestContext.Provider value={new PRContext(pr)}><Component {...pr} /></PullRequestContext.Provider>);
-				assert(view.getByText('Merge partial stack (2 pull requests)'));
+				assert(view.getByText('Merge Partial Stack (2 Pull Requests)'));
 				const mergeAll = view.getByLabelText('Merge all 3 open pull requests in this stack');
 				assert.strictEqual(mergeAll.getAttribute('title'), 'Merge all 3 open pull requests in this stack');
 				assert(mergeAll.classList.contains('icon-button'));
@@ -1417,8 +1417,8 @@ describe('Overview', function () {
 			fireEvent.change(out.getByLabelText('Select merge method'), { target: { value: 'squash' } });
 			fireEvent.click(out.getByLabelText('Merge all 3 open pull requests in this stack'));
 			assert(out.getByText('Merge all 3 open pull requests in this stack?'));
-			assert.strictEqual(out.queryByText('Merge partial stack (2 pull requests)'), null);
-			fireEvent.click(out.getByText('Merge all (3 pull requests)'));
+			assert.strictEqual(out.queryByText('Merge Partial Stack (2 Pull Requests)'), null);
+			fireEvent.click(out.getByText('Merge All (3 Pull Requests)'));
 
 			await wait(() => assert.strictEqual(context.pr?.state, GithubItemStateEnum.Merged));
 			assert(mergeStack.calledOnceWithExactly('squash', 795));
@@ -1428,11 +1428,11 @@ describe('Overview', function () {
 			const pr = middleOf().mergeQueueMethod('squash').build();
 			const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			assert(out.getByText('Add partial stack to merge queue'));
+			assert(out.getByText('Add Partial Stack to Merge Queue'));
 			fireEvent.click(out.getByLabelText('Add all 3 open pull requests in this stack to the merge queue'));
 
 			assert(out.getByText('Add all 3 open pull requests in this stack to the merge queue?'));
-			assert(out.getByText('Add all to merge queue'));
+			assert(out.getByText('Add All to Merge Queue'));
 		});
 
 		it('only merges this pull request and the ones below it with Merge stack', async function () {
@@ -1441,9 +1441,9 @@ describe('Overview', function () {
 			const mergeStack = sinon.stub(context, 'mergeStack').resolves({ status: 'merged', state: GithubItemStateEnum.Merged });
 			const out = render(<PullRequestContext.Provider value={context}><Overview {...pr} /></PullRequestContext.Provider>);
 
-			fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
+			fireEvent.click(out.getByText('Merge Partial Stack (2 Pull Requests)'));
 			assert(out.getByText('Merge this pull request and 1 open pull request below it?'));
-			fireEvent.click(out.getByText('Merge partial stack (2 pull requests)'));
+			fireEvent.click(out.getByText('Merge Partial Stack (2 Pull Requests)'));
 
 			await wait(() => assert(mergeStack.calledOnce));
 			assert(mergeStack.calledOnceWithExactly('merge'));
@@ -1460,7 +1460,7 @@ describe('Overview', function () {
 			const top = new PullRequestBuilder().number(795).stack({ position: 3, size: 3, base: 'main', pullRequests: [entry(1), entry(2), entry(3)] }).build();
 			for (const pr of [...notReady, top]) {
 				const out = render(<PullRequestContext.Provider value={new PRContext(pr)}><Overview {...pr} /></PullRequestContext.Provider>);
-				assert(out.getByText(/^Merge (partial )?stack/));
+				assert(out.getByText(/^Merge (Partial )?Stack/));
 				assert.strictEqual(out.queryByLabelText(/^Merge all/), null);
 				out.unmount();
 			}

@@ -9,18 +9,15 @@ import React, {
 	useContext,
 	useEffect,
 	useReducer,
-	useRef,
 	useState,
 } from 'react';
 import { AutoMerge, QueuedToMerge, StackAutoMerge } from './automergeSelect';
 import { ContextDropdown } from './contextDropdown';
 import { Dropdown } from './dropdown';
-import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, gitPullRequestDraftIcon, layersIcon, loadingIcon, outputIcon, skipIcon, syncIcon, warningIcon } from './icon';
 import { canUpdatePullRequestStack, isStackMembershipKnown, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
-import { nbsp } from './space';
 import { Avatar } from './user';
 import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
-import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
 	getStackMergeAllTarget,
@@ -34,10 +31,56 @@ import {
 	reviewerId,
 	ReviewState,
 } from '../../src/github/interface';
-import { PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
+import { MergeMethodMenuContext, PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
+import { SELECT_MERGE_METHOD_EVENT } from '../common/constants';
 import PullRequestContext from '../common/context';
+import emitter from '../common/events';
 import { useBusyAction, usePendingAction } from '../common/hooks';
 import { Reviewer } from '../components/reviewer';
+
+/** How a requirement for merging stands. Each state has its own icon and color, so rows can be told apart at a glance. */
+type StatusState = 'success' | 'failure' | 'pending' | 'warning' | 'neutral' | 'info';
+
+const STATUS_ICONS: Record<StatusState, JSX.Element> = {
+	success: checkIcon,
+	failure: closeIcon,
+	pending: circleFilledIcon,
+	warning: warningIcon,
+	neutral: skipIcon,
+	info: syncIcon,
+};
+
+const StatusIcon = ({ state }: { state: StatusState }) => <span className={`status-icon ${state}`}>{STATUS_ICONS[state]}</span>;
+
+/** A requirement for merging, which leads with its state and offers the action that helps meet it. */
+const StatusRow = ({ state, heading, detail, action, trailing, children }: {
+	state: StatusState;
+	heading: React.ReactNode;
+	detail?: React.ReactNode;
+	action?: React.ReactNode;
+	/** Shown after the action, outside of its button container, such as a disclosure button. */
+	trailing?: React.ReactNode;
+	children?: React.ReactNode;
+}) => (
+	<div className="status-section">
+		<div className="status-item">
+			<StatusIcon state={state} />
+			<div className="status-text">
+				<div className="status-heading">{heading}</div>
+				{detail ? <div className="status-detail">{detail}</div> : null}
+			</div>
+			{action ? <div className="button-container">{action}</div> : null}
+			{trailing}
+		</div>
+		{children}
+	</div>
+);
+
+const BaseBranch = ({ pr }: { pr: PullRequest }) => <code className="branch-tag">{pr.base}</code>;
+
+function pluralize(count: number, noun: string): string {
+	return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
 
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return pr.state === GithubItemStateEnum.Merged ? (
@@ -52,6 +95,60 @@ const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 
 const DeleteOption = ({ pr }: { pr: PullRequest }) => {
 	return pr.state === GithubItemStateEnum.Open ? null : <DeleteBranch {...pr} />;
+};
+
+type CheckCounts = Record<'failure' | 'pending' | 'neutral' | 'success', number>;
+
+function getCheckState(state: CheckState): keyof CheckCounts {
+	switch (state) {
+		case CheckState.Success:
+			return 'success';
+		case CheckState.Failure:
+			return 'failure';
+		case CheckState.Neutral:
+			return 'neutral';
+	}
+	return 'pending';
+}
+
+function countChecks(statuses: PullRequestCheckStatus[]): CheckCounts {
+	const counts: CheckCounts = { failure: 0, pending: 0, neutral: 0, success: 0 };
+	for (const status of statuses) {
+		counts[getCheckState(status.state)]++;
+	}
+	return counts;
+}
+
+function getChecksStatus(statuses: PullRequestCheckStatus[]): { state: StatusState; heading: string } {
+	const counts = countChecks(statuses);
+	if (counts.failure) {
+		return { state: 'failure', heading: 'Some checks failed' };
+	}
+	if (counts.pending) {
+		return { state: 'pending', heading: 'Some checks haven\'t completed yet' };
+	}
+	if (!counts.success) {
+		return { state: 'neutral', heading: 'All checks were skipped' };
+	}
+	return { state: 'success', heading: 'All checks passed' };
+}
+
+const CHECK_COUNT_LABELS: [keyof CheckCounts, string][] = [
+	['failure', 'failing'],
+	['pending', 'pending'],
+	['neutral', 'skipped'],
+	['success', 'passing'],
+];
+
+const CheckCountSummary = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+	const counts = countChecks(statuses);
+	return (
+		<span className="check-counts">
+			{CHECK_COUNT_LABELS.filter(([state]) => counts[state]).map(([state, label]) =>
+				<span key={state} className="check-count"><StatusIcon state={state} />{counts[state]} {label}</span>
+			)}
+		</span>
+	);
 };
 
 const StatusChecks = ({ pr }: { pr: PullRequest }) => {
@@ -73,27 +170,32 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 		}
 	}, [status?.statuses]);
 
-	return state === GithubItemStateEnum.Open && status?.statuses.length ? (
-		<>
-			<div className="status-section">
-				<div className="status-item">
-					<StateIcon state={status.state} />
-					<p className="status-item-detail-text">{getSummaryLabel(status.statuses)}</p>
-					<button
-						id="status-checks-display-button"
-						className="icon-button"
-						onClick={toggleDetails}
-						aria-expanded={showDetails}
-						aria-label={showDetails ? 'Hide status checks' : 'Show status checks'}
-						title={showDetails ? 'Hide status checks' : 'Show status checks'}
-					>
-						{chevronDownIcon}
-					</button>
-				</div>
-				{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
-			</div>
-		</>
-	) : null;
+	if (state !== GithubItemStateEnum.Open || !status?.statuses.length) {
+		return null;
+	}
+	const { state: checksState, heading } = getChecksStatus(status.statuses);
+	return (
+		<StatusRow
+			state={checksState}
+			heading={heading}
+			// The list of checks shows each check's state, so the counts are only shown while it is hidden.
+			detail={showDetails ? undefined : <CheckCountSummary statuses={status.statuses} />}
+			trailing={
+				<button
+					id="status-checks-display-button"
+					className="icon-button"
+					onClick={toggleDetails}
+					aria-expanded={showDetails}
+					aria-label={showDetails ? 'Hide status checks' : 'Show status checks'}
+					title={showDetails ? 'Hide status checks' : 'Show status checks'}
+				>
+					{chevronDownIcon}
+				</button>
+			}
+		>
+			{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
+		</StatusRow>
+	);
 };
 
 const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
@@ -107,40 +209,43 @@ const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
 	const approve = () => run(() => approveWorkflowRuns(workflowRunIds));
 	const isPlural = workflowRunIds.length > 1;
 	return (
-		<div className="status-section">
-			<div className="status-item">
-				<span className="workflow-approval-icon">{warningIcon}</span>
-				<div>
-					<p className="workflow-approval-heading">{workflowRunIds.length} {isPlural ? 'workflows' : 'workflow'} awaiting approval</p>
-					<p className="workflow-approval-description">{isPlural ? 'These workflows require' : 'This workflow requires'} approval from a maintainer.</p>
-				</div>
-				{pr.hasWritePermission ? (
-					<div className="button-container">
-						<button className="secondary" onClick={approve} disabled={isBusy}>{isBusy ? 'Approving...' : 'Approve workflows to run'}</button>
-					</div>
-				) : null}
-			</div>
-		</div>
+		<StatusRow
+			state="warning"
+			heading={`${pluralize(workflowRunIds.length, 'workflow')} awaiting approval`}
+			detail={isPlural ? 'A maintainer must approve them before they run.' : 'A maintainer must approve it before it runs.'}
+			action={pr.hasWritePermission ? <button className="secondary" onClick={approve} disabled={isBusy}>{isBusy ? 'Approving...' : 'Approve Workflows'}</button> : undefined}
+		/>
 	);
 };
+
+function getReviewStatus(requirement: PullRequestReviewRequirement): { state: StatusState; heading: string; detail: string } {
+	switch (requirement.state) {
+		case CheckState.Failure:
+			return {
+				state: 'failure',
+				heading: 'Review required',
+				detail: `Needs approval from at least ${pluralize(requirement.count, 'reviewer')} with write access.`,
+			};
+		case CheckState.Pending:
+			return {
+				state: 'failure',
+				heading: 'Changes requested',
+				detail: `${pluralize(requirement.requestedChanges.length, 'reviewer')} with write access requested changes.`,
+			};
+	}
+	return {
+		state: 'success',
+		heading: 'Approved',
+		detail: `Approved by ${pluralize(requirement.approvals.length, 'reviewer')} with write access.`,
+	};
+}
 
 const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
 	const { state, reviewRequirement } = pr;
 	if (!reviewRequirement || state !== GithubItemStateEnum.Open) {
 		return null;
 	}
-	return (
-		<>
-			<div className="status-section">
-				<div className="status-item">
-					<RequiredReviewStateIcon state={reviewRequirement.state} />
-					<p className="status-item-detail-text">
-					{getRequiredReviewSummary(reviewRequirement)}
-					</p>
-				</div>
-			</div>
-		</>
-	);
+	return <StatusRow {...getReviewStatus(reviewRequirement)} />;
 };
 
 const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
@@ -178,172 +283,299 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 	);
 };
 
-export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const stackActions = useStackActions();
-	if (pr.isIssue) {
+interface BranchStatusInfo {
+	state: StatusState;
+	heading: React.ReactNode;
+	detail?: React.ReactNode;
+	/** Updates the branch with a merge commit, which is also how its conflicts are resolved. */
+	mergeCommitAction?: string;
+	/** Updating the stack brings its branches up to date, which is also how their conflicts are resolved. */
+	offerStackUpdate: boolean;
+}
+
+function getBranchStatus(pr: PullRequest, isSimple: boolean): BranchStatusInfo {
+	const base = <BaseBranch pr={pr} />;
+	const canUpdateStack = canUpdatePullRequestStack(pr);
+	// Stacked branches are updated by rebasing the whole stack, so they never get merge commits.
+	const canMergeCommit = pr.canUpdateBranch && !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
+	if (pr.mergeable === PullRequestMergeability.Conflict) {
+		return {
+			state: 'failure',
+			heading: <>Conflicts with {base}</>,
+			detail: 'This branch has conflicts that must be resolved.',
+			mergeCommitAction: canMergeCommit ? 'Resolve Conflicts' : undefined,
+			offerStackUpdate: canUpdateStack,
+		};
+	}
+	if (hasConflictingStackEntry(pr.stack)) {
+		// This branch's own status would contradict the stack's conflicts, which block merging it.
+		return {
+			state: 'failure',
+			heading: 'Conflicts in this stack',
+			detail: 'A pull request in this stack has conflicts that must be resolved.',
+			offerStackUpdate: canUpdateStack,
+		};
+	}
+
+	// The editor offers to update the branch whatever its status is. The sidebar only offers it to resolve conflicts.
+	const offerStackUpdate = canUpdateStack && !isSimple;
+	const offerMergeCommit = canMergeCommit && !isSimple;
+	switch (pr.mergeable) {
+		case PullRequestMergeability.Behind:
+			return {
+				state: 'warning',
+				heading: 'Branch is out of date',
+				detail: <>This branch doesn't have the latest commits from {base}.</>,
+				mergeCommitAction: offerMergeCommit ? 'Update with Merge Commit' : undefined,
+				offerStackUpdate,
+			};
+		case PullRequestMergeability.NotMergeable:
+			return {
+				state: 'failure',
+				heading: 'Branch protection rules not met',
+				detail: <>The rules for {base} must be met before merging.{offerMergeCommit ? <> This branch is also behind {base}.</> : null}</>,
+				mergeCommitAction: offerMergeCommit ? 'Update with Merge Commit' : undefined,
+				offerStackUpdate,
+			};
+		case PullRequestMergeability.Mergeable:
+			if (offerMergeCommit) {
+				return {
+					state: 'info',
+					heading: <>Branch is behind {base}</>,
+					detail: 'No conflicts, and updating isn\'t required to merge.',
+					mergeCommitAction: 'Update with Merge Commit',
+					offerStackUpdate: false,
+				};
+			}
+			if (offerStackUpdate) {
+				return {
+					state: 'info',
+					heading: <>No conflicts with {base}</>,
+					detail: 'Some pull requests in this stack are behind their bases.',
+					offerStackUpdate,
+				};
+			}
+			return { state: 'success', heading: <>No conflicts with {base}</>, offerStackUpdate: false };
+	}
+	return { state: 'pending', heading: 'Checking for conflicts...', offerStackUpdate };
+}
+
+const BranchStatus = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions: StackActions }) => {
+	const { updateBranch } = useContext(PullRequestContext);
+	const [busy, run] = useBusyAction();
+	if (pr.state !== GithubItemStateEnum.Open) {
 		return null;
 	}
 
+	const update = () => run(updateBranch);
+	const { state, heading, detail, mergeCommitAction, offerStackUpdate } = getBranchStatus(pr, isSimple);
+	const progress = pr.mergeable === PullRequestMergeability.Conflict ? 'Resolving Conflicts...' : 'Updating...';
+	const action = offerStackUpdate
+		? <StackUpdateButton pr={pr} actions={stackActions} />
+		: mergeCommitAction
+			? <button className="secondary" onClick={update} disabled={busy}>{busy ? progress : mergeCommitAction}</button>
+			: undefined;
+	return <StatusRow state={state} heading={heading} detail={detail} action={action} />;
+};
+
+type MergeSummaryKind = 'ready' | 'blocked' | 'draft' | 'checking';
+
+/** What keeps an open pull request that is not a draft from being merged, from most to least likely to need the user. */
+function getBlockingReasons(pr: PullRequest): string[] {
+	const reasons: string[] = [];
+	if (pr.reviewRequirement?.state === CheckState.Failure) {
+		reasons.push('Review required');
+	} else if (pr.reviewRequirement?.state === CheckState.Pending) {
+		reasons.push('Changes requested');
+	}
+	if (pr.status?.workflowRunIdsAwaitingApproval?.length) {
+		reasons.push('Workflows awaiting approval');
+	}
+	const checks = countChecks(pr.status?.statuses ?? []);
+	if (checks.failure) {
+		reasons.push(`${pluralize(checks.failure, 'check')} failed`);
+	}
+	if (checks.pending) {
+		reasons.push(`${pluralize(checks.pending, 'check')} pending`);
+	}
+	if (pr.mergeable === PullRequestMergeability.Conflict) {
+		reasons.push('Conflicts');
+	} else if (hasConflictingStackEntry(pr.stack)) {
+		reasons.push('Conflicts in the stack');
+	} else if (pr.mergeable === PullRequestMergeability.Behind) {
+		reasons.push('Branch out of date');
+	}
+	const stack = pr.stack;
+	const notReadyBelow = stack?.pullRequests.filter(entry => entry.position < stack.position && entry.state !== GithubItemStateEnum.Merged
+		&& (entry.state !== GithubItemStateEnum.Open || entry.isDraft || entry.mergeable !== PullRequestMergeability.Mergeable)).length ?? 0;
+	if (notReadyBelow) {
+		reasons.push(`${pluralize(notReadyBelow, 'pull request')} below can't be merged yet`);
+	}
+	if (!reasons.length) {
+		reasons.push('Branch protection rules not met');
+	}
+	return reasons;
+}
+
+function getMergeSummary(pr: PullRequest): { kind: MergeSummaryKind; title: string; detail?: string } | undefined {
+	if (pr.isIssue || pr.state !== GithubItemStateEnum.Open || pr.stackLoadError) {
+		return undefined;
+	}
+	if (pr.isDraft) {
+		return { kind: 'draft', title: 'This pull request is still a work in progress', detail: 'Draft pull requests can\'t be merged.' };
+	}
+	switch (getMergeReadiness(pr)) {
+		case 'ready':
+			return { kind: 'ready', title: 'Ready to merge', detail: 'All requirements are met.' };
+		case 'blocked':
+		case 'checks-failed':
+			return { kind: 'blocked', title: 'Merging is blocked', detail: getBlockingReasons(pr).join(' · ') };
+	}
+	return { kind: 'checking', title: 'Checking whether this pull request can be merged...' };
+}
+
+const MERGE_SUMMARY_ICONS: Record<MergeSummaryKind, JSX.Element> = {
+	ready: checkIcon,
+	blocked: closeIcon,
+	draft: gitPullRequestDraftIcon,
+	checking: circleFilledIcon,
+};
+
+/** Answers whether the pull request can be merged, and if not, why, before the details of each requirement. */
+const MergeSummary = ({ pr }: { pr: PullRequest }) => {
+	const summary = getMergeSummary(pr);
+	if (!summary) {
+		return null;
+	}
 	return (
-		<div id="status-checks">
-			{
-				<>
-					<PRStatusMessage pr={pr} isSimple={isSimple} />
-					<RequiredReviewers pr={pr} />
-					<WorkflowsAwaitingApproval pr={pr} />
-					<StatusChecks pr={pr} />
-					<InlineReviewers pr={pr} isSimple={isSimple} />
-					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
-					<MergeStatusAndActions pr={pr} isSimple={isSimple} stackActions={stackActions} />
-					<DeleteOption pr={pr} />
-				</>
-			}
+		<div className={`merge-summary ${summary.kind}`}>
+			<span className="merge-summary-icon">{MERGE_SUMMARY_ICONS[summary.kind]}</span>
+			<div className="merge-summary-text">
+				<div className="merge-summary-title">{summary.title}</div>
+				{summary.detail ? <div className="merge-summary-detail">{summary.detail}</div> : null}
+			</div>
 		</div>
 	);
 };
 
-export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions?: StackActions }) => {
-	const { create, checkMergeability } = useContext(PullRequestContext);
+/** Requirements that are met, summarized on one line so that the ones that need attention stand out. */
+const PassingRequirements = ({ labels, expanded, toggle, children }: {
+	labels: React.ReactNode[];
+	expanded: boolean;
+	toggle: () => void;
+	children: React.ReactNode;
+}) => (
+	<div className="passing-requirements">
+		{/* Like the stack's header, clicking anywhere in the summary that is not a button toggles the requirements. */}
+		<div className="status-item passing-summary" onClick={event => {
+			if (!(event.target instanceof Element && event.target.closest('button'))) {
+				toggle();
+			}
+		}}>
+			<span className="passing-labels">
+				{labels.map((label, index) => <span key={index} className="passing-label"><StatusIcon state="success" />{label}</span>)}
+			</span>
+			<button className="icon-button passing-chevron" type="button" aria-expanded={expanded} aria-controls="passing-requirements-content"
+				aria-label={expanded ? 'Hide requirements that are met' : 'Show requirements that are met'}
+				title={expanded ? 'Hide requirements that are met' : 'Show requirements that are met'} onClick={toggle}>
+				{chevronDownIcon}
+			</button>
+		</div>
+		<div id="passing-requirements-content" hidden={!expanded}>
+			{children}
+		</div>
+	</div>
+);
 
-	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
-		const string = 'Create New Pull Request...';
-		return (
-			<div className="branch-status-container">
-				<form>
-					<button type="submit" onClick={create}>
-						{string}
-					</button>
-				</form>
-			</div>
-		);
-	} else if (pr.state !== GithubItemStateEnum.Open) {
+/** Mergeability that GitHub is still computing is polled until it is known. */
+function usePolledMergeability(pr: PullRequest): PullRequestMergeability {
+	const { checkMergeability } = useContext(PullRequestContext);
+	const [mergeable, setMergeability] = useState(pr.mergeable);
+	if ((pr.mergeable !== mergeable) && (pr.mergeable !== PullRequestMergeability.Unknown)) {
+		setMergeability(pr.mergeable);
+	}
+
+	const isOpen = !pr.isIssue && pr.state === GithubItemStateEnum.Open;
+	useEffect(() => {
+		if (!isOpen || mergeable !== PullRequestMergeability.Unknown) {
+			return;
+		}
+		const handle = setInterval(async () => {
+			const { mergeability: newMergeability } = await checkMergeability();
+			setMergeability(newMergeability);
+		}, 3000);
+		return () => clearInterval(handle);
+	}, [mergeable, isOpen]);
+	return mergeable;
+}
+
+export const StatusChecksSection = ({ pr: initialPullRequest, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	const { create } = useContext(PullRequestContext);
+	const stackActions = useStackActions();
+	const mergeable = usePolledMergeability(initialPullRequest);
+	const [showPassing, setShowPassing] = useState(false);
+	if (initialPullRequest.isIssue) {
 		return null;
 	}
 
-	const { mergeable: _mergeable } = pr;
-	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
-	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
-	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
+	const pr = mergeable === initialPullRequest.mergeable ? initialPullRequest : { ...initialPullRequest, mergeable };
+	const isOpen = pr.state === GithubItemStateEnum.Open;
+	const statuses = pr.status?.statuses ?? [];
+	const checks = countChecks(statuses);
+	const branchStatus = getBranchStatus(pr, isSimple);
+	// Once the pull request can be merged, the requirements that it meets are summarized on one line.
+	const passing = {
+		review: pr.reviewRequirement ? getReviewStatus(pr.reviewRequirement).state === 'success' : false,
+		checks: statuses.length ? getChecksStatus(statuses).state === 'success' : false,
+		branch: branchStatus.state === 'success',
+	};
+	const passingLabels = [
+		passing.review ? 'Approved' : undefined,
+		passing.checks ? `${pluralize(checks.success, 'check')} passed${checks.neutral ? `, ${checks.neutral} skipped` : ''}` : undefined,
+		passing.branch ? branchStatus.heading : undefined,
+	].filter(label => label !== undefined);
+	const collapsePassing = isOpen && getMergeReadiness(pr) === 'ready' && passingLabels.length > 1;
+	const show = (requirement: keyof typeof passing) => !collapsePassing || !passing[requirement];
 
-	const [mergeable, setMergeability] = useState(_mergeable);
-	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
-		setMergeability(_mergeable);
-	}
-
-	useEffect(() => {
-		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.Unknown) {
-				const { mergeability: newMergeability } = await checkMergeability();
-				setMergeability(newMergeability);
-			}
-		}, 3000);
-		return () => clearInterval(handle);
-	}, [mergeable]);
-
-	const stackConflicts = hasConflictingStackEntry(pr.stack);
 	return (
-		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
-				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate}
-				stackHasConflicts={stackConflicts} />
-			{stackActions?.updateError ? <div className="stack-action-error" role="alert">{stackActions.updateError}</div> : null}
-			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
-				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
-			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
+		<div id="status-checks">
+			<PRStatusMessage pr={pr} isSimple={isSimple} />
+			<MergeSummary pr={pr} />
+			{collapsePassing ? (
+				<PassingRequirements labels={passingLabels} expanded={showPassing} toggle={() => setShowPassing(expanded => !expanded)}>
+					{passing.review ? <RequiredReviewers pr={pr} /> : null}
+					{passing.checks ? <StatusChecks pr={pr} /> : null}
+					{passing.branch ? <BranchStatus pr={pr} isSimple={isSimple} stackActions={stackActions} /> : null}
+				</PassingRequirements>
+			) : null}
+			{show('review') ? <RequiredReviewers pr={pr} /> : null}
+			<WorkflowsAwaitingApproval pr={pr} />
+			{show('checks') ? <StatusChecks pr={pr} /> : null}
+			<InlineReviewers pr={pr} isSimple={isSimple} />
+			{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
+			{/* Below the stack, since updating the stack is offered with the branch's status. */}
+			{show('branch') ? <BranchStatus pr={pr} isSimple={isSimple} stackActions={stackActions} /> : null}
+			{isOpen && stackActions.updateError ? <div className="stack-action-error" role="alert">{stackActions.updateError}</div> : null}
+			{isOpen ? (
+				<div className="merge-footer">
+					<PrActions pr={pr} isSimple={isSimple} />
+				</div>
+			) : null}
+			{isSimple && !isOpen ? (
+				<div className="branch-status-container">
+					<form>
+						<button type="submit" onClick={create}>Create New Pull Request...</button>
+					</form>
+				</div>
+			) : null}
+			<DeleteOption pr={pr} />
 		</div>
 	);
 };
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit, stackUpdate, stackHasConflicts }: {
-	mergeable: PullRequestMergeability;
-	isSimple: boolean;
-	canUpdateBranch: boolean;
-	canUpdateWithMergeCommit: boolean;
-	/** Updates the stack that this branch is in. Set when the stack can be updated; stacked branches never get merge commits. */
-	stackUpdate?: React.ReactElement;
-	/** An open pull request in this branch's stack has conflicts, which block merging the stack and are resolved by updating it. */
-	stackHasConflicts?: boolean;
-}) => {
-	const { updateBranch } = useContext(PullRequestContext);
-	const [busy, run] = useBusyAction();
-
-	const onClick = () => run(updateBranch);
-
-	let icon: JSX.Element | null = circleFilledIcon;
-	let summary: string = 'Checking if this branch can be merged...';
-	let action: string | null = null;
-	let progress: string | null = null;
-	const hasConflicts = mergeable === PullRequestMergeability.Conflict || !!stackHasConflicts;
-	if (mergeable === PullRequestMergeability.Conflict) {
-		icon = closeIcon;
-		summary = 'This branch has conflicts that must be resolved.';
-		action = canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
-		progress = 'Resolving conflicts...';
-	} else if (stackHasConflicts) {
-		// This branch's own status would contradict the stack's conflicts, which block merging it.
-		icon = closeIcon;
-		summary = 'A pull request in this stack has conflicts that must be resolved.';
-	} else if (mergeable === PullRequestMergeability.Mergeable) {
-		icon = checkIcon;
-		summary = 'This branch has no conflicts with the base branch.';
-	} else if (mergeable === PullRequestMergeability.NotMergeable) {
-		icon = closeIcon;
-		summary = 'Branch protection policy must be fulfilled before merging.';
-	} else if (mergeable === PullRequestMergeability.Behind) {
-		icon = closeIcon;
-		summary = 'This branch is out-of-date with the base branch.';
-		action = canUpdateWithMergeCommit ? 'Update with merge commit' : null;
-		progress = 'Updating...';
-	}
-
-	// The editor offers to update the stack with the branch's status, whatever it is. The sidebar only offers it to resolve conflicts.
-	let offerStackUpdate = true;
-	if (isSimple) {
-		icon = null;
-		if (!hasConflicts) {
-			action = null;
-			offerStackUpdate = false;
-		}
-	}
-	const button = offerStackUpdate && stackUpdate
-		? stackUpdate
-		: action && canUpdateBranch
-			? <button className="secondary" onClick={onClick} disabled={busy}>{busy ? progress : action}</button>
-			: null;
-	return (
-		<div className="status-section">
-			<div className="status-item">
-				{icon}
-				<p>
-					{summary}
-				</p>
-				{button ? <div className="button-container">{button}</div> : null}
-			</div>
-		</div>
-	);
-};
-
-export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean; canUpdateBranch: boolean }) => {
-	const { updateBranch } = useContext(PullRequestContext);
-	const [isBusy, run] = useBusyAction();
-	const update = () => run(updateBranch);
-	const isNotCheckedoutWithConflicts = !isCurrentlyCheckedOut && mergeable === PullRequestMergeability.Conflict;
-	if (!canUpdateBranch || isNotCheckedoutWithConflicts || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
-		return null;
-	}
-	return (
-		<div className="status-item status-section">
-			{warningIcon}
-			<p>This branch is out-of-date with the base branch.</p>
-			<button className="secondary" onClick={update} disabled={isBusy} >{isBusy ? 'Updating...' : 'Update with Merge Commit'}</button>
-		</div>
-	);
-
-};
-
-export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
+export const ReadyForReview = ({ isCopilotOnMyBehalf, mergeMethod }: { isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
 	const [isBusy, run] = useBusyAction();
 
@@ -377,15 +609,9 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 		return actions;
 	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 
+	// The merge summary explains that drafts can't be merged, so this only offers to mark it ready.
 	return (
 		<div className="ready-for-review-container">
-			<div className='ready-for-review-text-wrapper'>
-				<div className="ready-for-review-icon">{isSimple ? null : warningIcon}</div>
-				<div>
-					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
-					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
-				</div>
-			</div>
 			<div className='button-container'>
 				<ContextDropdown
 					optionsContext={() => {
@@ -427,6 +653,15 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 	);
 };
 
+const MERGE_METHOD_ORDER: MergeMethod[] = ['merge', 'squash', 'rebase'];
+
+/** The merge button's label for each method, which names what the button does rather than the method. */
+const MERGE_BUTTON_LABELS: Record<MergeMethod, string> = {
+	merge: 'Merge Pull Request',
+	squash: 'Squash and Merge',
+	rebase: 'Rebase and Merge',
+};
+
 /** Adds the pull request to the merge queue of its base branch. */
 const EnqueueButton = () => {
 	const { enqueue } = useContext(PullRequestContext);
@@ -436,26 +671,50 @@ const EnqueueButton = () => {
 };
 
 export const Merge = (pr: PullRequest) => {
-	const select = useRef<HTMLSelectElement>();
 	const [selectedMethod, selectMethod] = useState<MergeMethod | null>(null);
 
+	useEffect(() => {
+		const onSelect = (method: MergeMethod) => selectMethod(method);
+		emitter.addListener(SELECT_MERGE_METHOD_EVENT, onSelect);
+		return () => {
+			emitter.removeListener(SELECT_MERGE_METHOD_EVENT, onSelect);
+		};
+	}, []);
+
 	if (pr.mergeQueueMethod) {
-		return <div>
-			<div id='merge-comment-form'>
+		return (
+			<div className="automerge-section merge-actions">
 				<EnqueueButton />
 			</div>
-		</div>;
+		);
 	}
 
 	if (selectedMethod) {
 		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />;
 	}
 
+	const availableMethods = MERGE_METHOD_ORDER.filter(method => pr.mergeMethodsAvailability[method]);
+	const defaultMethod = pr.mergeMethodsAvailability[pr.defaultMergeMethod] ? pr.defaultMergeMethod : availableMethods[0] ?? pr.defaultMergeMethod;
 	return (
-		<div className="automerge-section wrapper">
-			<button onClick={() => selectMethod(select.current!.value as MergeMethod)}>Merge Pull Request</button>
-			{nbsp}using method{nbsp}
-			<MergeSelect ref={select} {...pr} />
+		<div className="automerge-section merge-actions">
+			<ContextDropdown
+				optionsContext={() => JSON.stringify({
+					'preventDefaultContextMenuItems': true,
+					'github:mergeMenu': true,
+					'github:mergeMenuMerge': !!pr.mergeMethodsAvailability.merge,
+					'github:mergeMenuSquash': !!pr.mergeMethodsAvailability.squash,
+					'github:mergeMenuRebase': !!pr.mergeMethodsAvailability.rebase,
+					owner: pr.owner,
+					repo: pr.repo,
+					number: pr.number,
+				} satisfies MergeMethodMenuContext)}
+				defaultAction={() => selectMethod(defaultMethod)}
+				defaultOptionLabel={() => MERGE_BUTTON_LABELS[defaultMethod]}
+				defaultOptionValue={() => defaultMethod}
+				optionsTitle='Choose Merge Method'
+				hasSingleAction={availableMethods.length < 2}
+				spreadable={false}
+			/>
 		</div>
 	);
 };
@@ -463,10 +722,10 @@ export const Merge = (pr: PullRequest) => {
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, defaultMergeMethod } = pr;
 	if (pr.stackLoadError) {
-		return <div className="status-item">Unable to load pull request stack details. Refresh to retry merging.</div>;
+		return <div className="merge-footer-message">Unable to load pull request stack details. Refresh to retry merging.</div>;
 	}
 	if (!isStackMembershipKnown(pr)) {
-		return <div className="status-item">Checking pull request stack membership...</div>;
+		return <div className="merge-footer-message">Checking pull request stack membership...</div>;
 	}
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
@@ -474,14 +733,14 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 			return null;
 		}
 
-		return <ReadyForReview isSimple={isSimple} isCopilotOnMyBehalf={isCopilotOnMyBehalf && !pr.stack} mergeMethod={defaultMergeMethod} />;
+		return <ReadyForReview isCopilotOnMyBehalf={isCopilotOnMyBehalf && !pr.stack} mergeMethod={defaultMergeMethod} />;
 	}
 
 	if (pr.stackMergeStatus === 'pending') {
-		return <div className="status-item">Stack merge is still processing on GitHub. Refresh to check its status.</div>;
+		return <div className="merge-footer-message">Stack merge is still processing on GitHub. Refresh to check its status.</div>;
 	}
 	if (pr.stackMergeStatus === 'enqueued') {
-		return <div className="status-item">Pull request stack added to the merge queue.</div>;
+		return <div className="merge-footer-message">Pull request stack added to the merge queue.</div>;
 	}
 	if (pr.stack) {
 		if (!hasWritePermission || pr.mergeQueueEntry) {
@@ -489,7 +748,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		}
 		// Merging a stack depends on every pull request in it, which may not be loaded yet.
 		if (pr.stackLoaded === false) {
-			return <div className="status-item">Checking whether the stack can be merged...</div>;
+			return <div className="merge-footer-message">Checking whether the stack can be merged...</div>;
 		}
 		const ready = isReadyToMerge(pr);
 		// A pull request that is ready is merged rather than given a new request, but a request that already covers it,
@@ -587,21 +846,21 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 	const open = pr.stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open);
 	const count = 1 + open.filter(entry => entry.position < pr.stack!.position).length;
 	const downstack = count - 1;
-	const stackName = count < open.length ? 'partial stack' : 'stack';
+	const stackName = count < open.length ? 'Partial Stack' : 'Stack';
 	const downstackDescription = `${downstack} open pull request${downstack === 1 ? '' : 's'} below it`;
 	// Merging the pull request at the top of the stack also merges every open pull request below it.
 	const top = getStackMergeAllTarget(pr.stack, pr.number);
 	const actions = {
 		stack: {
-			label: queue ? `Add ${stackName} to merge queue` : `Merge ${stackName} (${count} pull request${count === 1 ? '' : 's'})`,
+			label: queue ? `Add ${stackName} to Merge Queue` : `Merge ${stackName} (${count} Pull Request${count === 1 ? '' : 's'})`,
 			prompt: queue
 				? downstack ? `Add this pull request and ${downstackDescription} to the merge queue?` : 'Add this pull request to the merge queue?'
 				: downstack ? `Merge this pull request and ${downstackDescription}?` : 'Merge this pull request?',
-			progress: queue ? `Adding ${stackName} to merge queue...` : `Merging ${stackName}...`,
+			progress: queue ? `Adding ${stackName} to Merge Queue...` : `Merging ${stackName}...`,
 			upTo: undefined,
 		},
 		all: top && {
-			label: queue ? 'Add all to merge queue' : `Merge all (${open.length} pull requests)`,
+			label: queue ? 'Add All to Merge Queue' : `Merge All (${open.length} Pull Requests)`,
 			// The icon button that offers this has no text, so this names it.
 			description: queue
 				? `Add all ${open.length} open pull requests in this stack to the merge queue`
@@ -609,7 +868,7 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 			prompt: queue
 				? `Add all ${open.length} open pull requests in this stack to the merge queue?`
 				: `Merge all ${open.length} open pull requests in this stack?`,
-			progress: queue ? 'Adding all to merge queue...' : 'Merging all...',
+			progress: queue ? 'Adding All to Merge Queue...' : 'Merging All...',
 			upTo: top.number,
 		},
 	};
@@ -872,44 +1131,6 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 	);
 };
 
-function getSummaryLabel(statuses: PullRequestCheckStatus[]) {
-	const statusTypes = groupBy(statuses, (status: PullRequestCheckStatus) => {
-		switch (status.state) {
-			case CheckState.Success:
-			case CheckState.Failure:
-			case CheckState.Neutral:
-				return status.state;
-			default:
-				return CheckState.Pending;
-		}
-	});
-	const statusPhrases: string[] = [];
-	for (const statusType of Object.keys(statusTypes)) {
-		const numOfType = statusTypes[statusType].length;
-		let statusAdjective = '';
-		switch (statusType) {
-			case CheckState.Success:
-				statusAdjective = 'successful';
-				break;
-			case CheckState.Failure:
-				statusAdjective = 'failed';
-				break;
-			case CheckState.Neutral:
-				statusAdjective = 'skipped';
-				break;
-			default:
-				statusAdjective = 'pending';
-		}
-
-		const status =
-			numOfType > 1 ? `${numOfType} ${statusAdjective} checks` : `${numOfType} ${statusAdjective} check`;
-
-		statusPhrases.push(status);
-	}
-
-	return statusPhrases.join(' and ');
-}
-
 function StateIcon({ state }: { state: CheckState }) {
 	switch (state) {
 		case CheckState.Neutral:
@@ -920,30 +1141,4 @@ function StateIcon({ state }: { state: CheckState }) {
 			return closeIcon;
 	}
 	return circleFilledIcon;
-}
-
-function RequiredReviewStateIcon({ state }: { state: CheckState }) {
-	switch (state) {
-		case CheckState.Pending:
-			return requestChangesIcon;
-		case CheckState.Failure:
-			return closeIcon;
-	}
-
-	return checkIcon;
-}
-
-function getRequiredReviewSummary(requirement: PullRequestReviewRequirement) {
-	const approvalCount = requirement.approvals.length;
-	const requestedChangesCount = requirement.requestedChanges.length;
-	const requiredCount = requirement.count;
-
-	switch (requirement.state) {
-		case CheckState.Failure:
-			return `At least ${requiredCount} approving review${requiredCount > 1 ? 's' : ''} is required by reviewers with write access.`;
-		case CheckState.Pending:
-			return `${requestedChangesCount} review${requestedChangesCount > 1 ? 's' : ''} requesting changes by reviewers with write access.`;
-	}
-
-	return `${approvalCount} approving review${approvalCount > 1 ? 's' : ''} by reviewers with write access.`;
 }

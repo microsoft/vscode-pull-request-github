@@ -331,6 +331,14 @@ export interface ReadyForReviewAndMergeContext extends ReadyForReviewContext {
 	mergeMethod: MergeMethod;
 }
 
+/** The merge button's menu, which offers each merge method that the repository allows. */
+export interface MergeMethodMenuContext extends BaseContext {
+	'github:mergeMenu': true;
+	'github:mergeMenuMerge': boolean;
+	'github:mergeMenuSquash': boolean;
+	'github:mergeMenuRebase': boolean;
+}
+
 export interface CodingAgentContext extends SessionLinkInfo {
 	'preventDefaultContextMenuItems': true;
 	'github:codingAgentMenu': true;

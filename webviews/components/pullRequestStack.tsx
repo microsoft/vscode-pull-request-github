@@ -120,7 +120,7 @@ export const StackUpdateButton = ({ pr, actions }: { pr: PullRequest; actions: S
 			? 'Rebase all pull requests in this stack, resolve their conflicts, and push them'
 			: 'Rebase and push all pull requests in this stack'}
 			disabled={actions.unstacking || actions.updating || !!pr.stackMergeStatus} onClick={actions.update}>
-			{actions.updating ? 'Updating...' : resolvesConflicts ? 'Resolve conflicts' : 'Update stack'}
+			{actions.updating ? 'Updating...' : resolvesConflicts ? 'Resolve Conflicts' : 'Update Stack'}
 		</button>
 	);
 };
@@ -158,7 +158,7 @@ export const StackSection = ({ pr, actions }: { pr: PullRequest; actions: StackA
 				{canUnstack && expanded ? <div className="stack-actions">
 					<button className="secondary" type="button" title="Unstack all eligible pull requests"
 						disabled={unstacking || updating || !!pr.stackMergeStatus} onClick={unstack}>
-						{unstacking ? 'Unstacking...' : 'Unstack all'}
+						{unstacking ? 'Unstacking...' : 'Unstack All'}
 					</button>
 				</div> : null}
 				<button className="icon-button stack-chevron" type="button" aria-expanded={expanded} aria-controls="pull-request-stack-content"
