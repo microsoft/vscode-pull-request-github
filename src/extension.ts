@@ -34,7 +34,7 @@ import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { StateManager } from './issues/stateManager';
 import { IssueContextProvider } from './lm/issueContextProvider';
-import { PullRequestContextProvider, WorkspaceContextProvider } from './lm/pullRequestContextProvider';
+import { PullRequestContextProvider } from './lm/pullRequestContextProvider';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
@@ -279,10 +279,6 @@ async function init(
 		notificationsManager.refresh();
 	}));
 
-	const workspaceContextProvider = new WorkspaceContextProvider(reposManager, git);
-	context.subscriptions.push(workspaceContextProvider);
-	context.subscriptions.push(vscode.chat.registerChatWorkspaceContextProvider('githubpr', workspaceContextProvider));
-	workspaceContextProvider.initialize();
 	const pullRequestContextProvider = new PullRequestContextProvider(prsTreeModel, reposManager, context);
 	context.subscriptions.push(pullRequestContextProvider);
 	context.subscriptions.push(vscode.chat.registerChatAttachContextProvider('githubpr', pullRequestContextProvider));
