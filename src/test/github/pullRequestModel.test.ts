@@ -199,6 +199,24 @@ describe('PullRequestModel', function () {
 		assert.deepStrictEqual(changes.firstCall.args[0][0].event, { mergeability: true });
 	});
 
+	it('refreshes whether auto-merge can be enabled with mergeability', async function () {
+		const model = repo.createOrUpdatePullRequestModel(
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));
+		assert.strictEqual(model.allowAutoMerge, false);
+		repo.queryProvider.expectGraphQLQuery({
+			query: queries.PullRequestMergeability,
+			variables: { owner: 'github', name: 'test', number: 794 },
+		}, {
+			data: { repository: { pullRequest: { mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED', viewerCanEnableAutoMerge: true, viewerCanDisableAutoMerge: false } } },
+			loading: false, stale: false, networkStatus: NetworkStatus.ready,
+		});
+
+		const result = await model.getMergeability();
+
+		assert.strictEqual(result.allowAutoMerge, true);
+		assert.strictEqual(model.allowAutoMerge, true);
+	});
+
 	it('skips the timeline items that the activity query does not select', async function () {
 		const model = repo.createOrUpdatePullRequestModel(
 			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(794).build(), repo));

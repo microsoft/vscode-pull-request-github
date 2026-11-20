@@ -13,6 +13,7 @@ import { CheckState, PullRequestCheckStatus, PullRequestMergeability } from '../
 import { PullRequest } from '../../../src/github/views';
 import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Merge, StatusChecksSection } from '../../components/merge';
+import { Root as EditorRoot } from '../app';
 
 function headings(container: HTMLElement): string[] {
 	return Array.from(container.querySelectorAll('.status-heading')).map(heading => heading.textContent ?? '');
@@ -75,6 +76,31 @@ describe('Merge status and actions', function () {
 		await clock.tickAsync(3000);
 
 		assert.strictEqual(checkMergeability.calledOnce, true);
+	});
+
+	it('offers auto-merge once polling finds that it can be enabled', async function () {
+		const pr = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.Unknown)
+			.allowAutoMerge(false)
+			.build();
+		const context = new PRContext(pr);
+		context.setPR(pr);
+		sinon.stub(context, 'checkMergeability').resolves({
+			mergeability: PullRequestMergeability.NotMergeable,
+			allowAutoMerge: true,
+		});
+
+		const view = render(
+			<PullRequestContext.Provider value={context}>
+				<EditorRoot>{(current: PullRequest) => <StatusChecksSection pr={current} isSimple={false} />}</EditorRoot>
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(view.queryByLabelText('Merge automatically when requirements are met'), null);
+
+		await clock.tickAsync(3000);
+
+		assert(view.getByLabelText('Merge automatically when requirements are met'));
 	});
 
 	it('defaults the merge commit title to the head branch with its owner and repository', function () {

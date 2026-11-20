@@ -2399,12 +2399,18 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (viewerCanUpdate !== undefined) {
 				this.item.viewerCanUpdate = viewerCanUpdate;
 			}
+			// Whether auto-merge can be enabled changes with the merge state, so it is refreshed with it.
+			const viewerCanEnableAutoMerge = data.repository?.pullRequest.viewerCanEnableAutoMerge;
+			const viewerCanDisableAutoMerge = data.repository?.pullRequest.viewerCanDisableAutoMerge;
+			if (viewerCanEnableAutoMerge !== undefined || viewerCanDisableAutoMerge !== undefined) {
+				this.item.allowAutoMerge = !!viewerCanEnableAutoMerge || !!viewerCanDisableAutoMerge;
+			}
 			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
 			this.update(this.item);
 			if (previousMergeability !== mergeability) {
 				this._onDidChange.fire({ mergeability: true });
 			}
-			return { mergeability, conflicts: this.conflicts };
+			return { mergeability, conflicts: this.conflicts, allowAutoMerge: this.allowAutoMerge };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
 			return { mergeability: PullRequestMergeability.Unknown };

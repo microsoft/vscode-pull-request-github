@@ -525,6 +525,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				command: 'pr.update',
 				pullrequest: {
 					mergeable: item.item.mergeable ?? PullRequestMergeability.Unknown,
+					allowAutoMerge: item.allowAutoMerge,
 					...(isBranchUpToDateWithBase === undefined ? {} : { canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase) }),
 				} satisfies Partial<PullRequest>,
 			});
@@ -784,6 +785,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
 							mergeable: mergeability.mergeability,
 						} : {}),
+						// The pull request can be older than its merge state, which decides whether auto-merge can be enabled.
+						...(mergeability.allowAutoMerge === undefined ? {} : { allowAutoMerge: mergeability.allowAutoMerge }),
 						reviewers,
 						hasReviewDraft,
 						...(this._stackLoaded ? {} : { mergeQueueMethod }),

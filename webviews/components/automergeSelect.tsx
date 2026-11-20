@@ -43,12 +43,13 @@ export const AutoMerge = ({
 	label?: string;
 	canChangeMethod?: boolean;
 }) => {
+	// Hooks come before the early return, since whether auto-merge is allowed changes with the merge state.
+	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+	const [isBusy, setBusy] = React.useState(false);
 	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
 	}
-	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
-	const [isBusy, setBusy] = React.useState(false);
 	const selectedMethod = (): MergeMethod => {
 		const value: string = select.current?.value ?? 'merge';
 		return value as MergeMethod;
