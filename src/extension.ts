@@ -296,7 +296,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context.extensionUri, credentialStore));
+	context.subscriptions.push(new OverviewRestorer(reposManager, telemetry, context, credentialStore));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
