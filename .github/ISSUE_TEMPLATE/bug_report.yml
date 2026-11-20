@@ -1,0 +1,36 @@
+name: Bug report
+description: Create a report to help us improve
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues to avoid creating duplicates.
+
+        Use Help > Report Issue to prefill some of these.
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension version
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VSCode Version
+  - type: input
+    id: os
+    attributes:
+      label: OS
+  - type: input
+    id: repository-clone-configuration
+    attributes:
+      label: Repository Clone Configuration (single repository/fork of an upstream repository)
+  - type: input
+    id: github-product
+    attributes:
+      label: GitHub Product (GitHub.com/GitHub Enterprise version x.x.x)
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1.
+        2.
