@@ -11,28 +11,31 @@ import { GitApiImpl } from '../api/api1';
 import { DiffChangeType, getModifiedContentFromDiffHunk } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
-import { fromPRUri, PRUriParams } from '../common/uri';
+import { createPRNodeIdentifier, fromPRUri, PRUriParams } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
-	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string | Uint8Array> } = {};
+	private _prFileChangeContentProviders: { [key: string]: (uri: vscode.Uri) => Promise<string | Uint8Array> } = {};
 
 	constructor(private reposManagers: RepositoriesManager, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
 		super(gitAPI, credentialStore);
 	}
 
 	registerTextDocumentContentProvider(
-		prNumber: number,
+		pr: PullRequestModel,
 		provider: (uri: vscode.Uri) => Promise<string | Uint8Array>,
 	): vscode.Disposable {
-		this._prFileChangeContentProviders[prNumber] = provider;
+		const key = createPRNodeIdentifier({ remote: pr.remote.url, prNumber: pr.number });
+		this._prFileChangeContentProviders[key] = provider;
 
 		return {
 			dispose: () => {
-				delete this._prFileChangeContentProviders[prNumber];
+				if (this._prFileChangeContentProviders[key] === provider) {
+					delete this._prFileChangeContentProviders[key];
+				}
 			},
 		};
 	}
@@ -97,7 +100,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 			return;
 		}
 		const changes = this.resolveChanges(rawChanges, pr, folderRepositoryManager, mergeBase);
-		this.registerTextDocumentContentProvider(pr.number, async (uri: vscode.Uri) => {
+		this.registerTextDocumentContentProvider(pr, async (uri: vscode.Uri) => {
 			const params = fromPRUri(uri);
 			if (!params) {
 				return '';
@@ -115,8 +118,13 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		});
 	}
 
-	private async readFileWithProvider(uri: vscode.Uri, prNumber: number): Promise<Uint8Array | undefined> {
-		const provider = this._prFileChangeContentProviders[prNumber];
+	private async readFileWithProvider(uri: vscode.Uri, params: PRUriParams): Promise<Uint8Array | undefined> {
+		const repo = this.reposManagers.getManagerForFile(uri)?.findRepo(repo => repo.remote.remoteName === params.remoteName);
+		if (!repo) {
+			return;
+		}
+		const key = createPRNodeIdentifier({ remote: repo.remote.url, prNumber: params.prNumber });
+		const provider = this._prFileChangeContentProviders[key];
 		if (provider) {
 			const content = await provider(uri);
 			if (typeof content === 'string') {
@@ -135,13 +143,13 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		if (prUriParams.submoduleContent !== undefined) {
 			return new TextEncoder().encode(prUriParams.submoduleContent);
 		}
-		const providerResult = await this.readFileWithProvider(uri, prUriParams.prNumber);
+		const providerResult = await this.readFileWithProvider(uri, prUriParams);
 		if (providerResult) {
 			return providerResult;
 		}
 
 		await this.tryRegisterNewProvider(uri, prUriParams);
-		return (await this.readFileWithProvider(uri, prUriParams.prNumber)) ?? new TextEncoder().encode('');
+		return (await this.readFileWithProvider(uri, prUriParams)) ?? new TextEncoder().encode('');
 	}
 }
 
