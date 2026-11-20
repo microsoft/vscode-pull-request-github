@@ -47,7 +47,7 @@ import type { RepositoriesManager } from './repositoriesManager';
 import { addressCommentsInSession, fixChecksInSession } from './sessionPrompts';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
 import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
-import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult, UpdateStackAutoMergeArgs } from './views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeMethodMenuContext, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult, UpdateStackAutoMergeArgs } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -278,6 +278,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				if (panel) {
 					return panel.readyForReviewAndMergeCommand(ctx);
 				}
+			}),
+			vscode.commands.registerCommand('pr.mergeMenuMerge', (ctx: MergeMethodMenuContext) => {
+				return PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number)?.selectMergeMethod('merge');
+			}),
+			vscode.commands.registerCommand('pr.mergeMenuSquash', (ctx: MergeMethodMenuContext) => {
+				return PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number)?.selectMergeMethod('squash');
+			}),
+			vscode.commands.registerCommand('pr.mergeMenuRebase', (ctx: MergeMethodMenuContext) => {
+				return PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number)?.selectMergeMethod('rebase');
 			}),
 			vscode.commands.registerCommand('review.approveDescription', (ctx: ReviewCommentContext) => {
 				const panel = PullRequestOverviewPanel.findPanel(ctx.owner, ctx.repo, ctx.number);
@@ -1672,6 +1681,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async readyForReviewAndMergeCommand(context: { mergeMethod: MergeMethod }): Promise<void> {
 		await PullRequestReviewCommon.readyForReviewAndMergeCommand(this.getReviewContext(), context);
 		await this.refreshTimeline();
+	}
+
+	/** Opens the merge confirmation for a method chosen from the merge button's menu. */
+	private async selectMergeMethod(method: MergeMethod): Promise<void> {
+		await this._postMessage({ command: 'pr.select-merge-method', method });
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {

@@ -1146,6 +1146,21 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.mergeMenuMerge",
+				"title": "%command.pr.mergeMenuMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.mergeMenuSquash",
+				"title": "%command.pr.mergeMenuSquash.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.mergeMenuRebase",
+				"title": "%command.pr.mergeMenuRebase.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.openPullRequestOnGitHub",
 				"title": "%command.pr.openPullRequestOnGitHub.title%",
 				"category": "%command.pull.request.category%",
@@ -2284,6 +2299,18 @@
 				},
 				{
 					"command": "pr.readyForReviewAndMergeDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.mergeMenuMerge",
+					"when": "false"
+				},
+				{
+					"command": "pr.mergeMenuSquash",
+					"when": "false"
+				},
+				{
+					"command": "pr.mergeMenuRebase",
 					"when": "false"
 				},
 				{
@@ -3821,6 +3848,21 @@
 				{
 					"command": "pr.readyForReviewAndMergeDescription",
 					"when": "(webviewId == PullRequestOverview) && github:readyForReviewMenu && github:readyForReviewMenuWithMerge"
+				},
+				{
+					"command": "pr.mergeMenuMerge",
+					"when": "(webviewId == PullRequestOverview) && github:mergeMenu && github:mergeMenuMerge",
+					"group": "0_merge@0"
+				},
+				{
+					"command": "pr.mergeMenuSquash",
+					"when": "(webviewId == PullRequestOverview) && github:mergeMenu && github:mergeMenuSquash",
+					"group": "0_merge@1"
+				},
+				{
+					"command": "pr.mergeMenuRebase",
+					"when": "(webviewId == PullRequestOverview) && github:mergeMenu && github:mergeMenuRebase",
+					"group": "0_merge@2"
 				},
 				{
 					"command": "pr.readyForReview",
