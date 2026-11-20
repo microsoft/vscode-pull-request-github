@@ -15,6 +15,7 @@ import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, parseIssueExpre
 
 export interface CreateModelChangeEvent {
 	baseOwner?: string;
+	baseRepositoryName?: string;
 	baseBranch?: string;
 	compareOwner?: string;
 	compareBranch?: string;
@@ -23,6 +24,7 @@ export interface CreateModelChangeEvent {
 export class CreatePullRequestDataModel extends Disposable {
 	private static ID = 'CreatePullRequestDataModel';
 	private _baseOwner: string;
+	private _baseRepositoryName: string;
 	private _baseBranch: string;
 	private _compareOwner: string;
 	private _compareBranch: string;
@@ -42,9 +44,10 @@ export class CreatePullRequestDataModel extends Disposable {
 	private _gitHubcontentProvider: GitHubContentProvider;
 	private _gitcontentProvider: GitContentProvider;
 
-	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
+	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string, baseRepositoryName: string = repositoryName) {
 		super();
 		this._baseOwner = baseOwner;
+		this._baseRepositoryName = baseRepositoryName;
 		this._baseBranch = baseBranch;
 		this._compareBranch = compareBranch;
 		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
@@ -81,6 +84,21 @@ export class CreatePullRequestDataModel extends Disposable {
 		if (value !== this._baseOwner) {
 			this._baseOwner = value;
 			this.update({ baseOwner: this._baseOwner });
+		}
+	}
+
+	/**
+	 * The name of the base repository. This can be different from `repositoryName`
+	 * when the compare repository is a fork with a different name.
+	 */
+	public get baseRepositoryName(): string {
+		return this._baseRepositoryName;
+	}
+
+	public set baseRepositoryName(value: string) {
+		if (value !== this._baseRepositoryName) {
+			this._baseRepositoryName = value;
+			this.update({ baseRepositoryName: this._baseRepositoryName });
 		}
 	}
 
