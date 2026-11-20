@@ -1032,6 +1032,8 @@ export interface PullRequestMergabilityResponse {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 			viewerCanUpdate?: boolean;
+			viewerCanEnableAutoMerge?: boolean;
+			viewerCanDisableAutoMerge?: boolean;
 			mergeRequirements?: {
 				conditions: {
 					__typename: string | 'PullRequestMergeConflictStateCondition';

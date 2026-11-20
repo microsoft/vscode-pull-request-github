@@ -1053,6 +1053,8 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 			mergeable
 			mergeStateStatus
 			viewerCanUpdate
+			viewerCanEnableAutoMerge
+			viewerCanDisableAutoMerge
 		}
 	}
 	rateLimit {

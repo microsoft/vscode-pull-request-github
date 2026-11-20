@@ -487,9 +487,9 @@ const PassingRequirements = ({ labels, expanded, toggle, children }: {
 	</div>
 );
 
-/** Mergeability that GitHub is still computing is polled until it is known. */
+/** Mergeability that GitHub is still computing is polled until it is known, with the auto-merge permission that depends on it. */
 function usePolledMergeability(pr: PullRequest): PullRequestMergeability {
-	const { checkMergeability } = useContext(PullRequestContext);
+	const { checkMergeability, updatePR } = useContext(PullRequestContext);
 	const [mergeable, setMergeability] = useState(pr.mergeable);
 	if ((pr.mergeable !== mergeable) && (pr.mergeable !== PullRequestMergeability.Unknown)) {
 		setMergeability(pr.mergeable);
@@ -501,8 +501,11 @@ function usePolledMergeability(pr: PullRequest): PullRequestMergeability {
 			return;
 		}
 		const handle = setInterval(async () => {
-			const { mergeability: newMergeability } = await checkMergeability();
+			const { mergeability: newMergeability, allowAutoMerge } = await checkMergeability();
 			setMergeability(newMergeability);
+			if (allowAutoMerge !== undefined) {
+				updatePR({ allowAutoMerge });
+			}
 		}, 3000);
 		return () => clearInterval(handle);
 	}, [mergeable, isOpen]);
