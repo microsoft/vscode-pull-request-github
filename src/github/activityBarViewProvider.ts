@@ -158,7 +158,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount | undefined): string | undefined {
 		return PullRequestReviewCommon.getCurrentUserReviewState(reviewers, currentUser);
 	}
 
@@ -379,7 +379,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				repositoryDefaultBranch: defaultBranch,
 				doneCheckoutBranch,
 				isIssue: false,
-				isAuthor: currentUser.login === pullRequest.author.login,
+				isAuthor: !!currentUser && !!pullRequest.author && currentUser.login === pullRequest.author.login,
 				reviewers: this._existingReviewers,
 				continueOnGitHub,
 				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,

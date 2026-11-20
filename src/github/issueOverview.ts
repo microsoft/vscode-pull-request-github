@@ -308,7 +308,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected async getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Promise<Issue> {
+	protected async getInitializeContext(currentUser: IAccount | undefined, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Promise<Issue> {
 		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
@@ -347,7 +347,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
 			canRequestCopilotReview: false,
 			reactions: issue.item.reactions,
-			isAuthor: issue.author.login === currentUser.login,
+			isAuthor: !!currentUser && !!issue.author && issue.author.login === currentUser.login,
 		};
 
 		return context;

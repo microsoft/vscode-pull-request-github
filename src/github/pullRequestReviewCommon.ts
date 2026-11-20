@@ -73,7 +73,10 @@ export namespace PullRequestReviewCommon {
 	/**
 	 * Find currently configured user's review status for the current PR
 	 */
-	export function getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+	export function getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount | undefined): string | undefined {
+		if (!currentUser) {
+			return undefined;
+		}
 		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
 		return review?.state;
