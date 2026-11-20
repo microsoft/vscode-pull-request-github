@@ -61,15 +61,15 @@ html {
 	align-items: center;
 	gap: 20px;
 	margin-bottom: 24px;
-	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
-/* At the bottom of the bar, so that the selected tab's underline covers its border. */
+/* The line under the tabs stops at the last tab rather than continuing under the action. The selected tab's underline covers it. */
 .overview-tab-list {
 	display: flex;
 	flex-shrink: 0;
 	align-self: flex-end;
 	gap: 20px;
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 #overview-tabs .overview-tab {
