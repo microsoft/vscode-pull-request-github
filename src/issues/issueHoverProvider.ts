@@ -15,6 +15,9 @@ import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 
+// Issue references in YAML are commonly written in string values, such as `- Fixed crash (#123)`.
+const STRING_HOVER_LANGUAGE_IDS = ['yaml'];
+
 export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(
 		private manager: RepositoriesManager,
@@ -28,7 +31,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		position: vscode.Position,
 		_token: vscode.CancellationToken,
 	): Promise<vscode.Hover | undefined> {
-		if (!(await shouldShowHover(document, position))) {
+		if (!(await shouldShowHover(document, position, STRING_HOVER_LANGUAGE_IDS))) {
 			return;
 		}
 
