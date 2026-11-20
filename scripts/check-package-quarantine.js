@@ -23,6 +23,9 @@ function parseArguments(args) {
 
 	for (let index = 0; index < args.length; index++) {
 		switch (args[index]) {
+			case '--all':
+				options.all = true;
+				break;
 			case '--base-ref':
 				options.baseRef = args[++index];
 				if (!options.baseRef) {
@@ -87,7 +90,7 @@ function isPackageName(name) {
 	return typeof name === 'string' && /^(?:@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*$/i.test(name);
 }
 
-function extractPackageVersions(lockfile) {
+function indexPackageVersions(lockfile) {
 	const packageVersions = new Map();
 
 	for (const [packagePath, metadata] of Object.entries(lockfile.packages)) {
@@ -123,28 +126,29 @@ function extractPackageVersions(lockfile) {
 			resolved: metadata.resolved,
 			integrity: metadata.integrity,
 		};
-		packageVersions.set(artifactKey(packageVersion), packageVersion);
+		// An incomplete entry is grandfathered only at its original installation path.
+		const key = JSON.stringify([name, metadata.version, metadata.resolved, metadata.integrity,
+			metadata.resolved && metadata.integrity ? null : packagePath]);
+		packageVersions.set(key, packageVersion);
 	}
 
-	return [...packageVersions.values()].sort(comparePackageVersions);
+	return packageVersions;
+}
+
+function extractPackageVersions(lockfile) {
+	return [...indexPackageVersions(lockfile).values()].sort(comparePackageVersions);
 }
 
 function comparePackageVersions(left, right) {
 	return left.name.localeCompare(right.name) || left.version.localeCompare(right.version);
 }
 
-function artifactKey({ name, version, resolved, integrity }) {
-	return JSON.stringify([name, version, resolved, integrity]);
-}
-
 function findChangedPackageVersions(baseLockfile, currentLockfile) {
-	const baseVersions = new Set(
-		extractPackageVersions(baseLockfile).map(artifactKey)
-	);
-
-	// Changing or removing the source or integrity requires revalidation even at the same version.
-	return extractPackageVersions(currentLockfile)
-		.filter(packageVersion => !baseVersions.has(artifactKey(packageVersion)));
+	const baseVersions = indexPackageVersions(baseLockfile);
+	return [...indexPackageVersions(currentLockfile)]
+		.filter(([key]) => !baseVersions.has(key))
+		.map(([, packageVersion]) => packageVersion)
+		.sort(comparePackageVersions);
 }
 
 function registryDependencyName(name, spec, source) {
@@ -303,14 +307,25 @@ async function getPublicationDates(packageVersions) {
 		}
 	}
 
-	const packageNames = [...new Set(packageVersions.map(packageVersion => packageVersion.name))];
-	const metadataByPackage = new Map();
+	const versionsByName = new Map();
+	for (const packageVersion of packageVersions) {
+		if (!versionsByName.has(packageVersion.name)) {
+			versionsByName.set(packageVersion.name, []);
+		}
+		versionsByName.get(packageVersion.name).push(packageVersion);
+	}
+	const packageNames = [...versionsByName.keys()];
+	const publicationDates = new Map();
 	let nextIndex = 0;
 
 	async function worker() {
 		while (nextIndex < packageNames.length) {
 			const packageName = packageNames[nextIndex++];
-			metadataByPackage.set(packageName, await fetchPackageMetadata(packageName));
+			const metadata = await fetchPackageMetadata(packageName);
+			for (const artifact of versionsByName.get(packageName)) {
+				const key = JSON.stringify([artifact.name, artifact.version]);
+				publicationDates.set(key, verifyRegistryVersion(artifact, metadata));
+			}
 		}
 	}
 
@@ -318,29 +333,27 @@ async function getPublicationDates(packageVersions) {
 		Array.from({ length: Math.min(REQUEST_CONCURRENCY, packageNames.length) }, () => worker())
 	);
 
-	const publicationDates = new Map();
-	for (const { name, version, resolved, integrity } of packageVersions) {
-		const metadata = metadataByPackage.get(name);
-		const registryVersion = metadata?.versions?.[version];
-		const dist = registryVersion?.dist;
-		if (registryVersion?.name !== name || registryVersion?.version !== version || dist?.tarball !== resolved) {
-			throw new Error(`Cannot verify ${name}@${version}: lockfile identity or tarball does not match the npm registry.`);
-		}
+	return publicationDates;
+}
 
-		const sha1Integrity = typeof dist.shasum === 'string' && /^[a-f0-9]{40}$/i.test(dist.shasum)
-			? `sha1-${Buffer.from(dist.shasum, 'hex').toString('base64')}` : undefined;
-		if (integrity !== dist.integrity && integrity !== sha1Integrity) {
-			throw new Error(`Cannot verify ${name}@${version}: lockfile integrity does not match the npm registry.`);
-		}
-
-		const publishedAt = metadata?.time?.[version];
-		if (typeof publishedAt !== 'string' || Number.isNaN(Date.parse(publishedAt))) {
-			throw new Error(`The npm registry did not provide a valid publication time for ${name}@${version}.`);
-		}
-		publicationDates.set(JSON.stringify([name, version]), new Date(publishedAt));
+function verifyRegistryVersion({ name, version, resolved, integrity }, metadata) {
+	const registryVersion = metadata?.versions?.[version];
+	const dist = registryVersion?.dist;
+	if (registryVersion?.name !== name || registryVersion?.version !== version || dist?.tarball !== resolved) {
+		throw new Error(`Cannot verify ${name}@${version}: lockfile identity or tarball does not match the npm registry.`);
 	}
 
-	return publicationDates;
+	const sha1Integrity = typeof dist.shasum === 'string' && /^[a-f0-9]{40}$/i.test(dist.shasum)
+		? `sha1-${Buffer.from(dist.shasum, 'hex').toString('base64')}` : undefined;
+	if (integrity !== dist.integrity && integrity !== sha1Integrity) {
+		throw new Error(`Cannot verify ${name}@${version}: lockfile integrity does not match the npm registry.`);
+	}
+
+	const publishedAt = metadata?.time?.[version];
+	if (typeof publishedAt !== 'string' || Number.isNaN(Date.parse(publishedAt))) {
+		throw new Error(`The npm registry did not provide a valid publication time for ${name}@${version}.`);
+	}
+	return new Date(publishedAt);
 }
 
 function findQuarantineViolations(packageVersions, publicationDates, now, quarantineDays) {
@@ -410,18 +423,19 @@ async function main(args = process.argv.slice(2)) {
 	const currentLockfile = readCurrentLockfile(workspaceRoot);
 	const manifest = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8'));
 	validateInstallationSources(manifest, currentLockfile);
-	const baseLockfile = readBaseLockfile(workspaceRoot, options.baseRef);
-	const changedPackageVersions = findChangedPackageVersions(baseLockfile, currentLockfile);
+	const packageVersions = options.all
+		? extractPackageVersions(currentLockfile)
+		: findChangedPackageVersions(readBaseLockfile(workspaceRoot, options.baseRef), currentLockfile);
 
-	if (!changedPackageVersions.length) {
+	if (!options.all && !packageVersions.length) {
 		console.log('Package quarantine check passed: no new or changed npm package artifacts were introduced.');
 		return;
 	}
 
-	console.log(`Checking ${changedPackageVersions.length} new or changed npm package artifact(s) against the ${options.quarantineDays}-day quarantine.`);
-	const publicationDates = await getPublicationDates(changedPackageVersions);
+	console.log(`Checking ${packageVersions.length} ${options.all ? 'locked' : 'new or changed'} npm package artifact(s) against the ${options.quarantineDays}-day quarantine.`);
+	const publicationDates = await getPublicationDates(packageVersions);
 	const violations = findQuarantineViolations(
-		changedPackageVersions,
+		packageVersions,
 		publicationDates,
 		new Date(),
 		options.quarantineDays
@@ -438,7 +452,7 @@ async function main(args = process.argv.slice(2)) {
 		return;
 	}
 
-	console.log(`Package quarantine check passed: all ${changedPackageVersions.length} new or changed package artifact(s) are verified and at least ${options.quarantineDays} days old.`);
+	console.log(`Package quarantine check passed: all ${packageVersions.length} checked package artifact(s) are verified and at least ${options.quarantineDays} days old.`);
 }
 
 module.exports = {

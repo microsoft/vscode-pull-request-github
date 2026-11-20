@@ -125,6 +125,30 @@ describe('Package quarantine check', () => {
 		assert.deepStrictEqual(quarantine.findChangedPackageVersions(lockfile, lockfile), []);
 	});
 
+	it('does not extend a legacy exemption to another install path', async () => {
+		const legacy = { version: '1.0.0' };
+		const nested = 'node_modules/parent/node_modules/alpha';
+		const current = { packages: { 'node_modules/alpha': legacy, [nested]: legacy } };
+		for (const packages of [
+			{ 'node_modules/alpha': legacy },
+			{ 'node_modules/alpha': legacy, [nested]: artifact('alpha', '1.0.0') },
+		]) {
+			const changed = quarantine.findChangedPackageVersions({ packages }, current);
+			await assert.rejects(quarantine.getPublicationDates(changed), /must have both resolved and integrity/);
+		}
+	});
+
+	it('checks even existing artifacts against the registry in full-baseline mode', async () => {
+		const original = artifact('alpha', '1.0.0');
+		const lockfile = { lockfileVersion: 3, packages: { 'node_modules/alpha': original } };
+		sandbox.stub(directoryReader, 'readdirSync').returns(['package-lock.json']);
+		const readFile = sandbox.stub(fs, 'readFileSync');
+		readFile.onFirstCall().returns(JSON.stringify(lockfile));
+		readFile.onSecondCall().returns('{}');
+		mockRegistry(registryMetadata({ ...original, integrity: 'different' }));
+		await assert.rejects(quarantine.main(['--all']), /integrity does not match/);
+	});
+
 	for (const field of ['_resolved', '_integrity']) {
 		it(`rejects npm's alternate ${field} field on an otherwise unchanged legacy entry`, () => {
 			const original = { version: '1.0.0' };
