@@ -2792,6 +2792,9 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
+		// Neither the browser nor a remote repository (e.g. GitHub Repositories on desktop) can merge with Git,
+		// so their conflicts are resolved through the GitHub API.
+		const canMergeWithGit = !isBrowser && this.repository.rootUri.scheme !== Schemes.VscodeVfs;
 
 		if (pullRequest.item.mergeable !== PullRequestMergeability.Conflict && !pullRequest.githubRepository.remote.isEnterprise) {
 			const result = await vscode.window.withProgress(
@@ -2807,10 +2810,10 @@ export class FolderRepositoryManager extends Disposable {
 			return result;
 		}
 
-		if (!pullRequest.isActive || isBrowser) {
+		if (!pullRequest.isActive || !canMergeWithGit) {
 			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
-				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: isBrowser ? undefined : vscode.l10n.t('Please check out the pull request to resolve conflicts.') });
+				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: canMergeWithGit ? vscode.l10n.t('Please check out the pull request to resolve conflicts.') : undefined });
 				return false;
 			}
 			let continueWithMerge = true;

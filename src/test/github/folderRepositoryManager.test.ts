@@ -35,6 +35,8 @@ import { PullRequestMergeability } from '../../github/interface';
 import { PullRequest } from '../../github/views';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
+import { ConflictResolutionCoordinator } from '../../github/conflictResolutionCoordinator';
+import { Schemes } from '../../common/uri';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -781,6 +783,31 @@ describe('PullRequestManager', function () {
 			assert.strictEqual(updateBranchWithGraphQL.calledOnce, true);
 			assert.strictEqual(updateBranch.notCalled, true);
 		});
+
+		it('resolves conflicts through GitHub in a checked-out remote repository, where Git cannot merge', async function () {
+			repository.rootUri = Uri.from({ scheme: Schemes.VscodeVfs, authority: 'github', path: '/aaa/bbb' });
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), githubRepository);
+			prItem.mergeable = PullRequestMergeability.Conflict;
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem, true);
+			sinon.stub(manager, 'isHeadUpToDateWithBase').resolves(false);
+			sinon.stub(githubRepository, 'ensure').resolves(githubRepository);
+			sinon.stub(pr, 'getLatestBaseCommitSha').resolves('base-sha');
+			sinon.stub(pr, 'compareBaseBranchForMerge').resolves([]);
+			sinon.stub(manager, 'createGitHubRepositoryFromOwnerName').resolves(githubRepository);
+			const enterConflictResolution = sinon.stub(ConflictResolutionCoordinator.prototype, 'enterConflictResolutionAndWaitForExit').resolves(false);
+			const fetch = sinon.spy(repository, 'fetch');
+			const merge = sinon.spy(repository, 'merge');
+
+			const result = await manager.tryMergeBaseIntoHead(pr, true);
+
+			assert.strictEqual(result, false);
+			assert.strictEqual(enterConflictResolution.calledOnce, true);
+			assert.strictEqual(fetch.notCalled, true);
+			assert.strictEqual(merge.notCalled, true);
+		});
 	});
 
 	describe('updateBranch', function () {
@@ -808,6 +835,35 @@ describe('PullRequestManager', function () {
 
 			assert.strictEqual(reply?.canUpdateBranch, false);
 			assert.strictEqual(reply?.mergeable, PullRequestMergeability.Mergeable);
+		});
+
+		it('replies so the branch can be updated again when updating it fails', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'tryMergeBaseIntoHead').rejects(new Error('merge is not supported'));
+			sinon.stub(pr, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Conflict });
+			const showErrorMessage = sinon.stub(window, 'showErrorMessage').resolves(undefined);
+			let reply: Partial<PullRequest> | undefined;
+			const context: ReviewContext = {
+				item: pr,
+				folderRepositoryManager: manager,
+				existingReviewers: [],
+				postMessage: sinon.stub().resolves(),
+				replyMessage: (_message, response) => reply = response,
+				throwError: sinon.stub(),
+				getTimeline: sinon.stub().resolves([]),
+			};
+			const message: IRequestMessage<string> = { req: '1', command: 'pr.update-branch', args: '' };
+
+			await PullRequestReviewCommon.updateBranch(context, message, sinon.stub().resolves());
+
+			assert.strictEqual(showErrorMessage.calledOnce, true);
+			assert.match(String(showErrorMessage.firstCall.args[0]), /merge is not supported/);
+			assert.strictEqual(reply?.canUpdateBranch, true);
+			assert.strictEqual(reply?.mergeable, PullRequestMergeability.Conflict);
 		});
 	});
 

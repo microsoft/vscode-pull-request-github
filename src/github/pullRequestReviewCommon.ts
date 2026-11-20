@@ -234,7 +234,14 @@ export namespace PullRequestReviewCommon {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when there are changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return ctx.replyMessage(message, {});
 		}
-		const mergeSucceeded = await ctx.folderRepositoryManager.tryMergeBaseIntoHead(ctx.item, true);
+		let mergeSucceeded = false;
+		try {
+			mergeSucceeded = await ctx.folderRepositoryManager.tryMergeBaseIntoHead(ctx.item, true);
+		} catch (e) {
+			// Still reply below, so that the webview lets the user try again.
+			Logger.error(`Failed to update the pull request branch: ${formatError(e)}`, 'PullRequestReviewCommon');
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to update the pull request branch. {0}', formatError(e)));
+		}
 		// The mergability of the PR doesn't update immediately. Poll.
 		let mergability = PullRequestMergeability.Unknown;
 		let attemptsRemaining = 5;
