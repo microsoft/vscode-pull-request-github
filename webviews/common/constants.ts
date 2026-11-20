@@ -17,3 +17,8 @@ export const EDIT_TITLE_BUTTON_ID = 'edit-title-button';
  * Emitted before scrolling to something in the timeline, which can be in a hidden tab.
  */
 export const REVEAL_TIMELINE_EVENT = 'revealTimeline';
+
+/**
+ * Emitted with a merge method when it is chosen from the merge button's menu, which VS Code shows outside of the page.
+ */
+export const SELECT_MERGE_METHOD_EVENT = 'selectMergeMethod';

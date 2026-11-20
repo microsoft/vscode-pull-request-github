@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { getState, setState, updateState } from './cache';
-import { COMMENT_TEXTAREA_ID, REVEAL_TIMELINE_EVENT } from './constants';
+import { COMMENT_TEXTAREA_ID, REVEAL_TIMELINE_EVENT, SELECT_MERGE_METHOD_EVENT } from './constants';
 import emitter from './events';
 import { getMessageHandler, MessageHandler } from './message';
 import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArgs } from '../../common/views';
@@ -646,6 +646,9 @@ export class PRContext {
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
+			case 'pr.select-merge-method':
+				emitter.emit(SELECT_MERGE_METHOD_EVENT, message.method);
+				return;
 			case 'pr.readying-for-review':
 				return this.updatePR({ busy: true });
 			case 'pr.readied-for-review':

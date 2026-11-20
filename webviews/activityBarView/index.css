@@ -129,17 +129,63 @@ textarea {
 	padding-bottom: 16px;
 }
 
+/* The icon sits beside the heading, and the row's action goes below them, across the narrow view. */
+#status-checks .status-item {
+	display: grid;
+	grid-template-columns: 16px minmax(0, 1fr) auto;
+	column-gap: 8px;
+	align-items: start;
+}
+
+#status-checks .status-item > .button-container {
+	grid-column: 1 / -1;
+}
+
+#status-checks .status-item.passing-summary {
+	display: flex;
+}
+
+.status-icon .icon svg,
+.passing-label .icon svg,
+.merge-summary-icon .icon svg {
+	margin-right: 0;
+}
+
+/* The icon is one line tall, so it is centered on the heading's first line. */
+.status-item > .status-icon {
+	height: 1lh;
+	align-items: center;
+}
+
+/* Without a detail line, the heading, its icon, and the button that shows the checks are centered on each other. */
+#status-checks .status-item:not(:has(> .status-text > .status-detail)) {
+	align-items: center;
+}
+
+/* Like in the editor, the button that shows the checks is centered on the row. */
+#status-checks .status-item > .icon-button {
+	align-self: center;
+}
+
+/* The reasons that merging is blocked wrap in the narrow view, so the icon stays beside the title. */
+#status-checks .merge-summary {
+	align-items: flex-start;
+}
+
+/* The title can also wrap, so its first line is as tall as the icon beside it. */
+#status-checks .merge-summary-title {
+	line-height: 24px;
+}
+
+#status-checks .merge-summary-detail {
+	margin-top: 2px;
+}
+
 .ready-for-review-container {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 	padding-bottom: 16px;
-}
-
-.ready-for-review-heading,
-.status-section p {
-	line-height: 1.5em;
-	margin: 0;
 }
 
 .select-container {

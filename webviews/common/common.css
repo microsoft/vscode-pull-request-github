@@ -381,8 +381,116 @@ body img.avatar {
 }
 
 /* Points down while the status checks are shown, like the stack section's chevron. */
-#status-checks-display-button[aria-expanded="false"] .icon {
+#status-checks-display-button[aria-expanded="false"] .icon,
+.passing-chevron[aria-expanded="false"] .icon {
 	transform: rotate(-90deg);
+}
+
+.status-icon {
+	display: flex;
+	flex-shrink: 0;
+}
+
+/* Only the editor makes every icon a box, so elsewhere the SVG sits on the text's baseline, below the text's center. */
+.status-icon .icon,
+.merge-summary-icon .icon {
+	display: flex;
+}
+
+.status-icon.success .icon svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.status-icon.failure .icon svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.status-icon.pending .icon svg path,
+.status-icon.warning .icon svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.status-icon.neutral .icon svg path,
+.status-icon.info .icon svg path {
+	fill: var(--vscode-descriptionForeground);
+}
+
+.status-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.status-heading {
+	font-weight: 600;
+}
+
+.status-detail {
+	color: var(--vscode-descriptionForeground);
+}
+
+.check-counts {
+	display: flex;
+	flex-wrap: wrap;
+	column-gap: 12px;
+}
+
+.check-count,
+.passing-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.passing-labels {
+	display: flex;
+	flex-wrap: wrap;
+	column-gap: 20px;
+	row-gap: 4px;
+	min-width: 0;
+}
+
+.merge-summary {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.merge-summary-icon {
+	display: flex;
+	flex-shrink: 0;
+}
+
+.merge-summary-icon .icon,
+.merge-summary-icon .icon svg {
+	width: 24px;
+	height: 24px;
+}
+
+.merge-summary-title {
+	font-size: 1.1em;
+	font-weight: 600;
+}
+
+.merge-summary-detail {
+	color: var(--vscode-descriptionForeground);
+}
+
+.merge-summary.ready .merge-summary-icon svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.merge-summary.blocked .merge-summary-icon svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.merge-summary.draft .merge-summary-icon svg path {
+	fill: var(--vscode-pullRequests-draft);
+}
+
+.merge-summary.checking .merge-summary-icon svg path {
+	fill: var(--vscode-list-warningForeground);
 }
 
 .stack-action-error {

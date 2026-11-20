@@ -9,12 +9,15 @@ import { GithubItemStateEnum, MergeMethod, MergeMethodsAvailability, MergeQueueE
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
+const AUTO_MERGE_LABEL = 'Merge automatically when requirements are met';
+const MERGE_WHEN_READY_LABEL = 'Merge when ready';
+
 const AutoMergeLabel = ({ busy, baseHasMergeQueue, label }: { busy: boolean, baseHasMergeQueue: boolean, label?: string }) => {
 	if (busy) {
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Setting...</label>;
 	} else {
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">
-			{label ?? (baseHasMergeQueue ? 'Merge when ready' : 'Auto-merge')}
+			{label ?? (baseHasMergeQueue ? MERGE_WHEN_READY_LABEL : AUTO_MERGE_LABEL)}
 		</label>;
 	}
 };
@@ -40,12 +43,13 @@ export const AutoMerge = ({
 	label?: string;
 	canChangeMethod?: boolean;
 }) => {
+	// Hooks come before the early return, since whether auto-merge is allowed changes with the merge state.
+	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+	const [isBusy, setBusy] = React.useState(false);
 	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
 	}
-	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
-	const [isBusy, setBusy] = React.useState(false);
 	const selectedMethod = (): MergeMethod => {
 		const value: string = select.current?.value ?? 'merge';
 		return value as MergeMethod;
@@ -107,7 +111,7 @@ export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
 	const defaultMergeMethod = stackAutoMerge.mergeMethod
 		?? (availability[pr.defaultMergeMethod] ? pr.defaultMergeMethod : MERGE_METHOD_ORDER.find(method => availability[method]));
 	const queue = !!pr.mergeQueueMethod;
-	const action = queue ? 'Merge when ready' : 'Auto-merge';
+	const action = queue ? MERGE_WHEN_READY_LABEL : AUTO_MERGE_LABEL;
 	// Shown even for one pull request, so that it is clear that the pull requests above are not merged with it.
 	const label = enabledAbove !== undefined
 		? `${action} (enabled through #${enabledAbove})`
