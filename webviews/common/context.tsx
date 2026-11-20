@@ -12,7 +12,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview, StackAutoMerge } from '../../src/github/interface';
-import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackAutoMergeArgs, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteCommentReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OpenCheckDetailsArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackAutoMergeArgs, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -167,7 +167,10 @@ export class PRContext {
 	public create = () => this.postMessage({ command: 'pr.open-create' });
 
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
-		await this.postMessage({ command: 'pr.delete-comment', args });
+		const reply: DeleteCommentReply = await this.postMessage({ command: 'pr.delete-comment', args });
+		if (!reply.deleted) {
+			return;
+		}
 		const { pr } = this;
 		if (!pr) {
 			throw new Error('Unexpectedly no pull request when trying to delete comment');
@@ -403,9 +406,8 @@ export class PRContext {
 		this.updatePR({ labels });
 	};
 
-	public applyPatch = async (comment: IComment) => {
+	public applyPatch = (comment: IComment): Promise<void> =>
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
-	};
 
 	private appendReview(reply: SubmitReviewReply) {
 		const { pr: state } = this;
@@ -414,6 +416,7 @@ export class PRContext {
 		}
 		const { events, additionalEvents, reviewers, reviewedEvent } = reply;
 		state.busy = false;
+		state.pendingReviewType = undefined;
 		if (!events) {
 			this.updatePR(state);
 			return;
@@ -431,7 +434,6 @@ export class PRContext {
 		}
 		state.pendingCommentText = '';
 		state.pendingReviewSummaryText = '';
-		state.pendingReviewType = undefined;
 		state.pendingAttestation = false;
 		this.updatePR(state);
 	}
@@ -526,18 +528,17 @@ export class PRContext {
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
-	public toggleResolveComment = (threadId: string, thread: IComment[], newResolved: boolean) => {
-		this.postMessage({
+	public toggleResolveComment = async (threadId: string, thread: IComment[], newResolved: boolean): Promise<void> => {
+		const timelineEvents: TimelineEvent[] | undefined = await this.postMessage({
 			command: 'pr.resolve-comment-thread',
 			args: { threadId: threadId, toResolve: newResolved, thread }
-		}).then((timelineEvents: TimelineEvent[] | undefined) => {
-			if (timelineEvents) {
-				this.updatePR({ events: timelineEvents });
-			}
-			else {
-				this.refresh();
-			}
 		});
+		if (timelineEvents) {
+			this.updatePR({ events: timelineEvents });
+		}
+		else {
+			await this.refresh();
+		}
 	};
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
@@ -553,6 +554,10 @@ export class PRContext {
 	};
 
 	public viewCheckLogs = (status: PullRequestCheckStatus) => this.postMessage({ command: 'pr.view-check-logs', args: { status } });
+
+	/** Opens the details of a check in the browser, which is where they are even when they link to the pull request. */
+	public openCheckDetails = (url: string): Promise<void> =>
+		this.postMessage({ command: 'pr.open-check-details', args: { url } satisfies OpenCheckDetailsArgs });
 
 	public fixChecksInSession = () => this.postMessage({ command: 'pr.fix-checks-in-session' });
 
@@ -643,7 +648,7 @@ export class PRContext {
 				}
 				return;
 			case 'pr.submitting-review':
-				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
+				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType, pendingReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
 			case 'pr.readying-for-review':

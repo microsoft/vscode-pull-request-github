@@ -133,6 +133,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.updateBranch(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
+			case 'pr.enqueue':
+				return PullRequestReviewCommon.enqueue(this.getReviewContext(), message);
+			case 'pr.dequeue':
+				return PullRequestReviewCommon.dequeue(this.getReviewContext(), message);
+			case 'pr.open-check-details':
+				return PullRequestReviewCommon.openCheckDetails(this.getReviewContext(), message);
 			case 'pr.add-attestation-commit':
 				return this.addAttestationCommitMessage(message);
 		}

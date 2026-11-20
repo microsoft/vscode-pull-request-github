@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { CopyButton } from './copyButton';
 import { getStatus, ViewChangesButton } from './header';
-import { copyIcon } from './icon';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
@@ -74,9 +74,7 @@ export function StickyHeader({ pr, visible }: { pr: PullRequest; visible: boolea
 				>
 					#{pr.number}
 				</a>
-				<button title="Copy Link" onClick={copyPrLink} className="icon-button sticky-header-copy" aria-label="Copy Pull Request Link">
-					{copyIcon}
-				</button>
+				<CopyButton title="Copy Link" ariaLabel="Copy Pull Request Link" className="sticky-header-copy" copy={copyPrLink} />
 				{!pr.isIssue ? <ViewChangesButton /> : null}
 			</div>
 		</div>

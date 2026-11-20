@@ -17,7 +17,7 @@ import { openIssueOrPullRequestOnGitHub } from './openOnGitHub';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { isInCodespaces, processPermalinks, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, DisplayLabel, FileUploadCompletedMessage, Issue, IssuePreview, OverviewItemPreview, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
+import { ChangeAssigneesReply, DeleteCommentReply, DisplayLabel, FileUploadCompletedMessage, Issue, IssuePreview, OverviewItemPreview, ProjectItemsReply, SubmitReviewArgs, SubmitReviewReply, UnresolvedIdentity, UploadFilesReply, UploadPastedFilesArgs } from './views';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
@@ -563,7 +563,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.edit-title':
 				return this.editTitle(message);
 			case 'pr.refresh':
-				this.refreshPanel();
+				try {
+					await this.refreshPanel();
+				} finally {
+					await this._replyMessage(message, {});
+				}
 				return;
 			case 'pr.add-labels':
 				return this.addLabels(message);
@@ -584,7 +588,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.add-assignee-copilot':
 				return this.addAssigneeCopilot(message);
 			case 'pr.copy-prlink':
-				return this.copyItemLink();
+				return this.copyItemLink(message);
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
@@ -722,6 +726,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
 		}
 	}
 
@@ -984,6 +989,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			await this.refreshTimeline();
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
 		}
 	}
 
@@ -1003,8 +1009,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
-		await this._item.removeProjects([message.args]);
-		return this._replyMessage(message, {});
+		try {
+			await this._item.removeProjects([message.args]);
+			return this._replyMessage(message, {});
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+			return this._throwError(message, formatError(e));
+		}
 	}
 
 	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
@@ -1023,6 +1034,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
 		}
 	}
 
@@ -1041,11 +1053,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+			this._throwError(message, formatError(e));
 		}
 	}
 
-	private async copyItemLink(): Promise<void> {
-		return vscode.env.clipboard.writeText(this._item.html_url);
+	/** The webview shows whether the link was copied, so a failure is only logged here. */
+	private async copyItemLink(message: IRequestMessage<void>): Promise<void> {
+		try {
+			await vscode.env.clipboard.writeText(this._item.html_url);
+			return this._replyMessage(message, {});
+		} catch (e) {
+			Logger.error(`Copying the link failed: ${formatError(e)}`, IssueOverviewPanel.ID);
+			return this._throwError(message, formatError(e));
+		}
 	}
 
 	private async copyVscodeDevLink(): Promise<void> {
@@ -1071,21 +1091,20 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._item.deleteIssueComment(comment.id.toString());
 	}
 
-	private deleteComment(message: IRequestMessage<IComment>) {
-		vscode.window
-			.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, 'Delete')
-			.then(value => {
-				if (value === 'Delete') {
-					this.deleteCommentPromise(message.args)
-						.then(_ => {
-							this._replyMessage(message, {});
-						})
-						.catch(e => {
-							this._throwError(message, e);
-							vscode.window.showErrorMessage(formatError(e));
-						});
-				}
-			});
+	private async deleteComment(message: IRequestMessage<IComment>): Promise<void> {
+		const value = await vscode.window.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, 'Delete');
+		if (value !== 'Delete') {
+			const reply: DeleteCommentReply = { deleted: false };
+			return this._replyMessage(message, reply);
+		}
+		try {
+			await this.deleteCommentPromise(message.args);
+			const reply: DeleteCommentReply = { deleted: true };
+			return this._replyMessage(message, reply);
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		}
 	}
 
 	protected async openLocalFile(message: IRequestMessage<OpenLocalFileArgs>): Promise<void> {
@@ -1112,20 +1131,26 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected async close(message: IRequestMessage<string>) {
-		let comment: IComment | undefined;
-		if (message.args) {
-			comment = await this._item.createIssueComment(message.args);
+		try {
+			let comment: IComment | undefined;
+			if (message.args) {
+				comment = await this._item.createIssueComment(message.args);
+			}
+			const closeUpdate = await this._item.close();
+			const result: CloseResult = {
+				state: closeUpdate.item.state.toUpperCase() as GithubItemStateEnum,
+				commentEvent: comment ? {
+					...comment,
+					event: EventType.Commented
+				} : undefined,
+				closeEvent: closeUpdate.closedEvent
+			};
+			this._replyMessage(message, result);
+		} catch (e) {
+			Logger.error(`Closing failed: ${formatError(e)}`, IssueOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Closing failed. {0}', formatError(e)));
+			this._throwError(message, formatError(e));
 		}
-		const closeUpdate = await this._item.close();
-		const result: CloseResult = {
-			state: closeUpdate.item.state.toUpperCase() as GithubItemStateEnum,
-			commentEvent: comment ? {
-				...comment,
-				event: EventType.Commented
-			} : undefined,
-			closeEvent: closeUpdate.closedEvent
-		};
-		this._replyMessage(message, result);
 	}
 
 	protected _removeFromPanels(): void {

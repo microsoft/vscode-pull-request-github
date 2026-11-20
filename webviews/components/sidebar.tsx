@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { closeIcon, copilotIcon, issuescon, passIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, issuescon, loadingIcon, passIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { GithubItemStateEnum, IAccount, IMilestone, IProjectItem, isITeam, IssueReference, reviewerId, reviewerLabel, ReviewState } from '../../src/github/interface';
 import { ChangeReviewersReply, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { useBusyAction, usePendingAction } from '../common/hooks';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
 
@@ -89,8 +90,10 @@ export default function Sidebar({ reviewers, labels, closingIssues = [], hasWrit
 		pr,
 	} = useContext(PullRequestContext);
 
-	const [assigningCopilot, setAssigningCopilot] = useState(false);
-	const [requestingCopilotReview, setRequestingCopilotReview] = useState(false);
+	const [assigningCopilot, runAssignCopilot] = useBusyAction();
+	const [requestingCopilotReview, runRequestCopilotReview] = useBusyAction();
+	const [assigningYourself, runAssignYourself] = useBusyAction();
+	const [removingLabel, runRemoveLabel] = usePendingAction<string>();
 
 	const shouldShowCopilotButton = canAssignCopilot && assignees.every(assignee => !COPILOT_LOGINS.includes(assignee.login));
 	const shouldShowCopilotReviewButton = canRequestCopilotReview && reviewers.every(reviewer => !isITeam(reviewer.reviewer) && !COPILOT_LOGINS.includes(reviewer.reviewer.login));
@@ -121,19 +124,16 @@ export default function Sidebar({ reviewers, labels, closingIssues = [], hasWrit
 								<button
 									id="request-copilot-review-btn"
 									className="icon-button"
-									title="Request review from Copilot"
+									title={requestingCopilotReview ? 'Requesting review from Copilot...' : 'Request review from Copilot'}
 									disabled={requestingCopilotReview}
-									onClick={async (e) => {
+									onClick={(e) => {
 										e.stopPropagation();
-										setRequestingCopilotReview(true);
-										try {
+										return runRequestCopilotReview(async () => {
 											const newReviewers: ChangeReviewersReply = await addReviewerCopilot();
 											updatePR({ reviewers: newReviewers.reviewers });
-										} finally {
-											setRequestingCopilotReview(false);
-										}
+										});
 									}}>
-									{copilotIcon}
+									{requestingCopilotReview ? loadingIcon : copilotIcon}
 								</button>
 							) : null}
 							<button
@@ -176,19 +176,16 @@ export default function Sidebar({ reviewers, labels, closingIssues = [], hasWrit
 							<button
 								id="assign-copilot-btn"
 								className="icon-button"
-								title="Assign for Copilot to work on"
+								title={assigningCopilot ? 'Assigning Copilot...' : 'Assign for Copilot to work on'}
 								disabled={assigningCopilot}
-								onClick={async (e) => {
+								onClick={(e) => {
 									e.stopPropagation();
-									setAssigningCopilot(true);
-									try {
+									return runAssignCopilot(async () => {
 										const newAssignees = await addAssigneeCopilot();
 										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-									} finally {
-										setAssigningCopilot(false);
-									}
+									});
 								}}>
-								{copilotIcon}
+								{assigningCopilot ? loadingIcon : copilotIcon}
 							</button>
 						) : null}
 						<button
@@ -217,12 +214,14 @@ export default function Sidebar({ reviewers, labels, closingIssues = [], hasWrit
 								&mdash;
 								<a
 									className="assign-yourself"
-									onClick={async () => {
+									style={assigningYourself ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
+									aria-disabled={assigningYourself}
+									onClick={() => runAssignYourself(async () => {
 										const newAssignees = await addAssigneeYourself();
 										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
-									}}
+									})}
 								>
-									assign yourself
+									{assigningYourself ? 'assigning yourself...' : 'assign yourself'}
 								</a>
 							</>
 						) : null}
@@ -244,8 +243,13 @@ export default function Sidebar({ reviewers, labels, closingIssues = [], hasWrit
 						{labels.map(label => (
 							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr!.isDarkTheme}>
 								{hasWritePermission ? (
-									<button className="icon-button" onClick={() => removeLabel(label.name)}>
-										{closeIcon}️
+									<button
+										className="icon-button"
+										title={removingLabel === label.name ? 'Removing label...' : 'Remove label'}
+										disabled={removingLabel !== undefined}
+										onClick={() => runRemoveLabel(label.name, () => removeLabel(label.name))}
+									>
+										{removingLabel === label.name ? loadingIcon : closeIcon}️
 									</button>
 								) : null}
 							</Label>
@@ -514,6 +518,7 @@ function CollapsedLabel(props: PullRequest) {
 
 function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 	const { removeMilestone, updatePR, pr } = useContext(PullRequestContext);
+	const [isRemoving, run] = useBusyAction();
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
@@ -533,12 +538,14 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 				{canDelete ? (
 					<button
 						className="icon-button"
-						onClick={async () => {
+						title={isRemoving ? 'Removing milestone...' : 'Remove milestone'}
+						disabled={isRemoving}
+						onClick={() => run(async () => {
 							await removeMilestone();
 							updatePR({ milestone: undefined });
-						}}
+						})}
 					>
-						{closeIcon}️
+						{isRemoving ? loadingIcon : closeIcon}️
 					</button>
 				) : null}
 			</div>
@@ -548,6 +555,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 
 function Project(project: IProjectItem & { canDelete: boolean }) {
 	const { removeProject, updatePR, pr } = useContext(PullRequestContext);
+	const [isRemoving, run] = useBusyAction();
 	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
 		'--vscode-badge-foreground',
 	);
@@ -567,12 +575,14 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 				{canDelete ? (
 					<button
 						className="icon-button"
-						onClick={async () => {
+						title={isRemoving ? 'Removing from project...' : 'Remove from project'}
+						disabled={isRemoving}
+						onClick={() => run(async () => {
 							await removeProject(project);
 							updatePR({ projectItems: pr!.projectItems?.filter(x => x.id !== project.id) });
-						}}
+						})}
 					>
-						{closeIcon}️
+						{isRemoving ? loadingIcon : closeIcon}️
 					</button>
 				) : null}
 			</div>
@@ -582,17 +592,12 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 
 function ConvertToDraft() {
 	const { convertToDraft, updatePR, pr } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [isBusy, run] = useBusyAction();
 
-	const handleConvertToDraft = async () => {
-		try {
-			setBusy(true);
-			const result = await convertToDraft();
-			updatePR({ isDraft: result.isDraft });
-		} finally {
-			setBusy(false);
-		}
-	};
+	const handleConvertToDraft = () => run(async () => {
+		const result = await convertToDraft();
+		updatePR({ isDraft: result.isDraft });
+	});
 
 	return (
 		<div className="section-placeholder" style={{ marginTop: '8px' }}>
@@ -604,8 +609,9 @@ function ConvertToDraft() {
 					opacity: (isBusy || pr?.busy) ? 0.5 : 1,
 					cursor: 'pointer'
 				}}
+				aria-disabled={isBusy || pr?.busy}
 			>
-				Convert to draft
+				{isBusy ? 'Converting to draft...' : 'Convert to draft'}
 			</a>
 		</div>
 	);

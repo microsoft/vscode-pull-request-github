@@ -3,17 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
-import { checkIcon, circleFilledIcon, commentIcon, requestChangesIcon, syncIcon } from './icon';
+import { checkIcon, circleFilledIcon, commentIcon, loadingIcon, requestChangesIcon, syncIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 import { COPILOT_REVIEWER } from '../../src/common/copilot';
 import { ReviewEvent } from '../../src/common/timelineEvent';
 import { AccountType, IAccount, isITeam, ReviewState } from '../../src/github/interface';
 import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
+import { useBusyAction } from '../common/hooks';
 
 export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewEvent }) {
 	const { reviewer, state } = reviewInfo.reviewState;
 	const { reRequestReview } = useContext(PullRequestContext);
+	const [isRequesting, run] = useBusyAction();
 
 	const ariaAnnouncement = reviewInfo.event ? ariaAnnouncementForReview(reviewInfo.event) : undefined;
 
@@ -26,8 +28,8 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 			<div className="reviewer-icons">
 				{
 					((state !== 'REQUESTED') && (isITeam(reviewer) || canRequestReviewFromAccount(reviewer))) ?
-						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewInfo.reviewState.reviewer.id)}>
-							{syncIcon}️
+						(<button className="icon-button" title={isRequesting ? 'Re-requesting review...' : 'Re-request review'} disabled={isRequesting} onClick={() => run(() => reRequestReview(reviewer.id))}>
+							{isRequesting ? loadingIcon : syncIcon}️
 						</button>) : null
 				}
 				{REVIEW_STATE[state]}

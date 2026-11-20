@@ -654,11 +654,6 @@ button.inlined-dropdown:last-child {
 	margin-right: 0;
 }
 
-.spinner {
-	margin-top: 5px;
-	margin-left: 5px;
-}
-
 .commit-spinner-inline {
 	margin-left: 8px;
 	display: inline-flex;
