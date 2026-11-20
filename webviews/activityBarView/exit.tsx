@@ -3,14 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { useBusyAction } from '../common/hooks';
 
 const ExitButton = ({ doneCheckoutBranch, isBusy, onClick }: { doneCheckoutBranch: string, isBusy: boolean, onClick: () => Promise<void> }) => {
 	return (<button title="Switch to a different branch than this pull request branch" disabled={isBusy} onClick={onClick}>
-		Checkout '{doneCheckoutBranch}'
+		{isBusy ? `Checking Out '${doneCheckoutBranch}'...` : `Checkout '${doneCheckoutBranch}'`}
 	</button>);
 };
 
@@ -24,16 +25,9 @@ const ExitLink = ({ doneCheckoutBranch, onClick }: { doneCheckoutBranch: string,
 
 export const ExitSection = ({ pr }: { pr: PullRequest }) => {
 	const { exitReviewMode } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [isBusy, run] = useBusyAction();
 
-	const onClick = async () => {
-		try {
-			setBusy(true);
-			await exitReviewMode();
-		} finally {
-			setBusy(false);
-		}
-	};
+	const onClick = () => run(exitReviewMode);
 
 	return (
 		<div className="button-container">

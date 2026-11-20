@@ -254,6 +254,16 @@ export interface DeleteReviewResult {
 	deletedReviewComments: IComment[];
 }
 
+export interface DeleteCommentReply {
+	/** False when the user cancelled deleting the comment. */
+	deleted: boolean;
+}
+
+export interface OpenCheckDetailsArgs {
+	/** Where the check links to for its details. */
+	url: string;
+}
+
 export enum PreReviewState {
 	None = 0,
 	Available,

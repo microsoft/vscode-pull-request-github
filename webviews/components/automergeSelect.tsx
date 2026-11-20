@@ -8,6 +8,7 @@ import { MergeSelect } from './merge';
 import { GithubItemStateEnum, MergeMethod, MergeMethodsAvailability, MergeQueueEntry, MergeQueueState } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { useBusyAction } from '../common/hooks';
 
 const AutoMergeLabel = ({ busy, baseHasMergeQueue, label }: { busy: boolean, baseHasMergeQueue: boolean, label?: string }) => {
 	if (busy) {
@@ -137,6 +138,7 @@ export const StackAutoMerge = ({ pr }: { pr: PullRequest }) => {
 
 export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueueEntry }) => {
 	const ctx = React.useContext(PullRequestContext);
+	const [isBusy, run] = useBusyAction();
 	let message;
 	let title;
 	switch (mergeQueueEntry.state) {
@@ -169,7 +171,7 @@ export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueue
 			{message}
 		</div>
 		<div className='button-container'>
-			<button onClick={ctx.dequeue}>Remove from Queue</button>
+			<button onClick={() => run(ctx.dequeue)} disabled={isBusy}>{isBusy ? 'Removing from Queue...' : 'Remove from Queue'}</button>
 		</div>
 	</div>;
 };

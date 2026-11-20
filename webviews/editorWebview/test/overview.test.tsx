@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 import * as path from 'path';
 import * as React from 'react';
 import { act, cleanup, fireEvent, render, RenderResult, wait, waitForElement } from 'react-testing-library';
-import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
+import { createSandbox, SinonSandbox, SinonSpy, SinonStub } from 'sinon';
 
 import { AccountBuilder } from './builder/account';
 import { PullRequestBuilder } from './builder/pullRequest';
@@ -16,7 +16,7 @@ import { IComment } from '../../../src/common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
 import { EventType, ReviewEvent, ReviewStateValue, TimelineEvent } from '../../../src/common/timelineEvent';
 import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
-import { PullRequest } from '../../../src/github/views';
+import { DeleteCommentReply, PullRequest, SubmitReviewReply } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
 import { COMMENT_TEXTAREA_ID } from '../../common/constants';
@@ -298,6 +298,44 @@ describe('Overview', function () {
 				assert.strictEqual(openOnGitHub.callCount, 1);
 				assert.deepStrictEqual(hostOpenedLinks, []);
 			});
+		} finally {
+			window.removeEventListener('click', hostLinkHandler);
+		}
+	});
+
+	it('opens the details of a check in the browser instead of letting the webview host open them', function () {
+		// A check that hasn't reported yet links to the pull request, which the extension would open in this overview.
+		const pullRequestUrl = 'https://github.com/owner/name/pull/1234';
+		const waiting: PullRequestCheckStatus = {
+			id: '', state: CheckState.Pending, context: 'Required check', description: 'Waiting for status to be reported',
+			targetUrl: pullRequestUrl, workflowName: undefined, event: undefined, url: undefined, avatarUrl: undefined,
+			isRequired: true, isCheckRun: false, databaseId: undefined,
+		};
+		const pr = new PullRequestBuilder().status(checks => checks.state(CheckState.Pending).statuses([waiting])).build();
+		const context = new PRContext(pr);
+		const openCheckDetails = sinon.stub(context, 'openCheckDetails').resolves();
+		// Stands in for the webview host, which opens any anchor with an href that a click reaches.
+		const hostOpenedLinks: string[] = [];
+		const hostLinkHandler = (event: Event) => {
+			const anchor = (event.target as HTMLElement).closest('a[href]');
+			if (anchor) {
+				hostOpenedLinks.push(anchor.getAttribute('href')!);
+			}
+		};
+		window.addEventListener('click', hostLinkHandler);
+
+		try {
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<Overview {...pr} />
+				</PullRequestContext.Provider>,
+			);
+			fireEvent.click(out.getByLabelText('Show status checks'));
+
+			fireEvent.click(out.getByText('Details'));
+
+			assert(openCheckDetails.calledOnceWithExactly(pullRequestUrl));
+			assert.deepStrictEqual(hostOpenedLinks, []);
 		} finally {
 			window.removeEventListener('click', hostLinkHandler);
 		}
@@ -1776,7 +1814,7 @@ describe('Overview', function () {
 			const pr = new PullRequestBuilder().overviewTabs(true).events([event]).build();
 			const context = new PRContext(pr);
 			context.setPR(pr);
-			sinon.stub(context, 'postMessage').resolves();
+			sinon.stub(context, 'postMessage').resolves({ deleted: true } satisfies DeleteCommentReply);
 			const out = render(
 				<PullRequestContext.Provider value={context}>
 					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
@@ -1906,6 +1944,133 @@ describe('Overview', function () {
 		assert.deepStrictEqual(context.pr?.events, []);
 		assert.strictEqual(context.pr?.currentUserReviewState, 'APPROVED');
 		assert.strictEqual(context.pr?.title, pr.title);
+	});
+
+	describe('button progress', function () {
+		function renderEditor(pr: PullRequest, stub?: (context: PRContext) => void) {
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			stub?.(context);
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			return { context, out };
+		}
+
+		/** A published review with one comment in a conversation. */
+		const reviewed = (isResolved: boolean): ReviewEvent => ({
+			id: 1, event: EventType.Reviewed, submittedAt: '', body: '', htmlUrl: '', user: new AccountBuilder().build(), authorAssociation: 'OWNER', state: 'COMMENTED',
+			comments: [{
+				id: 100, pullRequestReviewId: 1, threadId: 'thread', path: 'file.ts', body: 'Please change this', diffHunk: '', url: '', htmlUrl: '',
+				graphNodeId: 'comment-100', createdAt: '', user: new AccountBuilder().build(), isResolved, canDelete: true,
+			}],
+			reviewThreads: { thread: { threadId: 'thread', canResolve: true, canUnresolve: true, isResolved } },
+		});
+
+		/** React's warnings about updating the state of components that are no longer rendered. */
+		const unmountedUpdateWarnings = (consoleError: SinonSpy) => consoleError.getCalls()
+			.map(call => String(call.args[0]))
+			.filter(message => message.includes('unmounted component'));
+
+		it('says what the comment form submits until the review is submitted', async function () {
+			let finish!: (reply: SubmitReviewReply) => void;
+			const { context, out } = renderEditor(new PullRequestBuilder().isAuthor(false).pendingCommentText('Looks good').build(), context => {
+				sinon.stub(context, 'postMessage').returns(new Promise<SubmitReviewReply>(resolve => { finish = resolve; }));
+			});
+			const submit = out.container.querySelector<HTMLButtonElement>('#comment-form .split-left')!;
+
+			fireEvent.click(submit);
+			assert.strictEqual(submit.textContent, 'Commenting...');
+			assert.strictEqual(submit.disabled, true);
+
+			finish({ events: [], reviewedEvent: { ...reviewed(false), comments: [], reviewThreads: {}, body: 'Looks good' } });
+			await wait(() => assert.strictEqual(submit.textContent, 'Comment'));
+			assert.strictEqual(submit.disabled, false);
+			assert.strictEqual(context.pr?.pendingCommentText, '', 'the comment was submitted');
+		});
+
+		it('says what a review submitted from the context menu submits until it is submitted', function () {
+			const { context, out } = renderEditor(new PullRequestBuilder().isAuthor(false).build());
+			const submit = out.container.querySelector<HTMLButtonElement>('#comment-form .split-left')!;
+
+			act(() => {
+				context.handleMessage({ command: 'pr.submitting-review', lastReviewType: 'approve' });
+			});
+			assert.strictEqual(submit.textContent, 'Approving...');
+			assert.strictEqual(submit.disabled, true);
+
+			// A failed review clears busy without a reviewed event.
+			act(() => {
+				context.handleMessage({ command: 'pr.append-review' });
+			});
+			assert.strictEqual(submit.textContent, 'Approve');
+			assert.strictEqual(submit.disabled, false);
+		});
+
+		it('keeps a conversation as it is until resolving it is done', async function () {
+			let finish!: (events: TimelineEvent[]) => void;
+			const { out } = renderEditor(new PullRequestBuilder().events([reviewed(false)]).build(), context => {
+				sinon.stub(context, 'postMessage').returns(new Promise<TimelineEvent[]>(resolve => { finish = resolve; }));
+			});
+
+			fireEvent.click(out.getByText('Resolve Conversation'));
+			assert.strictEqual((out.getByText('Resolving Conversation...') as HTMLButtonElement).disabled, true);
+			assert(out.getByText('Hide'), 'the conversation stays expanded while it is resolved');
+
+			finish([reviewed(true)]);
+			await wait(() => assert(out.getByText('Show'), 'a resolved conversation is collapsed'));
+			assert.strictEqual(out.queryByText('Resolving Conversation...'), null);
+		});
+
+		it('keeps a comment when deleting it is cancelled', async function () {
+			const { context } = renderEditor(new PullRequestBuilder().events([reviewed(false)]).build(), context => {
+				sinon.stub(context, 'postMessage').resolves({ deleted: false } satisfies DeleteCommentReply);
+			});
+
+			await context.deleteComment({ id: 100, pullRequestReviewId: 1 });
+
+			const review = context.pr?.events[0];
+			assert(review?.event === EventType.Reviewed);
+			assert.strictEqual(review.comments.length, 1);
+		});
+
+		it('removes a deleted comment without updating its buttons once they are gone', async function () {
+			const consoleError = sinon.spy(console, 'error');
+			const { out } = renderEditor(new PullRequestBuilder().events([reviewed(false)]).build(), context => {
+				sinon.stub(context, 'postMessage').resolves({ deleted: true } satisfies DeleteCommentReply);
+			});
+
+			fireEvent.click(out.getByTitle('Delete comment'));
+
+			await wait(() => assert.strictEqual(out.container.querySelector('button[title^="Delet"]'), null));
+			assert.deepStrictEqual(unmountedUpdateWarnings(consoleError), []);
+		});
+
+		it('shows that the link was copied', async function () {
+			const { out } = renderEditor(new PullRequestBuilder().build(), context => {
+				sinon.stub(context, 'copyPrLink').resolves();
+			});
+			const copy = out.container.querySelector<HTMLButtonElement>('.overview-title button[title="Copy Link"]')!;
+
+			fireEvent.click(copy);
+
+			await wait(() => assert.strictEqual(copy.title, 'Copied'));
+		});
+
+		it('shows that it is refreshing in the Refresh button', async function () {
+			let finish!: () => void;
+			const { out } = renderEditor(new PullRequestBuilder().build(), context => {
+				sinon.stub(context, 'postMessage').returns(new Promise<void>(resolve => { finish = resolve; }));
+			});
+
+			fireEvent.click(out.getByText('Refresh'));
+			assert.strictEqual((out.getByText('Refreshing...') as HTMLButtonElement).disabled, true);
+
+			finish();
+			await wait(() => assert.strictEqual((out.getByText('Refresh') as HTMLButtonElement).disabled, false));
+		});
 	});
 
 	describe('stack recommendation', function () {
