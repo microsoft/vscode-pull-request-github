@@ -36,6 +36,7 @@ import {
 	NewIssueFileCompletionProvider,
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
+import { getIssueTemplateData } from './issueTemplate';
 import { openCodeLink } from './issueLinkLookup';
 import { IssuesTreeData, IssueUriTreeItem, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
@@ -1105,7 +1106,7 @@ ${body ?? ''}\n
 					try {
 						const content = await vscode.workspace.fs.readFile(uri);
 						const text = new TextDecoder('utf-8').decode(content);
-						const template = this.getDataFromTemplate(text);
+						const template = getIssueTemplateData(text);
 
 						return template;
 					} catch (e) {
@@ -1131,14 +1132,6 @@ ${body ?? ''}\n
 		});
 
 		return selectedTemplate?.template;
-	}
-
-	private getDataFromTemplate(template: string): IssueTemplate {
-		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
-		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
-		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
-		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
-		return { title, name, about, body };
 	}
 
 	private async doCreateIssue(
