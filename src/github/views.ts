@@ -3,21 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
 	ILabel,
 	IMilestone,
 	IProjectItem,
+	IssueReference,
 	MergeMethod,
 	MergeMethodsAvailability,
 	MergeQueueState,
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	PullRequestStack,
+	PullRequestStackRecommendation,
+	Reaction,
 	ReviewState,
+	StackAutoMerge,
+	StateReason,
 } from './interface';
+import type { StackMergeOutcome } from './pullRequestModel';
+import { IComment } from '../common/comment';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -25,7 +33,13 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
-export interface PullRequest {
+export interface DisplayLabel extends ILabel {
+	displayName: string;
+}
+
+export interface Issue {
+	owner: string;
+	repo: string;
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -34,20 +48,13 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
-	state: GithubItemStateEnum;
+	state: GithubItemStateEnum; // TODO: don't allow merged
+	stateReason?: StateReason;
 	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	isRemoteBaseDeleted?: boolean;
-	base: string;
-	isRemoteHeadDeleted?: boolean;
-	isLocalHeadDeleted?: boolean;
-	head: string;
-	labels: ILabel[];
+	labels: DisplayLabel[];
 	assignees: IAccount[];
-	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
-	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)
 	 */
@@ -59,16 +66,75 @@ export interface PullRequest {
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
+	isIssue: boolean;
+	isAuthor: boolean;
+	continueOnGitHub: boolean;
+	isDarkTheme: boolean;
+	isEnterprise: boolean;
+	canAssignCopilot: boolean;
+	canRequestCopilotReview: boolean;
+	reactions: Reaction[];
+	busy?: boolean;
+}
+
+/** Read-only content shown during a cold load; never persisted as a complete issue. */
+export type IssuePreview = Pick<Issue, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'stateReason'> & { isIssue: true };
+
+/** Read-only content shown during a cold load; never persisted as a complete PR. */
+export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'> & { isIssue?: false; stateReason?: undefined };
+
+export type OverviewItemPreview = IssuePreview | PullRequestPreview;
+
+export interface PullRequest extends Issue {
+	/**
+	 * `null` when the pull request is not in a stack, and `undefined` when that is not known yet.
+	 * Until `stackLoaded`, the merge status of the pull requests in it is not known.
+	 */
+	stack?: PullRequestStack | null;
+	canUpdateStack?: boolean;
+	stackLoaded?: boolean;
+	stackLoadError?: boolean;
+	stackMergeStatus?: 'pending' | 'enqueued';
+	/**
+	 * Auto-merge for the pull request together with the unmerged pull requests below it in its stack. `null` when it is
+	 * not in a stack, or that could not be loaded.
+	 */
+	stackAutoMerge?: StackAutoMerge | null;
+	stackRecommendation?: PullRequestStackRecommendation | null;
+	isCopilotOnMyBehalf: boolean;
+	/** Whether the overview is shown in the agents window, where pull requests are not checked out. */
+	isAgentSessionsWorkspace?: boolean;
+	/** The experimental setting to split the overview into tabs everywhere when `true`, or only in the agents window when `'agents'`. */
+	overviewTabs?: boolean | 'agents';
+	isCurrentlyCheckedOut: boolean;
+	isRemoteBaseDeleted?: boolean;
+	base: string;
+	isRemoteHeadDeleted?: boolean;
+	isLocalHeadDeleted?: boolean;
+	head: string;
+	/** The head branch with its owner and repository (`owner/repo:branch`), used in the default merge commit title. */
+	qualifiedHead: string;
+	commitsCount: number;
+	projectItems: IProjectItem[] | undefined;
+	repositoryDefaultBranch: string;
+	doneCheckoutBranch: string;
+	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
+	pendingReviewSummaryText?: string;
+	pendingAttestation?: boolean;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
+	canUpdateBranch: boolean;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
-	mergeQueueMethod: MergeMethod | undefined;
+	/** Use null to clear a previous value in serialized webview updates. */
+	mergeQueueMethod: MergeMethod | undefined | null;
 	mergeQueueEntry?: {
 		url: string;
 		position: number;
@@ -78,18 +144,217 @@ export interface PullRequest {
 	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
-	isIssue: boolean;
-	isAuthor?: boolean;
-	continueOnGitHub: boolean;
-	currentUserReviewState: string;
-	isDarkTheme: boolean;
-	isEnterprise: boolean;
+	currentUserReviewState?: string;
 	hasReviewDraft: boolean;
-
 	lastReviewType?: ReviewType;
+	revertable?: boolean;
 	busy?: boolean;
+	loadingCommit?: string;
+	generateDescriptionTitle?: string;
+	closingIssues?: IssueReference[];
+	attestationCommitsEnabled?: boolean;
 }
 
 export interface ProjectItemsReply {
 	projectItems: IProjectItem[] | undefined;
+}
+
+export interface ChangeAssigneesReply {
+	assignees: IAccount[];
+	events: TimelineEvent[];
+}
+
+export interface ChangeReviewersReply {
+	reviewers: ReviewState[];
+}
+
+export interface SubmitReviewReply {
+	events?: TimelineEvent[];
+	/**
+	 * Extra timeline events (e.g. a locally-constructed attestation commit) that the
+	 * webview should append to its existing timeline immediately before the
+	 * `reviewedEvent`. Lets callers avoid an extra `getTimelineEvents` round-trip when
+	 * they already know what changed.
+	 */
+	additionalEvents?: TimelineEvent[];
+	reviewedEvent: ReviewEvent | CommentEvent;
+	reviewers?: ReviewState[];
+}
+
+export interface SubmitReviewArgs {
+	body: string;
+	addAttestation?: boolean;
+}
+
+export interface ReadyForReviewReply {
+	isDraft: boolean;
+	reviewEvent?: ReviewEvent;
+	reviewers?: ReviewState[];
+	autoMerge?: boolean;
+}
+
+export interface ConvertToDraftReply {
+	isDraft: boolean;
+}
+
+export interface MergeArguments {
+	title: string | undefined;
+	description: string | undefined;
+	method: MergeMethod;
+	email?: string;
+}
+
+export interface MergeResult {
+	state: GithubItemStateEnum;
+	revertable: boolean;
+	events?: TimelineEvent[];
+}
+
+export interface MergeStackArgs {
+	method: MergeMethod;
+	/**
+	 * The pull request at or above this one to merge the stack up to, as the user confirmed it. Every open pull request
+	 * below it is merged with it. Defaults to this pull request.
+	 */
+	upTo?: number;
+}
+
+export interface StackMergeResult {
+	status: StackMergeOutcome;
+	state?: GithubItemStateEnum;
+}
+
+/** Enables or disables auto-merge for a stacked pull request together with the unmerged pull requests below it. */
+export interface UpdateStackAutoMergeArgs {
+	autoMerge: boolean;
+	autoMergeMethod: MergeMethod;
+	/**
+	 * The pull request that the request covering this one was enabled through when the user acted, if there was one.
+	 * Disabling a request disables it for every pull request it covers, so a request that changed since then is not acted on.
+	 */
+	expectedEnabledThrough: number | undefined;
+}
+
+export interface UnstackAllResult {
+	cancelled: boolean;
+	remainingPullRequests?: number[];
+}
+
+export interface UpdateStackResult {
+	updatedPullRequests: number[];
+}
+
+export interface CreateRecommendedStackArgs {
+	/** The previewed stack's pull requests from bottom to top, so a stale preview is not confirmed. */
+	pullRequests: number[];
+}
+
+export interface DeleteReviewResult {
+	deletedReviewId: number;
+	deletedReviewComments: IComment[];
+}
+
+export enum PreReviewState {
+	None = 0,
+	Available,
+	ReviewedWithComments,
+	ReviewedWithoutComments
+}
+
+export interface ChangeTemplateReply {
+	description: string;
+}
+
+export interface CancelCodingAgentReply {
+	events: TimelineEvent[];
+}
+
+export interface ApproveWorkflowRunsArgs {
+	workflowRunIds: number[];
+}
+
+export interface ApproveWorkflowRunsReply {
+	status: PullRequestChecks | null;
+	reviewRequirement: PullRequestReviewRequirement | null;
+}
+
+export interface FileUploadPlaceholder {
+	name: string;
+	placeholder: string;
+}
+
+export interface UploadFilesReply {
+	uploads: FileUploadPlaceholder[];
+}
+
+export interface UploadPastedFilesArgs {
+	files: { name: string; type: string; bytesBase64: string }[];
+}
+
+export interface FileUploadCompletedMessage {
+	command: 'pr.file-upload-completed';
+	name: string;
+	placeholder: string;
+	markdown?: string;
+	error?: string;
+}
+
+export interface BaseContext {
+	'preventDefaultContextMenuItems': true;
+	owner: string;
+	repo: string;
+	number: number;
+	url?: string;
+	[key: string]: boolean | string | number | undefined;
+}
+
+export interface OverviewContext extends BaseContext {
+	'github:checkoutMenu': true;
+}
+
+export interface ReadyForReviewContext extends BaseContext {
+	'github:readyForReviewMenu': true;
+}
+
+export interface ReadyForReviewAndMergeContext extends ReadyForReviewContext {
+	'github:readyForReviewMenuWithMerge': true;
+	mergeMethod: MergeMethod;
+}
+
+export interface CodingAgentContext extends SessionLinkInfo {
+	'preventDefaultContextMenuItems': true;
+	'github:codingAgentMenu': true;
+	[key: string]: boolean | string | number | undefined;
+}
+
+export interface ReviewCommentContext {
+	'preventDefaultContextMenuItems': true;
+	'github:reviewCommentMenu': true,
+	owner: string;
+	repo: string;
+	number: number;
+	body: string;
+	addAttestation?: boolean;
+	'github:reviewCommentApprove'?: boolean;
+	'github:reviewCommentApproveOnDotCom'?: boolean;
+	'github:reviewCommentComment'?: boolean;
+	'github:reviewCommentCommentEnabled'?: boolean;
+	'github:reviewCommentRequestChanges'?: boolean;
+	'github:reviewRequestChangesEnabled'?: boolean;
+	'github:reviewCommentRequestChangesOnDotCom'?: boolean;
+}
+
+export interface ChangeBaseReply {
+	base: string;
+	events: TimelineEvent[];
+}
+
+/**
+ * Represents an unresolved PR or issue identity - just enough info to show the overview
+ * panel before the full model is loaded.
+ */
+export interface UnresolvedIdentity {
+	owner: string;
+	repo: string;
+	number: number;
 }

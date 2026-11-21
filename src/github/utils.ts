@@ -7,48 +7,74 @@
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
-import { GitApiImpl } from '../api/api1';
-import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
-import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
-import { GitHubRef } from '../common/githubRef';
-import Logger from '../common/logger';
-import { Remote } from '../common/remote';
-import { Resource } from '../common/resources';
-import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
-import * as Common from '../common/timelineEvent';
-import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
+	AccountType,
+	GithubItemStateEnum,
 	IAccount,
 	IActor,
 	IGitHubRef,
+	IIssueComment,
 	ILabel,
 	IMilestone,
 	IProjectItem,
 	Issue,
+	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
 	MergeQueueEntry,
 	MergeQueueState,
+	Notification,
+	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	PullRequestStack,
+	Reaction,
 	reviewerId,
 	reviewerLabel,
 	ReviewState,
+	toAccountType,
 	User,
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
 import { PullRequestModel } from './pullRequestModel';
+import { RemoteInfo } from '../../common/types';
+import { Repository } from '../api/api';
+import { GitApiImpl } from '../api/api1';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
+import { COPILOT_REVIEWER, COPILOT_SWE_AGENT } from '../common/copilot';
+import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { emojify } from '../common/emoji';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import * as Common from '../common/timelineEvent';
+import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { compareIgnoreCase, escapeRegExp, gitHubLabelColor, isObject, processDiffLinks as processDiffLinksCore, processPermalinks as processPermalinksCore, stringReplaceAsync, uniqBy } from '../common/utils';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
+
+/**
+ * Returns an issue/URL regex matching the appropriate GitHub host. When a
+ * GitHub Enterprise URI is provided, that host is used in addition to
+ * github.com so that issue URLs from the enterprise instance are recognized.
+ * The capture group layout matches `ISSUE_OR_URL_EXPRESSION` for use with
+ * `parseIssueExpressionOutput`.
+ */
+export function getIssueOrURLExpression(enterpriseUri?: vscode.Uri): RegExp {
+	const hostPattern = enterpriseUri
+		? `(?:github\\.com|${escapeRegExp(enterpriseUri.authority)})`
+		: 'github\\.com';
+	return new RegExp(`(https?:\\/\\/${hostPattern}\\/(([^\\s]+)\\/([^\\s]+))\\/([^\\s]+\\/)?(issues|pull)\\/([0-9]+)(#issuecomment\\-([0-9]+))?)|(([A-Za-z0-9_.\\-]+)\\/([A-Za-z0-9_.\\-]+))?(#|GH-)([1-9][0-9]*)($|\\b)`);
+}
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -91,30 +117,53 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 	return new vscode.Range(startLine, 0, endLine, endCharacter);
 }
 
+export async function setReplyAuthor(thread: vscode.CommentThread | vscode.CommentThread2, currentUser: IAccount, context: vscode.ExtensionContext) {
+	if (currentUser.avatarUrl) {
+		const thread2 = thread as vscode.CommentThread2;
+		if (!DataUri.isGitHubDotComAvatar(currentUser.avatarUrl)) {
+			thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: undefined };
+			return;
+		}
+		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: vscode.Uri.parse(currentUser.avatarUrl) };
+		const uri = await DataUri.avatarCirclesAsImageDataUris(context, [currentUser], 28, 28);
+		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: uri[0] };
+	} else {
+		thread.canReply = true;
+	}
+}
+
 export function createVSCodeCommentThreadForReviewThread(
 	context: vscode.ExtensionContext,
 	uri: vscode.Uri,
 	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
-	currentUser: string,
-	githubRepository?: GitHubRepository
+	currentUser: IAccount,
+	githubRepositories?: GitHubRepository[]
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
-	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepository));
-	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepositories));
+	const resolved = isResolvedToResolvedState(thread.isResolved);
+	let applicability = vscode.CommentThreadApplicability.Current;
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (thread.viewerCanUnresolve && thread.isResolved) {
 		vscodeThread.contextValue = 'canUnresolve';
 	}
+	if (thread.isOutdated) {
+		vscodeThread.contextValue += 'outdated';
+		applicability = vscode.CommentThreadApplicability.Outdated;
+	}
+	vscodeThread.state = { resolved, applicability };
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser.login);
+
+	setReplyAuthor(vscodeThread, currentUser, context);
 
 	return vscodeThread as GHPRCommentThread;
 }
@@ -125,14 +174,22 @@ function isResolvedToResolvedState(isResolved: boolean) {
 
 export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
+export const COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE = 'collapsePreexisting';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
-export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
-	if (thread.isResolved
-		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser))) {
+export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string, isNewlyAdded?: boolean) {
+	const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
+	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
+	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
+
+	// When collapsePreexisting is set, keep newly added comments expanded
+	if (config === COMMENT_EXPAND_STATE_COLLAPSE_PREEXISTING_VALUE && isNewlyAdded && !isJustSuggestion) {
+		return vscode.CommentThreadCollapsibleState.Expanded;
+	}
+
+	if (thread.isResolved || (!thread.isOutdated && isFromCurrent && !isJustSuggestion)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
-		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 		expand = config === COMMENT_EXPAND_STATE_EXPAND_VALUE;
 	}
 	return expand
@@ -140,7 +197,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, isNewlyAdded?: boolean) {
 	if (!vscodeThread.range) {
 		return;
 	}
@@ -149,24 +206,32 @@ export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeTh
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(context, vscodeThread, reviewThread, githubRepository, expand, range);
+			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range, undefined, isNewlyAdded);
 			break;
 		}
 	}
 }
 
-export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean, range?: vscode.Range) {
+export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range, currentUser?: string, isNewlyAdded?: boolean) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canUnresolve';
 	}
 
-	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
-	if (vscodeThread.state !== newResolvedState) {
-		vscodeThread.state = newResolvedState;
+	if (reviewThread.isOutdated) {
+		vscodeThread.contextValue += 'outdated';
 	}
-	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
+
+	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
+	const newApplicabilityState = reviewThread.isOutdated ? vscode.CommentThreadApplicability.Outdated : vscode.CommentThreadApplicability.Current;
+	if ((vscodeThread.state?.resolved !== newResolvedState) || (vscodeThread.state?.applicability !== newApplicabilityState)) {
+		vscodeThread.state = {
+			resolved: newResolvedState,
+			applicability: newApplicabilityState
+		};
+	}
+	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand, currentUser, isNewlyAdded);
 	if (range) {
 		vscodeThread.range = range;
 	}
@@ -180,20 +245,21 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 			index++;
 		}
 	} else {
-		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepository));
+		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepositories));
 	}
+
 	updateCommentThreadLabel(vscodeThread);
 }
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
-	if (thread.state === vscode.CommentThreadState.Resolved) {
+	if (thread.state?.resolved === vscode.CommentThreadState.Resolved) {
 		thread.label = vscode.l10n.t('Marked as resolved');
 		return;
 	}
 
 	if (thread.comments.length) {
-		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name)
-			.map(comment => `@${comment.author.name}`)
+		const participantsList = uniqBy(thread.comments, comment => comment.originalAuthor.name)
+			.map(comment => `@${comment.originalAuthor.name}`)
 			.join(', ');
 		thread.label = vscode.l10n.t('Participants: {0}', participantsList);
 	} else {
@@ -217,6 +283,7 @@ export function updateCommentReactions(comment: vscode.Comment, reactions: React
 				authorHasReacted: matchedReaction.viewerHasReacted,
 				count: matchedReaction.count,
 				iconPath: reaction.icon || '',
+				reactors: matchedReaction.reactors.map(reactor => ({ name: reactor }))
 			};
 		} else {
 			newReaction = { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
@@ -254,12 +321,7 @@ export function convertRESTUserToAccount(
 	user: OctokitCommon.PullsListResponseItemUser,
 	githubRepository?: GitHubRepository,
 ): IAccount {
-	return {
-		login: user.login,
-		url: user.html_url,
-		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : user.avatar_url,
-		id: user.node_id
-	};
+	return parseAccount(user, githubRepository);
 }
 
 export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
@@ -269,11 +331,78 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
-			isInOrganization: !!head.repo.organization,
+			isInOrganization: head.repo.owner.type === 'Organization',
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
 	};
+}
+
+async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: GitHubRepository): Promise<string> {
+	const issueRegex = new RegExp(
+		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`, 'g');
+	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
+		if (issuesOrPull === 'issues') {
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}"`;
+		} else {
+			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
+		}
+	});
+}
+
+/**
+ * Process GitHub blob permalinks in HTML and add data attributes for local file handling.
+ * Finds blob permalinks (e.g., /blob/[sha]/file.ts#L10), checks if files exist locally,
+ * and adds data attributes to enable clicking to open local files.
+ */
+export async function processPermalinks(
+	bodyHTML: string,
+	githubRepository: GitHubRepository,
+	rootUri: vscode.Uri
+): Promise<string> {
+	try {
+		const repoName = githubRepository.remote.repositoryName;
+		const authority = githubRepository.remote.gitProtocol.url.authority;
+
+		// Create file existence check callback
+		const fileExistsCheck = async (filePath: string): Promise<boolean> => {
+			try {
+				const localFileUri = vscode.Uri.joinPath(rootUri, filePath);
+				const stat = await vscode.workspace.fs.stat(localFileUri);
+				return stat.type === vscode.FileType.File;
+			} catch {
+				return false;
+			}
+		};
+
+		return await processPermalinksCore(bodyHTML, repoName, authority, fileExistsCheck);
+	} catch (error) {
+		Logger.error(`Failed to process blob permalinks in HTML: ${error}`, 'processPermalinks');
+		return bodyHTML;
+	}
+}
+
+/**
+ * Process GitHub diff permalinks in HTML and add data attributes for local file handling.
+ * Finds diff permalinks (e.g., /pull/123/files#diff-[hash]R10), maps hashes to filenames,
+ * and adds data attributes to enable clicking to open diff views.
+ */
+export async function processDiffLinks(
+	bodyHTML: string,
+	githubRepository: GitHubRepository,
+	hashMap: Record<string, string> | (() => Promise<Record<string, string>>),
+	prNumber: number
+): Promise<string> {
+	try {
+		const repoName = githubRepository.remote.repositoryName;
+		const repoOwner = githubRepository.remote.owner;
+		const authority = githubRepository.remote.gitProtocol.url.authority;
+
+		return await processDiffLinksCore(bodyHTML, repoOwner, repoName, authority, hashMap, prNumber);
+	} catch (error) {
+		Logger.error(`Failed to process diff permalinks in HTML: ${error}`, 'processDiffLinks');
+		return bodyHTML;
+	}
 }
 
 export function convertRESTPullRequestToRawPullRequest(
@@ -323,11 +452,14 @@ export function convertRESTPullRequestToRawPullRequest(
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 		projectItems: [], // projects only available through GraphQL API
 		commits: [], // commits only available through GraphQL API
+		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
+		commentCount: 0 // comment count only available through GraphQL API
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
-	if ('mergeable' in pullRequest) {
-		item.mergeable = pullRequest.mergeable
+	if ((pullRequest as OctokitCommon.PullsGetResponseData).mergeable !== undefined) {
+		item.mergeable = (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
 			? PullRequestMergeability.Mergeable
 			: PullRequestMergeability.NotMergeable;
 	}
@@ -338,7 +470,7 @@ export function convertRESTPullRequestToRawPullRequest(
 export function convertRESTIssueToRawPullRequest(
 	pullRequest: OctokitCommon.IssuesCreateResponseData,
 	githubRepository: GitHubRepository,
-): PullRequest {
+): Issue {
 	const {
 		number,
 		body,
@@ -352,9 +484,10 @@ export function convertRESTIssueToRawPullRequest(
 		labels,
 		node_id,
 		id,
+		comments
 	} = pullRequest;
 
-	const item: PullRequest = {
+	const item: Issue = {
 		id,
 		graphNodeId: node_id,
 		number,
@@ -372,9 +505,10 @@ export function convertRESTIssueToRawPullRequest(
 		labels: labels.map<ILabel>(l =>
 			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
-		suggestedReviewers: [], // suggested reviewers only available through GraphQL API,
 		projectItems: [], // projects only available through GraphQL API
-		commits: [], // commits only available through GraphQL API
+		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
+		commentCount: comments
 	};
 
 	return item;
@@ -387,7 +521,7 @@ export function convertRESTReviewEvent(
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
-		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
+		submittedAt: review.submitted_at,
 		body: review.body,
 		bodyHTML: review.body,
 		htmlUrl: review.html_url,
@@ -395,6 +529,7 @@ export function convertRESTReviewEvent(
 		authorAssociation: review.user!.type,
 		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
 		id: review.id,
+		reactions: undefined // reactions only available through GraphQL API
 	};
 }
 
@@ -422,6 +557,8 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Milestoned;
 		case 'AssignedEvent':
 			return Common.EventType.Assigned;
+		case 'UnassignedEvent':
+			return Common.EventType.Unassigned;
 		case 'HeadRefDeletedEvent':
 			return Common.EventType.HeadRefDeleted;
 		case 'IssueComment':
@@ -430,7 +567,44 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Reviewed;
 		case 'MergedEvent':
 			return Common.EventType.Merged;
-
+		case 'CrossReferencedEvent':
+			return Common.EventType.CrossReferenced;
+		case 'ClosedEvent':
+			return Common.EventType.Closed;
+		case 'ReopenedEvent':
+			return Common.EventType.Reopened;
+		case 'BaseRefChangedEvent':
+			return Common.EventType.BaseRefChanged;
+		case 'UnlabeledEvent':
+			return Common.EventType.Unlabeled;
+		case 'DemilestonedEvent':
+			return Common.EventType.Demilestoned;
+		case 'RenamedTitleEvent':
+			return Common.EventType.RenamedTitle;
+		case 'ReviewRequestedEvent':
+			return Common.EventType.ReviewRequested;
+		case 'ReviewRequestRemovedEvent':
+			return Common.EventType.ReviewRequestRemoved;
+		case 'ReadyForReviewEvent':
+			return Common.EventType.ReadyForReview;
+		case 'ConvertToDraftEvent':
+			return Common.EventType.ConvertToDraft;
+		case 'HeadRefForcePushedEvent':
+			return Common.EventType.HeadRefForcePushed;
+		case 'HeadRefRestoredEvent':
+			return Common.EventType.HeadRefRestored;
+		case 'ReviewDismissedEvent':
+			return Common.EventType.ReviewDismissed;
+		case 'AutoMergeEnabledEvent':
+		case 'AutoSquashEnabledEvent':
+		case 'AutoRebaseEnabledEvent':
+			return Common.EventType.AutoMergeEnabled;
+		case 'AutoMergeDisabledEvent':
+			return Common.EventType.AutoMergeDisabled;
+		case 'AddedToMergeQueueEvent':
+			return Common.EventType.AddedToMergeQueue;
+		case 'RemovedFromMergeQueueEvent':
+			return Common.EventType.RemovedFromMergeQueue;
 		default:
 			return Common.EventType.Other;
 	}
@@ -440,7 +614,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
-			thread.comments.edges[0].node.pullRequestReview.databaseId :
+			thread.comments.edges[0].node.pullRequestReview?.databaseId :
 			undefined,
 		isResolved: thread.isResolved,
 		viewerCanResolve: thread.viewerCanResolve,
@@ -452,16 +626,18 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, thread.isOutdated, githubRepository, thread.id)),
 		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, isOutdated: boolean, githubRepository: GitHubRepository, threadId?: string): IComment {
+	const specialAuthor = COPILOT_ACCOUNTS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
+		specialDisplayBodyPostfix: specialAuthor?.postComment,
 		bodyHTML: comment.bodyHTML,
 		path: comment.path,
 		canEdit: comment.viewerCanDelete,
@@ -469,10 +645,10 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		pullRequestReviewId: comment.pullRequestReview && comment.pullRequestReview.databaseId,
 		diffHunk: comment.diffHunk,
 		position: comment.position,
-		commitId: comment.commit.oid,
+		commitId: comment.commit?.oid,
 		originalPosition: comment.originalPosition,
-		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author ? parseAuthor(comment.author, githubRepository) : undefined,
+		originalCommitId: comment.originalCommit?.oid,
+		user: comment.author ? parseAccount(comment.author, githubRepository) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -480,6 +656,8 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
 		reactions: parseGraphQLReaction(comment.reactionGroups),
 		isResolved,
+		isOutdated,
+		threadId
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -493,14 +671,16 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
+		specialDisplayBodyPostfix: COPILOT_ACCOUNTS[comment.author?.login ?? '']?.postComment,
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
-		user: parseAuthor(comment.author, githubRepository),
+		user: parseAccount(comment.author, githubRepository),
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
 		diffHunk: '',
+		reactions: parseGraphQLReaction(comment.reactionGroups)
 	};
 }
 
@@ -508,16 +688,17 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	const reactionContentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
+	}, {} as { [key: string]: { title: string; label: string; icon?: string } });
 
 	const reactions = reactionGroups
-		.filter(group => group.users.totalCount > 0)
+		.filter(group => group.reactors.totalCount > 0)
 		.map(group => {
 			const reaction: Reaction = {
 				label: reactionContentEmojiMapping[group.content].label,
-				count: group.users.totalCount,
+				count: group.reactors.totalCount,
 				icon: reactionContentEmojiMapping[group.content].icon,
 				viewerHasReacted: group.viewerHasReacted,
+				reactors: group.reactors.nodes.map(node => COPILOT_ACCOUNTS[node.login]?.name ?? node.login)
 			};
 
 			return reaction;
@@ -544,25 +725,108 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 	};
 }
 
-function parseAuthor(
-	author: { login: string; url: string; avatarUrl: string; email?: string, id: string } | null,
-	githubRepository: GitHubRepository,
+export interface RestAccount {
+	login: string;
+	html_url: string;
+	avatar_url: string;
+	email?: string | null;
+	node_id: string;
+	name?: string | null;
+	type: string;
+}
+
+export interface GraphQLAccount {
+	login: string;
+	url: string;
+	avatarUrl: string;
+	email?: string;
+	id: string;
+	name?: string;
+	__typename: string;
+}
+
+export function parseAccount(
+	author: GraphQLAccount | RestAccount | null,
+	githubRepository?: GitHubRepository,
 ): IAccount {
 	if (author) {
+		let avatarUrl: string;
+		let id: string;
+		let url: string;
+		let accountType: string;
+		if ((author as RestAccount).html_url) {
+			const asRestAccount = author as RestAccount;
+			avatarUrl = asRestAccount.avatar_url;
+			id = asRestAccount.node_id;
+			url = asRestAccount.html_url;
+			accountType = asRestAccount.type;
+		} else {
+			const asGraphQLAccount = author as GraphQLAccount;
+			avatarUrl = asGraphQLAccount.avatarUrl;
+			id = asGraphQLAccount.id;
+			url = asGraphQLAccount.url;
+			accountType = asGraphQLAccount.__typename;
+		}
+
+		// In some places, Copilot comes in as a user, and in others as a bot
+
+		const finalAvatarUrl = githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl;
+
 		return {
 			login: author.login,
-			url: author.url,
-			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
-			email: author.email,
-			id: author.id
+			url: COPILOT_ACCOUNTS[author.login]?.url ?? url,
+			avatarUrl: finalAvatarUrl,
+			email: author.email ?? undefined,
+			id,
+			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
+			specialDisplayName: COPILOT_ACCOUNTS[author.login] ? (author.name ?? COPILOT_ACCOUNTS[author.login].name) : undefined,
+			accountType: toAccountType(accountType),
 		};
 	} else {
 		return {
 			login: '',
 			url: '',
-			id: ''
+			id: '',
+			accountType: AccountType.User
 		};
 	}
+}
+
+function parseTeam(team: GraphQL.Team, githubRepository: GitHubRepository): ITeam {
+	return {
+		name: team.name,
+		url: team.url,
+		avatarUrl: getAvatarWithEnterpriseFallback(team.avatarUrl, undefined, githubRepository.remote.isEnterprise),
+		id: team.id,
+		org: githubRepository.remote.owner,
+		slug: team.slug
+	};
+}
+
+/**
+ * Returns undefined for reviewers that can't be displayed, such as teams queried without the additional scopes needed to read their details.
+ */
+function parseRequestedReviewer(reviewer: GraphQL.Actor | GraphQL.Account | GraphQL.Team | GraphQL.Node | null, githubRepository: GitHubRepository): IAccount | ITeam | undefined {
+	if (GraphQL.isTeam(reviewer)) {
+		return parseTeam(reviewer, githubRepository);
+	} else if (GraphQL.isAccount(reviewer) || GraphQL.isBot(reviewer)) {
+		return parseAccount(reviewer, githubRepository);
+	}
+	return undefined;
+}
+
+export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, repository: GitHubRepository): (IAccount | ITeam)[] {
+	if (!data.repository) {
+		return [];
+	}
+	const reviewers: (IAccount | ITeam)[] = [];
+	for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
+		const parsed = parseRequestedReviewer(reviewer.requestedReviewer, repository);
+		if (parsed) {
+			reviewers.push(parsed);
+		}
+	}
+	return reviewers;
 }
 
 function parseActor(
@@ -673,10 +937,22 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
-export function parseGraphQLPullRequest(
+/** Whether a GraphQL error only reports that the server does not have the pull request stack fields. */
+export function isStacksUnsupportedError(error: unknown): boolean {
+	const graphQLErrors = isObject(error) ? error.graphQLErrors : undefined;
+	return Array.isArray(graphQLErrors) && graphQLErrors.length > 0 && graphQLErrors.every((graphQLError: unknown) => {
+		if (!isObject(graphQLError) || !isObject(graphQLError.extensions)) {
+			return false;
+		}
+		const { code, typeName, fieldName } = graphQLError.extensions;
+		return code === 'undefinedField' && typeName === 'PullRequest' && (fieldName === 'stack' || fieldName === 'stackEntry');
+	});
+}
+
+export async function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
-): PullRequest {
+): Promise<PullRequest> {
 	const pr: PullRequest = {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
@@ -684,7 +960,7 @@ export function parseGraphQLPullRequest(
 		number: graphQLPullRequest.number,
 		state: graphQLPullRequest.state,
 		body: graphQLPullRequest.body,
-		bodyHTML: graphQLPullRequest.bodyHTML,
+		bodyHTML: await transformHtmlUrlsToExtensionUrls(graphQLPullRequest.bodyHTML, githubRepository),
 		title: graphQLPullRequest.title,
 		titleHTML: graphQLPullRequest.titleHTML,
 		createdAt: graphQLPullRequest.createdAt,
@@ -693,25 +969,84 @@ export function parseGraphQLPullRequest(
 		head: parseRef(graphQLPullRequest.headRef?.name ?? graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
 		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
-		user: parseAuthor(graphQLPullRequest.author, githubRepository),
+		user: parseAccount(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
+		hasComments: graphQLPullRequest.reviewThreads.totalCount > 0,
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,
+		viewerCanUpdate: graphQLPullRequest.viewerCanUpdate,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
 		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
 		projectItems: parseProjectItems(graphQLPullRequest.projectItems?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
-		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
+		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
+		reactionCount: graphQLPullRequest.reactions.totalCount,
+		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
+		commentCount: graphQLPullRequest.comments.totalCount,
+		additions: graphQLPullRequest.additions,
+		deletions: graphQLPullRequest.deletions,
+		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes),
+		stack: parseStackSummary(graphQLPullRequest),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
 	return pr;
+}
+
+/** A pull request in a stack, with its merge status unknown. */
+export function parseStackEntry(entry: GraphQL.StackEntryNode): PullRequestStack['pullRequests'][number] {
+	const { pullRequest } = entry;
+	return {
+		position: entry.position,
+		number: pullRequest.number,
+		title: pullRequest.title,
+		url: pullRequest.url,
+		head: pullRequest.headRefName,
+		state: pullRequest.state,
+		isDraft: pullRequest.isDraft,
+		mergeable: PullRequestMergeability.Unknown,
+	};
+}
+
+/** `undefined` when the stack was not selected, which GitHub Enterprise does not do. */
+export function parseStackSummary(summary: GraphQL.PullRequestStackSummary): PullRequestStack | null | undefined {
+	const { stack, stackEntry } = summary;
+	if (stack === undefined) {
+		return undefined;
+	}
+	if (!stack || !stackEntry) {
+		return null;
+	}
+	return {
+		position: stackEntry.position,
+		size: stack.size,
+		base: stack.baseRefName,
+		pullRequests: stack.entries.nodes.map(parseStackEntry).sort((a, b) => a.position - b.position),
+	};
+}
+
+/**
+ * The base and head branch labels shown in the pull request overview. The owner is only shown when
+ * the base and head owners differ, and the repository name only when the workspace has multiple repositories.
+ */
+export function getPullRequestBranchLabels(
+	repositoryName: string,
+	base: { owner: string; ref: string },
+	head: { owner: string; ref: string } | undefined,
+	showRepositoryName: boolean,
+): { base: string; head: string } {
+	const showOwner = !!head && compareIgnoreCase(base.owner, head.owner) !== 0;
+	const label = ({ owner, ref }: { owner: string; ref: string }): string => {
+		const prefix = [showOwner ? owner : undefined, showRepositoryName ? repositoryName : undefined].filter(part => !!part).join('/');
+		return prefix ? `${prefix}:${ref}` : ref;
+	};
+	return { base: label(base), head: head ? label(head) : '' };
 }
 
 function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {
@@ -721,10 +1056,11 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 
 	let title = '';
 	let description = '';
+	const prNumberPostfix = `(#${pullRequest.number})`;
 
 	switch (titleSource) {
 		case GraphQL.DefaultCommitTitle.prTitle: {
-			title = `${pullRequest.title} (#${pullRequest.number})`;
+			title = `${pullRequest.title} ${prNumberPostfix}`;
 			break;
 		}
 		case GraphQL.DefaultCommitTitle.mergeMessage: {
@@ -733,9 +1069,9 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 		}
 		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
 			if (pullRequest.commits.length === 1) {
-				title = pullRequest.commits[0].message;
+				title = `${pullRequest.commits[0].message.split('\n')[0]} ${prNumberPostfix}`;
 			} else {
-				title = pullRequest.title;
+				title = `${pullRequest.title} ${prNumberPostfix}`;
 			}
 			break;
 		}
@@ -746,7 +1082,12 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 			break;
 		}
 		case GraphQL.DefaultCommitMessage.commitMessages: {
-			description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			if ((pullRequest.commits.length === 1) && (titleSource === GraphQL.DefaultCommitTitle.commitOrPrTitle)) {
+				const split = pullRequest.commits[0].message.split('\n');
+				description = split.length > 1 ? split.slice(1).join('\n').trim() : '';
+			} else {
+				description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			}
 			break;
 		}
 		case GraphQL.DefaultCommitMessage.prTitle: {
@@ -773,38 +1114,59 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 		author: IAccount;
 		body: string;
 		databaseId: number;
+		reactionCount: number;
+		createdAt: string;
 	}[] = [];
 	for (const comment of comments) {
 		parsedComments.push({
-			author: parseAuthor(comment.author, githubRepository),
+			author: parseAccount(comment.author, githubRepository),
 			body: comment.body,
 			databaseId: comment.databaseId,
+			reactionCount: comment.reactions.totalCount,
+			createdAt: comment.createdAt
 		});
 	}
 
 	return parsedComments;
 }
 
-export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {
+export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHubRepository): Promise<Issue> {
 	return {
 		id: issue.databaseId,
 		graphNodeId: issue.id,
 		url: issue.url,
 		number: issue.number,
 		state: issue.state,
+		stateReason: issue.stateReason,
 		body: issue.body,
-		bodyHTML: issue.bodyHTML,
+		bodyHTML: await transformHtmlUrlsToExtensionUrls(issue.bodyHTML, githubRepository),
 		title: issue.title,
 		titleHTML: issue.titleHTML,
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
-		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
-		user: parseAuthor(issue.author, githubRepository),
+		assignees: issue.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
+		user: parseAccount(issue.author, githubRepository),
 		labels: issue.labels.nodes,
+		milestone: parseMilestone(issue.milestone),
 		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
+		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
+		reactionCount: issue.reactions.totalCount,
+		reactions: parseGraphQLReaction(issue.reactionGroups),
+		commentCount: issue.comments.totalCount,
+		issueType: issue.issueType?.name
+	};
+}
+
+function parseIssueComment(comment: GraphQL.AbbreviatedIssueComment, githubRepository: GitHubRepository): IIssueComment {
+	return {
+		author: parseAccount(comment.author, githubRepository),
+		body: comment.body,
+		databaseId: comment.databaseId,
+		reactionCount: comment.reactions.totalCount,
+		createdAt: comment.createdAt,
 	};
 }
 
@@ -815,18 +1177,31 @@ function parseSuggestedReviewers(
 		return [];
 	}
 	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
+		const account = parseAccount(suggestedReviewer.reviewer, undefined);
 		return {
-			login: suggestedReviewer.reviewer.login,
-			avatarUrl: suggestedReviewer.reviewer.avatarUrl,
-			name: suggestedReviewer.reviewer.name,
-			url: suggestedReviewer.reviewer.url,
+			...account,
 			isAuthor: suggestedReviewer.isAuthor,
-			isCommenter: suggestedReviewer.isCommenter,
-			id: suggestedReviewer.reviewer.id
+			isCommenter: suggestedReviewer.isCommenter
 		};
 	});
 
 	return ret.sort(loginComparator);
+}
+
+function parseClosingIssuesReferences(
+	closingIssuesReferences: Array<{ databaseId: number, number: number, title: string, state: string, url: string }> | undefined
+): IssueReference[] {
+	if (!closingIssuesReferences) {
+		return [];
+	}
+
+	return closingIssuesReferences.map(issue => ({
+		id: issue.databaseId,
+		number: issue.number,
+		title: issue.title,
+		state: issue.state === 'OPEN' ? GithubItemStateEnum.Open : GithubItemStateEnum.Closed,
+		url: issue.url,
+	}));
 }
 
 /**
@@ -840,8 +1215,8 @@ export function loginComparator(a: IAccount, b: IAccount) {
  * Used for case insensitive sort by team name
  */
 export function teamComparator(a: ITeam, b: ITeam) {
-	const aKey = a.name ?? a.slug;
-	const bKey = b.name ?? b.slug;
+	const aKey = a.name ?? a.slug ?? a.id;
+	const bKey = b.name ?? b.slug ?? b.id;
 	// sensitivity: 'accent' allows case insensitive comparison
 	return aKey.localeCompare(bKey, 'en', { sensitivity: 'accent' });
 }
@@ -852,119 +1227,471 @@ export function parseGraphQLReviewEvent(
 ): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, githubRepository)).filter(c => !c.inReplyToId),
+		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, false, githubRepository)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,
 		htmlUrl: review.url,
-		user: parseAuthor(review.author, githubRepository),
+		user: parseAccount(review.author, githubRepository),
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId,
+		reactions: parseGraphQLReaction(review.reactionGroups),
 	};
 }
 
-export function parseGraphQLTimelineEvents(
-	events: (
-		| GraphQL.MergedEvent
-		| GraphQL.Review
-		| GraphQL.IssueComment
-		| GraphQL.Commit
-		| GraphQL.AssignedEvent
-		| GraphQL.HeadRefDeletedEvent
-	)[],
-	githubRepository: GitHubRepository,
+export function parseSelectRestTimelineEvents(
+	issueModel: IssueModel,
+	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
+	const parsedEvents: Common.TimelineEvent[] = [];
+
+	const prSessionLink: Common.SessionPullInfo = {
+		id: issueModel.id,
+		host: issueModel.githubRepository.remote.gitProtocol.host,
+		owner: issueModel.githubRepository.remote.owner,
+		repo: issueModel.githubRepository.remote.repositoryName,
+		pullNumber: issueModel.number,
+	};
+
+	let sessionIndex = 0;
+	for (const event of events) {
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount, performed_via_github_app?: { slug: string } | null };
+		if (eventNode.created_at && eventNode.node_id) {
+			if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotStarted,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor),
+					sessionLink: {
+						...prSessionLink,
+						sessionIndex
+					}
+				});
+			} else if (event.event === 'copilot_work_finished' && eventNode.performed_via_github_app?.slug === COPILOT_SWE_AGENT) {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinished,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+				sessionIndex++;
+			} else if (event.event === 'copilot_work_finished_failure') {
+				sessionIndex++;
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinishedError,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor),
+					sessionLink: {
+						...prSessionLink,
+						sessionIndex
+					}
+				});
+			} else if (event.event === 'copilot_work_started' && eventNode.performed_via_github_app?.slug === COPILOT_REVIEWER) {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotReviewStarted,
+					createdAt: eventNode.created_at,
+				});
+			}
+		}
+	}
+
+	return parsedEvents;
+}
+
+export function eventTime(event: Common.TimelineEvent): Date | undefined {
+	switch (event.event) {
+		case Common.EventType.Committed:
+			return new Date(event.committedDate);
+		case Common.EventType.Commented:
+		case Common.EventType.Assigned:
+		case Common.EventType.HeadRefDeleted:
+		case Common.EventType.Merged:
+		case Common.EventType.CrossReferenced:
+		case Common.EventType.Closed:
+		case Common.EventType.Reopened:
+		case Common.EventType.CopilotStarted:
+		case Common.EventType.CopilotFinished:
+		case Common.EventType.CopilotFinishedError:
+		case Common.EventType.CopilotReviewStarted:
+		case Common.EventType.Labeled:
+		case Common.EventType.Unlabeled:
+		case Common.EventType.Milestoned:
+		case Common.EventType.Demilestoned:
+		case Common.EventType.RenamedTitle:
+		case Common.EventType.ReviewRequested:
+		case Common.EventType.ReviewRequestRemoved:
+		case Common.EventType.ReadyForReview:
+		case Common.EventType.ConvertToDraft:
+		case Common.EventType.HeadRefForcePushed:
+		case Common.EventType.HeadRefRestored:
+		case Common.EventType.ReviewDismissed:
+		case Common.EventType.AutoMergeEnabled:
+		case Common.EventType.AutoMergeDisabled:
+		case Common.EventType.AddedToMergeQueue:
+		case Common.EventType.RemovedFromMergeQueue:
+			return new Date(event.createdAt);
+		case Common.EventType.Reviewed:
+			return new Date(event.submittedAt);
+		default:
+			return undefined;
+	}
+}
+
+function autoMergeMethod(typename: string): MergeMethod | undefined {
+	switch (typename) {
+		case 'AutoSquashEnabledEvent':
+			return 'squash';
+		case 'AutoRebaseEnabledEvent':
+			return 'rebase';
+		default:
+			return undefined;
+	}
+}
+
+export async function parseCombinedTimelineEvents(
+	events: (GraphQL.TimelineItem | null)[],
+	restEvents: Common.TimelineEvent[],
+	githubRepository: GitHubRepository,
+): Promise<Common.TimelineEvent[]> {
 	const normalizedEvents: Common.TimelineEvent[] = [];
-	events.forEach(event => {
+	let restEventIndex = -1;
+	let restEventTime: number | undefined;
+	const incrementRestEvent = () => {
+		restEventIndex++;
+		restEventTime = restEvents.length > restEventIndex ? eventTime(restEvents[restEventIndex])?.getTime() : undefined;
+	};
+	incrementRestEvent();
+	const addTimelineEvent = (event: Common.TimelineEvent) => {
+		if (!restEventTime) {
+			normalizedEvents.push(event);
+			return;
+		}
+		const newEventTime = eventTime(event)?.getTime();
+		if (newEventTime) {
+			while (restEventTime && newEventTime > restEventTime) {
+				normalizedEvents.push(restEvents[restEventIndex]);
+				incrementRestEvent();
+			}
+		}
+		normalizedEvents.push(event);
+	};
+
+	// TODO: work the rest events into the appropriate place in the timeline
+	for (const event of events) {
+		// Every timeline item type that a query selects includes its id. Skip the types it doesn't select.
+		if (!event?.id) {
+			continue;
+		}
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
 			case Common.EventType.Commented:
 				const commentEvent = event as GraphQL.IssueComment;
-				normalizedEvents.push({
+				addTimelineEvent({
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
-					user: parseAuthor(commentEvent.author, githubRepository),
+					user: parseAccount(commentEvent.author, githubRepository),
 					event: type,
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
 					id: commentEvent.databaseId,
 					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
+					reactions: parseGraphQLReaction(commentEvent.reactionGroups),
 				});
-				return;
+				break;
 			case Common.EventType.Reviewed:
 				const reviewEvent = event as GraphQL.Review;
-				normalizedEvents.push({
+				addTimelineEvent({
 					event: type,
 					comments: [],
 					submittedAt: reviewEvent.submittedAt,
 					body: reviewEvent.body,
 					bodyHTML: reviewEvent.bodyHTML,
 					htmlUrl: reviewEvent.url,
-					user: parseAuthor(reviewEvent.author, githubRepository),
+					user: parseAccount(reviewEvent.author, githubRepository),
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
+					reactions: parseGraphQLReaction(reviewEvent.reactionGroups),
 				});
-				return;
+				break;
 			case Common.EventType.Committed:
 				const commitEv = event as GraphQL.Commit;
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
-					author: commitEv.commit.author.user
-						? parseAuthor(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.committer.name },
+					author: commitEv.commit.author?.user
+						? parseAccount(commitEv.commit.author.user, githubRepository)
+						: { login: commitEv.commit.committer?.name ?? '' },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
-					authoredDate: new Date(commitEv.commit.authoredDate),
+					committedDate: new Date(commitEv.commit.committedDate),
+					verification: commitEv.commit.signature ? {
+						verified: commitEv.commit.signature.isValid,
+						state: commitEv.commit.signature.state,
+						wasSignedByGitHub: commitEv.commit.signature.wasSignedByGitHub,
+						signer: commitEv.commit.signature.signer ? {
+							login: commitEv.commit.signature.signer.login,
+							name: commitEv.commit.signature.signer.name ?? undefined,
+							avatarUrl: commitEv.commit.signature.signer.avatarUrl,
+						} : undefined,
+						keyId: commitEv.commit.signature.keyId ?? undefined,
+						keyFingerprint: commitEv.commit.signature.keyFingerprint ?? undefined,
+						email: commitEv.commit.signature.email ?? undefined,
+					} : undefined,
+					status: commitEv.commit.statusCheckRollup?.state
 				} as Common.CommitEvent); // TODO remove cast
-				return;
+				break;
 			case Common.EventType.Merged:
 				const mergeEv = event as GraphQL.MergedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: mergeEv.id,
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
-					mergeRef: mergeEv.mergeRef.name,
+					mergeRef: mergeEv.mergeRef?.name ?? mergeEv.mergeRefName,
 					sha: mergeEv.commit.oid,
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
 					graphNodeId: mergeEv.id,
 				});
-				return;
+				break;
 			case Common.EventType.Assigned:
 				const assignEv = event as GraphQL.AssignedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: assignEv.id,
 					event: type,
-					user: parseAuthor(assignEv.user, githubRepository),
-					actor: assignEv.actor,
+					assignees: [parseAccount(assignEv.user, githubRepository)],
+					actor: parseAccount(assignEv.actor),
+					createdAt: assignEv.createdAt,
 				});
-				return;
+				break;
+			case Common.EventType.Unassigned:
+				const unassignEv = event as GraphQL.UnassignedEvent;
+
+				normalizedEvents.push({
+					id: unassignEv.id,
+					event: type,
+					unassignees: [parseAccount(unassignEv.user, githubRepository)],
+					actor: parseAccount(unassignEv.actor),
+					createdAt: unassignEv.createdAt,
+				});
+				break;
 			case Common.EventType.HeadRefDeleted:
 				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: deletedEv.id,
 					event: type,
-					actor: parseActor(deletedEv.actor, githubRepository),
+					actor: parseAccount(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
-				return;
+				break;
+			case Common.EventType.CrossReferenced:
+				const crossRefEv = event as GraphQL.CrossReferencedEvent;
+				if (!crossRefEv.source) {
+					break;
+				}
+				const isIssue = crossRefEv.source.__typename === 'Issue';
+				const extensionUrl = isIssue
+					? await toOpenIssueWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, issueNumber: crossRefEv.source.number })
+					: await toOpenPullRequestWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, pullRequestNumber: crossRefEv.source.number });
+				addTimelineEvent({
+					id: crossRefEv.id,
+					event: type,
+					actor: parseAccount(crossRefEv.actor, githubRepository),
+					createdAt: crossRefEv.createdAt,
+					source: {
+						url: crossRefEv.source.url,
+						extensionUrl: extensionUrl.toString(),
+						number: crossRefEv.source.number,
+						title: crossRefEv.source.title,
+						isIssue,
+						owner: crossRefEv.source.repository.owner.login,
+						repo: crossRefEv.source.repository.name,
+					},
+					willCloseTarget: crossRefEv.willCloseTarget
+				});
+				break;
+			case Common.EventType.Closed:
+				const closedEv = event as GraphQL.ClosedEvent;
+
+				addTimelineEvent({
+					id: closedEv.id,
+					event: type,
+					actor: parseAccount(closedEv.actor, githubRepository),
+					createdAt: closedEv.createdAt,
+				});
+				break;
+			case Common.EventType.Reopened:
+				const reopenedEv = event as GraphQL.ReopenedEvent;
+
+				addTimelineEvent({
+					id: reopenedEv.id,
+					event: type,
+					actor: parseAccount(reopenedEv.actor, githubRepository),
+					createdAt: reopenedEv.createdAt,
+				});
+				break;
+			case Common.EventType.BaseRefChanged:
+				const baseRefChangedEv = event as GraphQL.BaseRefChangedEvent;
+
+				addTimelineEvent({
+					id: baseRefChangedEv.id,
+					event: type,
+					actor: parseAccount(baseRefChangedEv.actor, githubRepository),
+					createdAt: baseRefChangedEv.createdAt,
+					currentRefName: baseRefChangedEv.currentRefName,
+					previousRefName: baseRefChangedEv.previousRefName,
+				});
+				break;
+			case Common.EventType.Labeled:
+			case Common.EventType.Unlabeled:
+				const labelEv = event as GraphQL.LabeledEvent;
+
+				addTimelineEvent({
+					id: labelEv.id,
+					event: type,
+					actor: parseAccount(labelEv.actor, githubRepository),
+					createdAt: labelEv.createdAt,
+					label: {
+						name: labelEv.label.name,
+						color: labelEv.label.color,
+						displayName: emojify(labelEv.label.name),
+					},
+				});
+				break;
+			case Common.EventType.Milestoned:
+			case Common.EventType.Demilestoned:
+				const milestoneEv = event as GraphQL.MilestonedEvent;
+
+				addTimelineEvent({
+					id: milestoneEv.id,
+					event: type,
+					actor: parseAccount(milestoneEv.actor, githubRepository),
+					createdAt: milestoneEv.createdAt,
+					milestoneTitle: milestoneEv.milestoneTitle,
+				});
+				break;
+			case Common.EventType.RenamedTitle:
+				const renamedEv = event as GraphQL.RenamedTitleEvent;
+
+				addTimelineEvent({
+					id: renamedEv.id,
+					event: type,
+					actor: parseAccount(renamedEv.actor, githubRepository),
+					createdAt: renamedEv.createdAt,
+					previousTitle: renamedEv.previousTitle,
+					currentTitle: renamedEv.currentTitle,
+				});
+				break;
+			case Common.EventType.ReviewRequested:
+			case Common.EventType.ReviewRequestRemoved:
+				const reviewRequestEv = event as GraphQL.ReviewRequestedEvent;
+				const reviewer = parseRequestedReviewer(reviewRequestEv.requestedReviewer, githubRepository);
+				if (!reviewer) {
+					break;
+				}
+
+				addTimelineEvent({
+					id: reviewRequestEv.id,
+					event: type,
+					actor: parseAccount(reviewRequestEv.actor, githubRepository),
+					createdAt: reviewRequestEv.createdAt,
+					reviewer,
+				});
+				break;
+			case Common.EventType.ReadyForReview:
+			case Common.EventType.ConvertToDraft:
+			case Common.EventType.AddedToMergeQueue:
+				const actorEv = event as GraphQL.ActorTimelineEvent;
+
+				addTimelineEvent({
+					id: actorEv.id,
+					event: type,
+					actor: parseAccount(actorEv.actor, githubRepository),
+					createdAt: actorEv.createdAt,
+				});
+				break;
+			case Common.EventType.HeadRefForcePushed:
+				const forcePushedEv = event as GraphQL.HeadRefForcePushedEvent;
+
+				addTimelineEvent({
+					id: forcePushedEv.id,
+					event: type,
+					actor: parseAccount(forcePushedEv.actor, githubRepository),
+					createdAt: forcePushedEv.createdAt,
+					headRef: forcePushedEv.pullRequest.headRefName,
+					beforeCommit: forcePushedEv.beforeCommit ? { sha: forcePushedEv.beforeCommit.oid, url: forcePushedEv.beforeCommit.commitUrl } : undefined,
+					afterCommit: forcePushedEv.afterCommit ? { sha: forcePushedEv.afterCommit.oid, url: forcePushedEv.afterCommit.commitUrl } : undefined,
+				});
+				break;
+			case Common.EventType.HeadRefRestored:
+				const restoredEv = event as GraphQL.HeadRefRestoredEvent;
+
+				addTimelineEvent({
+					id: restoredEv.id,
+					event: type,
+					actor: parseAccount(restoredEv.actor, githubRepository),
+					createdAt: restoredEv.createdAt,
+					headRef: restoredEv.pullRequest.headRefName,
+				});
+				break;
+			case Common.EventType.ReviewDismissed:
+				const dismissedEv = event as GraphQL.ReviewDismissedEvent;
+
+				addTimelineEvent({
+					id: dismissedEv.id,
+					event: type,
+					actor: parseAccount(dismissedEv.actor, githubRepository),
+					createdAt: dismissedEv.createdAt,
+					reviewAuthor: dismissedEv.review?.author ? parseAccount(dismissedEv.review.author, githubRepository) : undefined,
+					dismissalMessage: dismissedEv.dismissalMessage ?? undefined,
+				});
+				break;
+			case Common.EventType.AutoMergeEnabled:
+				const autoMergeEnabledEv = event as GraphQL.AutoMergeEnabledEvent;
+
+				addTimelineEvent({
+					id: autoMergeEnabledEv.id,
+					event: type,
+					actor: parseAccount(autoMergeEnabledEv.actor, githubRepository),
+					createdAt: autoMergeEnabledEv.createdAt,
+					mergeMethod: autoMergeMethod(autoMergeEnabledEv.__typename),
+				});
+				break;
+			case Common.EventType.AutoMergeDisabled:
+			case Common.EventType.RemovedFromMergeQueue:
+				const reasonEv = event as GraphQL.AutoMergeDisabledEvent | GraphQL.RemovedFromMergeQueueEvent;
+
+				addTimelineEvent({
+					id: reasonEv.id,
+					event: type,
+					actor: parseAccount(reasonEv.actor, githubRepository),
+					createdAt: reasonEv.createdAt,
+					reason: reasonEv.reason ?? undefined,
+				});
+				break;
 			default:
 				break;
 		}
-	});
+	}
 
+	// Add any remaining rest events
+	while (restEventTime) {
+		normalizedEvents.push(restEvents[restEventIndex]);
+		incrementRestEvent();
+	}
 	return normalizedEvents;
 }
 
@@ -978,7 +1705,8 @@ export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: G
 		company: user.user.company,
 		location: user.user.location,
 		commitContributions: parseGraphQLCommitContributions(user.user.contributionsCollection),
-		id: user.user.id
+		id: user.user.id,
+		accountType: toAccountType(user.user.__typename)
 	};
 }
 
@@ -997,62 +1725,54 @@ function parseGraphQLCommitContributions(
 	return items;
 }
 
-export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
+export function getReactionGroup(): { title: string; label: string; icon?: string }[] {
 	const ret = [
 		{
 			title: 'THUMBS_UP',
 			// allow-any-unicode-next-line
-			label: '👍',
-			icon: Resource.icons.reactions.THUMBS_UP,
+			label: '👍'
 		},
 		{
 			title: 'THUMBS_DOWN',
 			// allow-any-unicode-next-line
-			label: '👎',
-			icon: Resource.icons.reactions.THUMBS_DOWN,
+			label: '👎'
 		},
 		{
 			title: 'LAUGH',
 			// allow-any-unicode-next-line
-			label: '😄',
-			icon: Resource.icons.reactions.LAUGH,
+			label: '😄'
 		},
 		{
 			title: 'HOORAY',
 			// allow-any-unicode-next-line
-			label: '🎉',
-			icon: Resource.icons.reactions.HOORAY,
+			label: '🎉'
 		},
 		{
 			title: 'CONFUSED',
 			// allow-any-unicode-next-line
-			label: '😕',
-			icon: Resource.icons.reactions.CONFUSED,
+			label: '😕'
 		},
 		{
 			title: 'HEART',
 			// allow-any-unicode-next-line
-			label: '❤️',
-			icon: Resource.icons.reactions.HEART,
+			label: '❤️'
 		},
 		{
 			title: 'ROCKET',
 			// allow-any-unicode-next-line
-			label: '🚀',
-			icon: Resource.icons.reactions.ROCKET,
+			label: '🚀'
 		},
 		{
 			title: 'EYES',
 			// allow-any-unicode-next-line
-			label: '👀',
-			icon: Resource.icons.reactions.EYES,
+			label: '👀'
 		},
 	];
 
 	return ret;
 }
 
-export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(request: R, variables: Parameters<R>[0]): Promise<T[]> {
+export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(request: R, variables: Parameters<R>[0], per_page: number = 100): Promise<T[]> {
 	let page = 1;
 	let results: T[] = [];
 	let hasNextPage = false;
@@ -1060,8 +1780,9 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 	do {
 		const result = await request(
 			{
+				// eslint-disable-next-line rulesdir/no-cast-to-any
 				...(variables as any),
-				per_page: 100,
+				per_page,
 				page
 			}
 		);
@@ -1078,11 +1799,11 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 }
 
 export function getRelatedUsersFromTimelineEvents(
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 ): { login: string; name: string }[] {
 	const ret: { login: string; name: string }[] = [];
 
-	timelineEvents.forEach(event => {
+	timelineEvents?.forEach(event => {
 		if (event.event === Common.EventType.Committed) {
 			ret.push({
 				login: event.author.login,
@@ -1097,7 +1818,7 @@ export function getRelatedUsersFromTimelineEvents(
 			});
 		}
 
-		if (event.event === Common.EventType.Commented) {
+		if ((event.event === Common.EventType.Commented) && event.user) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
@@ -1152,10 +1873,10 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  */
 export function parseReviewers(
 	requestedReviewers: (IAccount | ITeam)[],
-	timelineEvents: Common.TimelineEvent[],
+	timelineEvents: Common.TimelineEvent[] | undefined,
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents?.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING') || [];
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 
@@ -1163,12 +1884,13 @@ export function parseReviewers(
 	seen.set(author.login, true);
 
 	for (let i = reviewEvents.length - 1; i >= 0; i--) {
-		const reviewer = reviewEvents[i].user;
-		if (!seen.get(reviewer.login)) {
+		const reviewEvent = reviewEvents[i];
+		const reviewer = reviewEvent.user;
+		if (reviewEvent.state && !seen.get(reviewer.login)) {
 			seen.set(reviewer.login, true);
 			reviewers.push({
 				reviewer: reviewer,
-				state: reviewEvents[i].state,
+				state: reviewEvent.state,
 			});
 		}
 	}
@@ -1201,71 +1923,123 @@ export function parseReviewers(
 	return reviewers;
 }
 
+export function parseNotification(notification: OctokitCommon.Notification): Notification | undefined {
+	if (!notification.subject.url) {
+		return undefined;
+	}
+	const owner = notification.repository.owner.login;
+	const name = notification.repository.name;
+	const itemID = notification.subject.url.split('/').pop();
+
+	return {
+		owner,
+		name,
+		key: getNotificationKey(owner, name, itemID!),
+		id: notification.id,
+		itemID: itemID!,
+		subject: {
+			title: notification.subject.title,
+			type: notification.subject.type as NotificationSubjectType,
+			url: notification.subject.url
+		},
+		lastReadAt: notification.last_read_at ? new Date(notification.last_read_at) : undefined,
+		reason: notification.reason,
+		unread: notification.unread,
+		updatedAt: new Date(notification.updated_at),
+	};
+}
+
+export function getNotificationKey(owner: string, name: string, itemID: string): string {
+	return `${owner}/${name}#${itemID}`;
+}
+
 export function insertNewCommitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
 	latestReviewCommitOid: string | undefined,
 	currentUser: string,
 	head: GitHubRef | null
 ) {
-	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
-		let lastViewerReviewIndex: number = timelineEvents.length - 1;
-		let comittedDuringReview: boolean = false;
-		let interReviewCommits: Common.TimelineEvent[] = [];
+	if (!latestReviewCommitOid || !head || head.sha === latestReviewCommitOid) {
+		return;
+	}
 
-		for (let i = timelineEvents.length - 1; i > 0; i--) {
-			if (
-				timelineEvents[i].event === Common.EventType.Committed &&
-				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
-			) {
-				interReviewCommits.unshift({
-					id: latestReviewCommitOid,
-					event: Common.EventType.NewCommitsSinceReview
-				});
-				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);
+	// Find the current user's most recent review.
+	let reviewIndex = -1;
+	let reviewTime: number | undefined;
+	for (let i = timelineEvents.length - 1; i >= 0; i--) {
+		if (
+			timelineEvents[i].event === Common.EventType.Reviewed &&
+			(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
+		) {
+			reviewIndex = i;
+			const submittedAt = (timelineEvents[i] as Common.ReviewEvent).submittedAt;
+			reviewTime = submittedAt ? new Date(submittedAt).getTime() : undefined;
+			break;
+		}
+	}
+
+	if (reviewIndex === -1) {
+		return;
+	}
+
+	// Insert the marker just before the first commit that occurred AFTER the
+	// review (so commits pushed before the review, e.g. an attestation commit,
+	// stay in their chronological place).
+	let insertIndex = -1;
+	for (let i = reviewIndex + 1; i < timelineEvents.length; i++) {
+		if (timelineEvents[i].event === Common.EventType.Committed) {
+			const committedDate = (timelineEvents[i] as Common.CommitEvent).committedDate;
+			const committedTime = committedDate ? new Date(committedDate).getTime() : undefined;
+			if (reviewTime === undefined || committedTime === undefined || committedTime > reviewTime) {
+				insertIndex = i;
 				break;
-			}
-			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
-				interReviewCommits.unshift(timelineEvents[i]);
-				timelineEvents.splice(i, 1);
-			}
-			else if (
-				!comittedDuringReview &&
-				timelineEvents[i].event === Common.EventType.Reviewed &&
-				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
-			) {
-				lastViewerReviewIndex = i;
-				comittedDuringReview = true;
 			}
 		}
 	}
+
+	if (insertIndex === -1) {
+		// No commits occurred after the user's most recent review - skip the
+		// marker entirely. Placing it before the review event (e.g. next to a
+		// pre-review attestation commit) would contradict its "New changes
+		// since your last Review" label.
+		return;
+	}
+
+	timelineEvents.splice(insertIndex, 0, {
+		id: latestReviewCommitOid,
+		event: Common.EventType.NewCommitsSinceReview
+	});
 }
 
-export function getPRFetchQuery(repo: string, user: string, query: string): string {
+export function getPRFetchQuery(user: string, query: string): string {
 	const filter = query.replace(/\$\{user\}/g, user);
-	return `is:pull-request ${filter} type:pr repo:${repo}`;
+	return `is:pull-request ${filter} type:pr`;
+}
+
+/**
+ * Parse a GitHub search query for a state qualifier (e.g. `is:open`, `is:closed`, `is:merged`).
+ * Returns the corresponding GithubItemStateEnum if found, or undefined if no state is specified.
+ * GitHub's search API can return stale results that don't match the requested state,
+ * so callers can use this to post-filter.
+ */
+export function getStateFromQuery(query: string): GithubItemStateEnum | undefined {
+	const match = query.match(/(?:^|\s)is:(?<state>open|closed|merged)(?:\s|$)/i);
+	if (!match?.groups?.state) {
+		return undefined;
+	}
+	switch (match.groups.state.toLowerCase()) {
+		case 'open':
+			return GithubItemStateEnum.Open;
+		case 'closed':
+			return GithubItemStateEnum.Closed;
+		case 'merged':
+			return GithubItemStateEnum.Merged;
+	}
+	return undefined;
 }
 
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
-}
-
-export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
-}
-
-export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
-	if (config) {
-		let uri = vscode.Uri.parse(config, true);
-		if (uri.scheme === 'http') {
-			uri = uri.with({ scheme: 'https' });
-		}
-		return uri;
-	}
-}
-
-export function hasEnterpriseUri(): boolean {
-	return !!getEnterpriseUri();
 }
 
 export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
@@ -1273,8 +2047,21 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 }
 
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
-	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
-		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+
+	// For non-enterprise, always use the provided avatarUrl
+	if (!isEnterpriseRemote) {
+		return avatarUrl;
+	}
+
+	// For enterprise, prefer GitHub avatarUrl if available, fallback to Gravatar only if needed
+	if (avatarUrl && avatarUrl.trim()) {
+		return avatarUrl;
+	}
+
+	// Only fallback to Gravatar if no avatarUrl is available and email is provided
+	const gravatarUrl = email ? generateGravatarUrl(
+		crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex')) : undefined;
+	return gravatarUrl;
 }
 
 export function getPullsUrl(repo: GitHubRepository) {
@@ -1291,35 +2078,80 @@ export function sanitizeIssueTitle(title: string): string {
 	return title.replace(regex, '').trim().substring(0, 150).replace(/\s+/g, '-');
 }
 
-const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
-export async function variableSubstitution(
+const SINCE_VALUE_PATTERN = /-([0-9]+)([d])/;
+function computeSinceValue(sinceValue: string | undefined): string {
+	const match = sinceValue ? SINCE_VALUE_PATTERN.exec(sinceValue) : undefined;
+	const date = new Date();
+	if (match && match.length === 3 && match[2] === 'd') {
+		const dateOffset = parseInt(match[1]) * (24 * 60 * 60 * 1000);
+		date.setTime(date.getTime() - dateOffset);
+	}
+	const month = `${date.getMonth() + 1}`;
+	const day = `${date.getDate()}`;
+	return `${date.getFullYear()}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+const COPILOT_PATTERN = /\:(Copilot|copilot)(\s|$)/g;
+
+const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
+export function variableSubstitution(
 	value: string,
 	issueModel?: IssueModel,
 	defaults?: PullRequestDefaults,
 	user?: string,
-): Promise<string> {
-	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+): string {
+	const withVariables = value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
+		let result: string;
 		switch (variable) {
 			case 'user':
-				return user ? user : match;
+				result = user ? user : match;
+				break;
 			case 'issueNumber':
-				return issueModel ? `${issueModel.number}` : match;
+				result = issueModel ? `${issueModel.number}` : match;
+				break;
 			case 'issueNumberLabel':
-				return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				result = issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				break;
 			case 'issueTitle':
-				return issueModel ? issueModel.title : match;
+				result = issueModel ? issueModel.title : match;
+				break;
 			case 'repository':
-				return defaults ? defaults.repo : match;
+				result = defaults ? defaults.repo : match;
+				break;
 			case 'owner':
-				return defaults ? defaults.owner : match;
+				result = defaults ? defaults.owner : match;
+				break;
 			case 'sanitizedIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				result = issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				break;
 			case 'sanitizedLowercaseIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				break;
+			case 'issueType':
+				result = issueModel?.item.issueType ? issueModel.item.issueType : match;
+				break;
+			case 'sanitizedIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType) : match;
+				break;
+			case 'sanitizedLowercaseIssueType':
+				result = issueModel?.item.issueType ? sanitizeIssueTitle(issueModel.item.issueType).toLowerCase() : match;
+				break;
+			case 'today':
+				result = computeSinceValue(extra);
+				break;
 			default:
-				return match;
+				result = match;
+				break;
 		}
+		Logger.debug(`${match} -> ${result}`, 'VariableSubstitution');
+		return result;
 	});
+
+	// not a variable, but still a substitution that needs to be done
+	const withCopilot = withVariables.replace(COPILOT_PATTERN, () => {
+		return `:${COPILOT_SWE_AGENT}[bot] `;
+	});
+	return withCopilot;
 }
 
 export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
@@ -1369,7 +2201,52 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 	return { dotComRemotes, enterpriseRemotes, unknownRemotes };
 }
 
-export function vscodeDevPrLink(pullRequest: PullRequestModel) {
-	const itemUri = vscode.Uri.parse(pullRequest.html_url);
+export function vscodeDevPrLink(pullRequest: IssueModel) {
+	return vscodeDevPrLinkFromUrl(pullRequest.html_url);
+}
+
+export function vscodeDevPrLinkFromUrl(url: string) {
+	const itemUri = vscode.Uri.parse(url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
+}
+
+export function codespacesPrLink(pullRequest: PullRequestModel): string {
+	const repoFullName = `${pullRequest.head!.owner}/${pullRequest.remote.repositoryName}`;
+	const branch = pullRequest.head!.ref;
+	return `https://github.com/codespaces/new/${encodeURIComponent(repoFullName)}/tree/${encodeURIComponent(branch)}`;
+}
+
+export function makeLabel(label: ILabel): string {
+	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+	const labelColor = gitHubLabelColor(label.color, isDarkTheme, true);
+	const labelName = emojify(label.name.trim());
+	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${labelName}&nbsp;&nbsp;</span>`;
+}
+
+
+export enum UnsatisfiedChecks {
+	None = 0,
+	ReviewRequired = 1 << 0,
+	ChangesRequested = 1 << 1,
+	CIFailed = 1 << 2,
+	CIPending = 1 << 3,
+	Unknown = 1 << 4
+}
+
+export async function extractRepoFromQuery(folderManager: FolderRepositoryManager, query: string | undefined): Promise<RemoteInfo | undefined> {
+	if (!query) {
+		return undefined;
+	}
+
+	const defaults = await folderManager.getPullRequestDefaults();
+	// Use a fake user since we only care about pulling out the repo and repo owner
+	const substituted = variableSubstitution(query, undefined, defaults, 'fakeUser');
+
+	const repoRegex = /(?:^|\s)repo:(?:"?(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)"?)/i;
+	const repoMatch = repoRegex.exec(substituted);
+	if (repoMatch && repoMatch.groups) {
+		return { owner: repoMatch.groups.owner, repositoryName: repoMatch.groups.repo };
+	}
+
+	return undefined;
 }

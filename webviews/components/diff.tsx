@@ -25,8 +25,8 @@ const Hunk = ({ hunk, maxLines = 8 }: { hunk: DiffHunk; maxLines?: number }) => 
 			<div key={keyForDiffLine(line)} className={`diffLine ${getDiffChangeClass(line.type)}`}>
 				<LineNumber num={line.oldLineNumber} />
 				<LineNumber num={line.newLineNumber} />
-				<div className="diffTypeSign">{(line as any)._raw.substr(0, 1)}</div>
-				<div className="lineContent">{(line as any)._raw.substr(1)}</div>
+				<div className="diffTypeSign">{line.raw.substr(0, 1)}</div>
+				<div className="lineContent">{line.raw.substr(1)}</div>
 			</div>
 		))}
 	</>

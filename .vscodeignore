@@ -11,7 +11,9 @@ documentation/**
 node_modules/**
 scripts/**
 src/**
+!src/lm/skills/**
 webviews/**
+**/test/**
 .eslintcache*
 .eslintignore
 .eslintrc*
@@ -20,14 +22,15 @@ webviews/**
 .gitignore-revs
 .prettierignore
 .prettierrc
-.yarnrc
+package-lock.json
 azure-pipeline.*
 **/tsconfig*.json
 *.tsbuildinfo
 **/webpack.config*.js
-yarn.lock
+npm-debug.log
 **/*.map
 **/*.svg
+!**/*_webview.svg
 **/*.ts
 *.vsix
 **/*.bak

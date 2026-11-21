@@ -4,129 +4,390 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AuthProvider } from '../common/authentication';
-import { commands, contexts } from '../common/executeCommands';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
-import { ITelemetry } from '../common/telemetry';
-import { EXTENSION_ID } from '../constants';
-import { CredentialStore } from '../github/credentials';
-import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
-import { PRType } from '../github/interface';
-import { NotificationProvider } from '../github/notifications';
-import { PullRequestModel } from '../github/pullRequestModel';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
 import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
-import { DecorationProvider } from './treeDecorationProvider';
+import { StackCandidate } from '../../common/views';
+import { getEnterpriseUris } from '../authentication/configuration';
+import { AuthProvider } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { AUTO_REFRESH_QUERIES, FILE_LIST_LAYOUT, GITHUB_ENTERPRISE, PR_SETTINGS_NAMESPACE, PULL_REQUEST_AVATAR_DISPLAY, QUERIES, REMOTES, SHOW_PULL_REQUEST_NUMBER_IN_TREE, URI, URIS } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { createPRNodeIdentifier } from '../common/uri';
+import { formatError } from '../common/utils';
+import { EXTENSION_ID } from '../constants';
+import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { PullRequestChangeEvent } from '../github/githubRepository';
+import { MergeMethod, PRType } from '../github/interface';
+import { escapeMarkdownText, issueMarkdown } from '../github/markdownUtils';
+import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import { addPullRequestsToStack, getStackAutoMergeOffer, getStackCandidateForPullRequests, orderStackablePullRequests, refreshPullRequestsForStack } from '../github/pullRequestStack';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
-import { BaseTreeNode, EXPANDED_QUERIES_STATE, TreeNode } from './treeNodes/treeNode';
-import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { PRNode } from './treeNodes/pullRequestNode';
+import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { NotificationsManager } from '../notifications/notificationsManager';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
-	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
+export function getEnterpriseAuthenticationMessage(remotes: readonly Remote[], instances: readonly vscode.Uri[], selectedInstance: vscode.Uri | undefined): string | undefined {
+	const unavailable = remotes.filter(remote => remote.isEnterprise && (!selectedInstance || !remote.matchesServerUri(selectedInstance)));
+	const configured = unavailable.filter(remote => instances.some(instance => remote.matchesServerUri(instance)));
+	const unconfigured = unavailable.filter(remote => !instances.some(instance => remote.matchesServerUri(instance)));
+	const instanceLabel = (uri: vscode.Uri) => `${uri.authority}${uri.path.replace(/\/+$/, '')}`;
+	const hosts = (remotes: readonly Remote[]) => [...new Set(remotes.map(remote => instanceLabel(vscode.Uri.parse(remote.normalizedHost))))].join(', ');
+	const messages: string[] = [];
+	if (configured.length) {
+		messages.push(selectedInstance
+			? vscode.l10n.t('Using {0} for GitHub Enterprise.\n\nSelect an account for {1} to view its repositories.', instanceLabel(selectedInstance), hosts(configured))
+			: vscode.l10n.t('Select a GitHub Enterprise account to view repositories on {0}.', hosts(configured)));
+	}
+	if (unconfigured.length) {
+		messages.push(vscode.l10n.t('Add {0} to your GitHub Enterprise instances in Settings.', hosts(unconfigured)));
+	}
+	return messages.length ? messages.join('\n\n') : undefined;
+}
+
+function hasConfiguredEnterpriseInstances(): boolean {
+	try {
+		return getEnterpriseUris().length > 0;
+	} catch {
+		// Invalid configuration also has to be fixed in the settings.
+		return true;
+	}
+}
+
+function enterpriseSettingsMessage(text: string | undefined, actions: { github: boolean; githubEnterprise: boolean; configure: boolean }): vscode.MarkdownString | undefined {
+	if (!text) {
+		return undefined;
+	}
+	const message = new vscode.MarkdownString(escapeMarkdownText(text));
+	message.isTrusted = { enabledCommands: ['pr.signinNoEnterprise', 'pr.selectEnterpriseAccount', 'workbench.action.openSettings'] };
+	if (actions.githubEnterprise) {
+		message.appendMarkdown(`\n\n[${vscode.l10n.t('Select Account')}](command:pr.selectEnterpriseAccount)`);
+	}
+	if (actions.github) {
+		message.appendMarkdown(`\n[${vscode.l10n.t('Sign in with GitHub.com')}](command:pr.signinNoEnterprise)`);
+	}
+	if (actions.configure) {
+		const settingsQuery = encodeURIComponent(JSON.stringify([`${GITHUB_ENTERPRISE}.${URIS}`]));
+		message.appendMarkdown(`\n[${vscode.l10n.t('Configure GitHub Enterprise')}](command:workbench.action.openSettings?${settingsQuery})`);
+	}
+	return message;
+}
+
+/**
+ * @returns The action that stacks the pull requests and, when some have auto-merge enabled, `autoMergeAction`, which also
+ * enables auto-merge for the entire stack with `stackAutoMergeMethod`, as the detail describes. `action` then disables it.
+ */
+export function getAddToStackConfirmation(ordered: readonly PullRequestModel[], candidate: StackCandidate,
+	autoMerge: readonly PullRequestModel[] = []): { message: string; detail: string; action: string; autoMergeAction?: string; stackAutoMergeMethod?: MergeMethod } {
+	const existing = candidate.stackNumber !== undefined;
+	const additions = ordered.slice(1);
+	const message = existing
+		? additions.length === 1
+			? vscode.l10n.t('Add 1 pull request to an existing stack?')
+			: vscode.l10n.t('Add {0} pull requests to an existing stack?', additions.length)
+		: vscode.l10n.t('Create a stack with {0} pull requests?', ordered.length);
+	const pullRequests = existing
+		? vscode.l10n.t('Adding {0}\nto #{1}', [additions.map(pr => `#${pr.number} ${pr.title}`).join('\n'), `${ordered[0].number} ${ordered[0].title}`])
+		: ordered.map(pr => `#${pr.number} ${pr.title}`).join('\n');
+	const autoMergeOffer = getStackAutoMergeOffer(autoMerge);
+	if (autoMergeOffer) {
+		const detail = `${pullRequests}\n\n${autoMergeOffer.warning}`;
+		const stackAutoMergeMethod = autoMergeOffer.method;
+		return existing
+			? { message, detail, action: vscode.l10n.t('Add to Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Add to Stack with Auto-Merge'), stackAutoMergeMethod }
+			: { message, detail, action: vscode.l10n.t('Create Stack without Auto-Merge'), autoMergeAction: vscode.l10n.t('Create Stack with Auto-Merge'), stackAutoMergeMethod };
+	}
+	return { message, detail: pullRequests, action: existing ? vscode.l10n.t('Add to Stack') : vscode.l10n.t('Create Stack') };
+}
+
+export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
+	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> {
 		return this._onDidChange.event;
 	}
-	private _disposables: vscode.Disposable[];
 	private _children: WorkspaceFolderNode[] | CategoryTreeNode[];
 	get children() {
 		return this._children;
 	}
-	private _view: vscode.TreeView<TreeNode>;
+	private readonly _view: vscode.TreeView<TreeNode>;
+	private readonly _loginView: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
-	public notificationProvider: NotificationProvider;
-	private _prsTreeModel: PrsTreeModel;
+	private _notificationsProvider?: NotificationsManager;
+	private _notificationClearTimeout: NodeJS.Timeout | undefined;
+	private _autoRefreshInterval: ReturnType<typeof setInterval> | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
-		this._disposables = [];
-		this._prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager);
-		this._disposables.push(this._prsTreeModel);
-		this._disposables.push(this._prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._disposables.push(new PRStatusDecorationProvider(this._prsTreeModel));
-		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.refreshList', _ => {
-				this._prsTreeModel.clearCache();
-				this._onDidChangeTreeData.fire();
-			}),
-		);
+	constructor(public readonly prsTreeModel: PrsTreeModel, private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
+		super();
+		this._register(this.prsTreeModel.onDidChangeData(e => {
+			if (e instanceof FolderRepositoryManager) {
+				this.refreshRepo(e);
+			} else if (Array.isArray(e)) {
+				this.refreshPullRequests(e);
+			} else {
+				this.refreshAllQueryResults(true);
+			}
+		}));
+		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
+			this.prsTreeModel.forceClearCache();
+		}));
 
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
-				node.fetchNextPage = true;
-				this._onDidChangeTreeData.fire(node);
-			}),
-		);
+		this._register(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
+			node.fetchNextPage = true;
+			this.refresh(node);
+		}));
 
-		this._view = vscode.window.createTreeView('pr:github', {
+		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			canSelectMany: true,
+			manageCheckboxStateManually: true
+		}));
+		this._loginView = this._register(vscode.window.createTreeView('github:login', {
+			treeDataProvider: {
+				onDidChangeTreeData: this.onDidChangeTreeData,
+				getTreeItem: element => element.getTreeItem(),
+				getChildren: () => {
+					this.updateEnterpriseAuthenticationMessage();
+					return [];
+				},
+			},
+		}));
+
+		void commands.setContext(contexts.CAN_ADD_TO_STACK, false);
+		this._register(this._view.onDidChangeSelection(() => this.updateCanAddToStack()));
+		this._register({ dispose: () => { void commands.setContext(contexts.CAN_ADD_TO_STACK, false); } });
+		this._register(vscode.commands.registerCommand('pr.addToStack',
+			(clicked: PRNode, selected: TreeNode[]) => this.addSelectedPullRequestsToStack(clicked, selected)));
+
+		this._register(this._view.onDidChangeVisibility(e => {
+			if (e.visible) {
+				// Sync with currently active PR when view becomes visible
+				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+				if (currentPR) {
+					this.syncWithActivePullRequest(currentPR);
+				}
+			}
+		}));
+
+		this._register({
+			dispose: () => {
+				clearInterval(this._autoRefreshInterval);
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+					this._notificationClearTimeout = undefined;
+				}
+			}
 		});
 
-		this._disposables.push(this._view);
+		this._register(this.prsTreeModel.onDidChangeCopilotStates(() => {
+			this.refreshAllQueryResults();
+		}));
+
+		this._register(this.prsTreeModel.onDidChangeCopilotNotifications(() => {
+			this.updateBadge();
+		}));
+		this.updateBadge();
+
+		// Listen for PR overview panel changes to sync the tree view
+		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
+			// Only sync if view is already visible (don't open the view)
+			if (this._view.visible) {
+				this.syncWithActivePullRequest(pullRequest);
+			}
+		}));
+
 		this._children = [];
 
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-				const configuration = await vscode.window.showQuickPick([
-					'Configure Remotes...',
-					'Configure Queries...'
-				]);
+		this._register(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
+			const configuration = await vscode.window.showQuickPick([
+				'Configure Remotes...',
+				'Configure Queries...',
+				'Configure All Pull Request Settings...'
+			]);
 
-				switch (configuration) {
-					case 'Configure Queries...':
-						return vscode.commands.executeCommand(
-							'workbench.action.openSettings',
-							`@ext:${EXTENSION_ID} queries`,
-						);
-					case 'Configure Remotes...':
-						return vscode.commands.executeCommand(
-							'workbench.action.openSettings',
-							`@ext:${EXTENSION_ID} remotes`,
-						);
-					default:
-						return;
-				}
-			}),
-		);
-
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
-					this._onDidChangeTreeData.fire();
-				}
-			}),
-		);
-
-		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
-
-		this._disposables.push(this._view.onDidExpandElement(expanded => {
-			this._updateExpandedQueries(expanded.element, true);
+			switch (configuration) {
+				case 'Configure Queries...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} pull request queries`,
+					);
+				case 'Configure Remotes...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} remotes`,
+					);
+				case 'Configure All Pull Request Settings...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} pull request`,
+					);
+				default:
+					return;
+			}
 		}));
-		this._disposables.push(this._view.onDidCollapseElement(collapsed => {
-			this._updateExpandedQueries(collapsed.element, false);
+
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${AUTO_REFRESH_QUERIES}`)) {
+				this.updateAutoRefresh();
+			}
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)
+				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)
+				|| e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${PULL_REQUEST_AVATAR_DISPLAY}`)
+				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URIS}`)
+				|| e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`)) {
+				this.refreshAll();
+			}
+		}));
+		this.updateAutoRefresh();
+		this._register(vscode.workspace.onDidGrantWorkspaceTrust(() => this.refreshAll()));
+
+		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
+
+		this._register(this._view.onDidExpandElement(expanded => {
+			this.prsTreeModel.updateExpandedQueries(expanded.element, true);
+		}));
+		this._register(this._view.onDidCollapseElement(collapsed => {
+			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
 	}
 
-	private _updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
-		if (element instanceof CategoryTreeNode) {
-			const expandedQueries = new Set<string>(this._context.workspaceState.get(EXPANDED_QUERIES_STATE, []) as string[]);
-			if (isExpanded) {
-				expandedQueries.add(element.id);
-			} else {
-				expandedQueries.delete(element.id);
+	private updateAutoRefresh(): void {
+		clearInterval(this._autoRefreshInterval);
+		this._autoRefreshInterval = undefined;
+		const interval = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(AUTO_REFRESH_QUERIES, 0);
+		if (Number.isFinite(interval) && interval > 0) {
+			this._autoRefreshInterval = setInterval(() => this.prsTreeModel.forceClearCache(), Math.min(interval * 1000, 2147483647));
+		}
+	}
+
+	private async addSelectedPullRequestsToStack(clicked: PRNode, selected: TreeNode[] | undefined): Promise<void> {
+		try {
+			const selection = selected ?? this._view.selection;
+			if (!(clicked instanceof PRNode) || !Array.isArray(selection) || selection.length < 2
+				|| !selection.includes(clicked) || !selection.every(node => node instanceof PRNode)) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Select at least two pull requests in the Pull Requests view to add them to a stack.'));
+				return;
 			}
-			this._context.workspaceState.update(EXPANDED_QUERIES_STATE, Array.from(expandedQueries.keys()));
+			const ordered = orderStackablePullRequests(selection.map(node => (node as PRNode).pullRequestModel));
+			if (!ordered) {
+				void vscode.window.showErrorMessage(vscode.l10n.t('Selected pull requests must be open and have matching head and base branches in the same repository.'));
+				return;
+			}
+			const candidate = await getStackCandidateForPullRequests(ordered);
+			// Pull request lists don't include auto-merge, which stacking changes, so get it before confirming.
+			const autoMerge = (await refreshPullRequestsForStack(ordered[0].githubRepository, ordered.map(pr => pr.number)))
+				.filter(pr => pr.autoMerge);
+			const confirmation = getAddToStackConfirmation(ordered, candidate, autoMerge);
+			const actions = confirmation.autoMergeAction ? [confirmation.autoMergeAction, confirmation.action] : [confirmation.action];
+			const approved = await vscode.window.showInformationMessage(
+				confirmation.message, { modal: true, detail: confirmation.detail }, ...actions,
+			);
+			if (approved === undefined || !actions.includes(approved)) {
+				return;
+			}
+			await addPullRequestsToStack(ordered, candidate, autoMerge.map(pr => pr.number),
+				approved === confirmation.autoMergeAction ? confirmation.stackAutoMergeMethod : undefined);
+			this.refreshAll(true);
+			void vscode.window.showInformationMessage(vscode.l10n.t('Pull requests added to the stack.'));
+		} catch (error) {
+			Logger.error(`Failed to add pull requests to stack: ${formatError(error)}`, PullRequestsTreeDataProvider.name);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to add pull requests to stack: {0}', formatError(error)));
+		}
+	}
+
+	private updateCanAddToStack(): void {
+		const selection = this._view.selection;
+		const selectedPRs = selection.filter((node): node is PRNode => node instanceof PRNode);
+		const stackable = selectedPRs.length === selection.length
+			&& !!orderStackablePullRequests(selectedPRs.map(node => node.pullRequestModel));
+		void commands.setContext(contexts.CAN_ADD_TO_STACK, stackable);
+	}
+
+	private filterNotificationsToKnown(notifications: PullRequestModel[]): PullRequestModel[] {
+		return notifications.filter(notification => {
+			if (!this.prsTreeModel.hasPullRequest(notification)) {
+				return false;
+			}
+			return !this.prsTreeModel.hasCopilotNotification(notification.remote.owner, notification.remote.repositoryName, notification.number);
+		});
+	}
+
+	private updateBadge() {
+		const isPRNotificationsOn = this._notificationsProvider?.isPRNotificationsOn();
+
+		const prNotificationsCount = isPRNotificationsOn ? this.filterNotificationsToKnown(this._notificationsProvider!.prNotifications).length : 0;
+		const copilotCount = this.prsTreeModel.copilotNotificationsCount;
+		const totalCount = prNotificationsCount + copilotCount;
+
+		if (totalCount === 0) {
+			this._view.badge = undefined;
+			return;
+		}
+
+		if (prNotificationsCount > 0 && copilotCount > 0) {
+			if (copilotCount === 1) {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has 1 pull request to view, plus 1 other pull request notification'),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view, plus {0} other pull request notifications`, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			} else {
+				if (prNotificationsCount === 1) {
+					this._view.badge = {
+						tooltip: vscode.l10n.t('Coding agent has {0} pull requests to view, plus 1 other pull request notification', copilotCount),
+						value: totalCount
+					};
+				} else {
+					this._view.badge = {
+						tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view, plus {1} other pull request notifications`, copilotCount, prNotificationsCount),
+						value: totalCount
+					};
+				}
+			}
+		} else if (copilotCount > 0) {
+			if (copilotCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has 1 pull request to view`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`Coding agent has {0} pull requests to view`, copilotCount),
+					value: totalCount
+				};
+			}
+		} else if (prNotificationsCount > 0) {
+			if (prNotificationsCount === 1) {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`1 pull request notification`),
+					value: totalCount
+				};
+			} else {
+				this._view.badge = {
+					tooltip: vscode.l10n.t(`{0} pull request notifications`, prNotificationsCount),
+					value: totalCount
+				};
+			}
 		}
 	}
 
@@ -151,56 +412,257 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view.reveal(element, options);
 	}
 
-	initialize(reviewModels: ReviewModel[], credentialStore: CredentialStore) {
+	/**
+	 * Sync the tree view with the currently active PR overview
+	 */
+	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
+		if (alreadySelected) {
+			return;
+		}
+		try {
+			// Find the PR node in the tree and reveal it
+			const prNode = await this.findPRNode(pullRequest);
+			if (prNode) {
+				await this.reveal(prNode, { select: true, focus: false, expand: false });
+			}
+		} catch (error) {
+			// Silently ignore errors to avoid disrupting the user experience
+			Logger.warn(`Failed to sync tree view with active PR: ${error}`);
+		}
+	}
+
+	/**
+	 * Find a PR node in the tree structure
+	 */
+	private async findPRNode(pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (this._children.length === 0) {
+			await this.getChildren();
+		}
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const found = await this.findPRNodeInWorkspaceFolder(child, pullRequest);
+				if (found) return found;
+			} else if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a workspace folder node
+	 */
+	private async findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		const children = await workspaceNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a category node
+	 */
+	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (categoryNode.collapsibleState !== vscode.TreeItemCollapsibleState.Expanded) {
+			return;
+		}
+		const children = await categoryNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
+				return child;
+			}
+		}
+		return undefined;
+	}
+
+	initialize(reviewModels: ReviewModel[], notificationsManager: NotificationsManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
 
 		this._initialized = true;
-		this._disposables.push(
-			this._reposManager.onDidChangeState(() => {
-				this.refresh();
-			}),
-		);
+		this._register(this._reposManager.onDidChangeState(() => {
+			this.refreshAll();
+		}));
+		this._register(this._reposManager.onDidLoadAnyRepositories(() => {
+			this.refreshAll();
+		}));
 
-		this._disposables.push(
-			...reviewModels.map(model => {
-				return model.onDidChangeLocalFileChanges(_ => { this.refresh(); });
-			}),
-		);
+		for (const model of reviewModels) {
+			this._register(model.onDidChangeLocalFileChanges(_ => { this.refreshAllQueryResults(); }));
+		}
 
-		this.notificationProvider = new NotificationProvider(this, credentialStore, this._reposManager);
-		this._disposables.push(this.notificationProvider);
+		this._notificationsProvider = notificationsManager;
+		this._register(this._notificationsProvider.onDidChangeNotifications(() => {
+			this.updateBadge();
+		}));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._notificationsProvider));
 
 		this.initializeCategories();
-		this.refresh();
+		this.refreshAll();
 	}
 
 	private async initializeCategories() {
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
-					this.refresh();
-				}
-			}),
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
+				this.refreshAll();
+			}
+		}));
 	}
 
-	refresh(node?: TreeNode): void {
-		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
+	refreshAll(reset?: boolean) {
+		this.tryReset(!!reset);
+		this._onDidChangeTreeData.fire();
+	}
+
+	clear() {
+		this.prsTreeModel.forceClearCache(true);
+		this._children.forEach(child => child.dispose());
+		this._children = [];
+		this._onDidChangeTreeData.fire();
+	}
+
+	private tryReset(reset: boolean) {
+		if (reset) {
+			this.prsTreeModel.clearCache(true);
+		}
+	}
+
+	private refreshAllQueryResults(reset?: boolean) {
+		this.tryReset(!!reset);
+
+		if (!this._children || this._children.length === 0) {
+			this._onDidChangeTreeData.fire();
+			return;
+		}
+
+		if (this._children[0] instanceof WorkspaceFolderNode) {
+			const currentManagers = new Set(this._reposManager.folderManagers);
+			const before = this._children.length;
+			const validChildren = (this._children as WorkspaceFolderNode[]).filter(folderNode => {
+				if (currentManagers.has(folderNode.folderManager)) {
+					return true;
+				}
+				folderNode.dispose();
+				return false;
+			});
+			if (validChildren.length !== before) {
+				this._children = validChildren;
+				this._onDidChangeTreeData.fire();
+				return;
+			}
+			validChildren.forEach(folderNode => this.refreshQueryResultsForFolder(folderNode));
+			return;
+		}
+		this.refreshQueryResultsForFolder();
+	}
+
+	private refreshQueryResultsForFolder(manager?: WorkspaceFolderNode, reset?: boolean) {
+		if (!manager && this._children[0] instanceof WorkspaceFolderNode) {
+			// Not permitted. There're multiple folder nodes, therefore must specify which one to refresh
+			throw new Error('Must specify a folder node to refresh when there are multiple folder nodes');
+		}
+
+		if (!this._children || this._children.length === 0) {
+			this._onDidChangeTreeData.fire();
+			return;
+		}
+		const queries = manager?.children ?? this._children;
+		this.tryReset(!!reset);
+
+		this._onDidChangeTreeData.fire([...queries]);
+	}
+
+	refresh(node: TreeNode, reset?: boolean): void {
+		this.tryReset(!!reset);
+		return this._onDidChangeTreeData.fire(node);
 	}
 
 	private refreshRepo(manager: FolderRepositoryManager): void {
-		if (this._children.length === 0) {
-			return this.refresh();
+		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
+			return this.refreshQueryResultsForFolder(undefined, true);
 		}
 		if (this._children[0] instanceof WorkspaceFolderNode) {
 			const children: WorkspaceFolderNode[] = this._children as WorkspaceFolderNode[];
 			const node = children.find(node => node.folderManager === manager);
 			if (node) {
-				this._onDidChangeTreeData.fire(node);
+				this.refreshQueryResultsForFolder(node);
 				return;
 			}
+		}
+	}
+
+	private refreshPullRequests(pullRequests: PullRequestChangeEvent[]): void {
+		if (!this._children?.length || !pullRequests?.length) {
+			return;
+		}
+		const prNodesToRefresh: TreeNode[] = [];
+		const prsWithStateChange = new Set();
+		const prNumbers = new Set();
+
+		for (const prChange of pullRequests) {
+			prNumbers.add(prChange.model.number);
+			if (prChange.event.state) {
+				prsWithStateChange.add(prChange.model.number);
+			}
+		}
+
+		const hasPRNode = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prsWithStateChange.has(prNode.pullRequestModel.number)) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		const categoriesToRefresh: Set<CategoryTreeNode> = new Set();
+		// First find the categories to refresh, since if we refresh a category we don't need to specifically refresh its children
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category) && hasPRNode(category)) {
+						categoriesToRefresh.add(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child) && hasPRNode(child)) {
+				categoriesToRefresh.add(child);
+			}
+		}
+
+		// Yes, multiple PRs can exist in different repos with the same number, but at worst we'll refresh all the duplicate numbers, which shouldn't be many.
+		const collectPRNodes = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prNumbers.has(prNode.pullRequestModel.number)) {
+					prNodesToRefresh.push(prNode);
+				}
+			}
+		};
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category)) {
+						collectPRNodes(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child)) {
+				collectPRNodes(child);
+			}
+		}
+		if (prNodesToRefresh.length || categoriesToRefresh.size > 0) {
+			this._onDidChangeTreeData.fire([...Array.from(categoriesToRefresh), ...prNodesToRefresh]);
 		}
 	}
 
@@ -211,18 +673,25 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	async resolveTreeItem(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
 		if (element instanceof InMemFileChangeNode) {
 			await element.resolve();
+			item = element.getTreeItem();
+		} else if (element instanceof PRNode) {
+			item.tooltip = await issueMarkdown(element.pullRequestModel, this._context, this._reposManager, undefined, this.prsTreeModel.cachedPRStatus(createPRNodeIdentifier(element.pullRequestModel))?.status);
 		}
-		return element;
+		return item;
 	}
 
-	private async needsRemotes() {
+	private needsRemotes(remotes: readonly Remote[]) {
 		if (this._reposManager?.state === ReposManagerState.NeedsAuthentication) {
 			return [];
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
+		const folderManagers = this._reposManager?.folderManagers ?? [];
+		// Unrecognized hosts may be GitHub Enterprise instances that have not been configured yet.
+		const hasUnrecognizedRemotes = folderManagers.some(manager => manager.unrecognizedRemotes.length > 0);
+		const onlyUnrecognizedRemotes = hasUnrecognizedRemotes && folderManagers.every(manager => manager.unrecognizedRemotes.length > 0);
 		let actions: PRCategoryActionNode[];
-		if (remotesSetting) {
+		if (remotesSetting && !onlyUnrecognizedRemotes) {
 			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
@@ -232,8 +701,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		const { enterpriseRemotes } = this._reposManager ? await findDotComAndEnterpriseRemotes(this._reposManager?.folderManagers) : { enterpriseRemotes: [] };
-		if ((enterpriseRemotes.length > 0) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
+		const enterpriseSignedIn = !!this._reposManager?.credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
+		// Enterprise sign-in only offers to add a host when no instances are configured.
+		const mustConfigureEnterprise = hasUnrecognizedRemotes && (enterpriseSignedIn || hasConfiguredEnterpriseInstances());
+		if (mustConfigureEnterprise) {
+			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.ConfigureEnterprise));
+		}
+		if (!enterpriseSignedIn && ((hasUnrecognizedRemotes && !mustConfigureEnterprise) || remotes.some(remote => remote.isEnterprise))) {
 			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
 		}
 
@@ -247,8 +721,30 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return element.cachedChildren();
 	}
 
+	private updateEnterpriseAuthenticationMessage(remotes: readonly Remote[] = this._reposManager.activeGitHubRemotes): void {
+		const selected = this._reposManager.credentialStore.getHub(AuthProvider.githubEnterprise)?.serverUri;
+		const showPublicSignIn = remotes.some(remote => remote.authProviderId === AuthProvider.github)
+			&& !this._reposManager.credentialStore.isAuthenticated(AuthProvider.github);
+		let message: vscode.MarkdownString | undefined;
+		try {
+			const instances = getEnterpriseUris();
+			const text = getEnterpriseAuthenticationMessage(remotes, instances, selected);
+			const unavailable = remotes.filter(remote => remote.isEnterprise && (!selected || !remote.matchesServerUri(selected)));
+			const selectAccount = unavailable.some(remote => instances.some(uri => remote.matchesServerUri(uri)));
+			const configure = unavailable.some(remote => !instances.some(uri => remote.matchesServerUri(uri)));
+			message = enterpriseSettingsMessage(text, { github: showPublicSignIn, githubEnterprise: selectAccount, configure });
+		} catch (error) {
+			Logger.error(`GitHub Enterprise configuration is unavailable: ${formatError(error)}`, 'PullRequestsTree');
+			message = enterpriseSettingsMessage(vscode.l10n.t('Check your GitHub Enterprise instances in Settings.\n\n{0}', formatError(error)), { github: showPublicSignIn, githubEnterprise: false, configure: true });
+		}
+		(this._view as vscode.TreeView2<TreeNode>).message = message;
+		(this._loginView as vscode.TreeView2<TreeNode>).message = message;
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!this._reposManager?.folderManagers.length) {
+			this._view.message = undefined;
+			this._loginView.message = undefined;
 			return [];
 		}
 
@@ -257,37 +753,40 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			return [];
 		}
 
-		const remotes = await Promise.all(this._reposManager.folderManagers.map(manager => manager.getGitHubRemotes()));
-		if ((this._reposManager.folderManagers.filter((_manager, index) => remotes[index].length > 0).length === 0)) {
-			return this.needsRemotes();
+		const remotes = this._reposManager.activeGitHubRemotes;
+		if (!element) {
+			this.updateEnterpriseAuthenticationMessage(remotes);
 		}
 
+		const gitHubFolderManagers = this._reposManager.folderManagers.filter(manager =>
+			manager.gitHubRepositories.some(repository => repository.authMatchesServer));
+		if (gitHubFolderManagers.length === 0) {
+			return this.needsRemotes(remotes);
+		}
 		if (!element) {
-			if (this._children && this._children.length) {
-				this._children.forEach(dispose => dispose.dispose());
-			}
+			this._children.forEach(child => child.dispose());
 
 			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
-			if (this._reposManager.folderManagers.length === 1) {
-				result = WorkspaceFolderNode.getCategoryTreeNodes(
-					this._reposManager.folderManagers[0],
+			if (gitHubFolderManagers.length === 1) {
+				result = await WorkspaceFolderNode.getCategoryTreeNodes(
+					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
-					this.notificationProvider,
+					this._notificationsProvider!,
 					this._context,
-					this._prsTreeModel
+					this.prsTreeModel,
 				);
 			} else {
-				result = this._reposManager.folderManagers.map(
+				result = gitHubFolderManagers.map(
 					folderManager =>
 						new WorkspaceFolderNode(
 							this,
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
-							this.notificationProvider,
+							this._notificationsProvider!,
 							this._context,
-							this._prsTreeModel
+							this.prsTreeModel
 						),
 				);
 			}
@@ -297,7 +796,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		if (
-			this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0
+			gitHubFolderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0
 		) {
 			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Empty)]);
 		}
@@ -305,11 +804,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return element.getChildren();
 	}
 
-	async getParent(element: TreeNode): Promise<TreeNode | undefined> {
+	async getParent(element: TreeNode) {
 		return element.getParent();
-	}
-
-	dispose() {
-		this._disposables.forEach(dispose => dispose.dispose());
 	}
 }

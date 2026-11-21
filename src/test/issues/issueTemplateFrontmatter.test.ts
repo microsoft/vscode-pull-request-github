@@ -187,4 +187,61 @@ describe('Issue template frontmatter', function () {
 	it('does not throw for invalid frontmatter', function () {
 		assert.doesNotThrow(() => getIssueTemplateData('---\ntitle: "\\u{1F41B}"\n---\n'));
 	});
+
+	it('decodes labels and assignees', function () {
+		const character = String.fromCodePoint(ASTRAL[0]);
+		const template = getIssueTemplateData(
+			`---\nname: Template\ntitle: t\nlabels: "bug, ${escape.U(ASTRAL[0])}"\nassignees:\n  - alice\n  - bob\n---\n`,
+		);
+
+		assert.deepStrictEqual(template.labels, ['bug', character]);
+		assert.deepStrictEqual(template.assignees, ['alice', 'bob']);
+	});
+
+	it('keeps converting YAML issue forms', function () {
+		const form = [
+			'name: Bug report',
+			'description: Something is broken',
+			'title: "[Bug] "',
+			'body:',
+			'  - type: markdown',
+			'    attributes:',
+			'      value: Thanks for reporting',
+			'  - type: input',
+			'    attributes:',
+			'      label: Version',
+			'  - type: dropdown',
+			'    attributes:',
+			'      label: Operating system',
+			'      options:',
+			'        - Windows',
+			'        - Linux',
+			'  - type: checkboxes',
+			'    attributes:',
+			'      label: Checklist',
+			'      options:',
+			'        - label: I searched existing issues',
+			'',
+		].join('\n');
+
+		const template = getIssueTemplateData(form);
+
+		assert.strictEqual(template.name, 'Bug report');
+		assert.strictEqual(template.about, 'Something is broken');
+		assert.strictEqual(template.title, '[Bug] ');
+		assert.strictEqual(template.body, [
+			'Thanks for reporting',
+			'',
+			'## Version',
+			'',
+			'## Operating system',
+			'',
+			'- Windows',
+			'- Linux',
+			'',
+			'## Checklist',
+			'',
+			'- [ ] I searched existing issues',
+		].join('\n'));
+	});
 });

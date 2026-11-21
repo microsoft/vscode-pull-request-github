@@ -5,16 +5,26 @@
 
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
-import { GitHubServerType } from '../common/authentication';
+import { getEnterpriseUris, HostHelper } from './configuration';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { formatError } from '../common/utils';
 import { agent } from '../env/node/net';
-import { getEnterpriseUri } from '../github/utils';
-import { HostHelper } from './configuration';
+import type { CredentialStore } from '../github/credentials';
 
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
-	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com');
-	private _servers: Map<string, GitHubServerType> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]));
+	private static readonly _gheServers = new Set<string>().add('ghe.com');
+	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com').add('codeberg.org');
+	private static readonly _reportedEnterpriseVersions = new Set<string>();
+	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
+
+	constructor(
+		private readonly credentialStore: CredentialStore,
+		private readonly _telemetry?: ITelemetry,
+	) { }
 
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
@@ -24,27 +34,61 @@ export class GitHubManager {
 		return this._neverGitHubServers.has(host);
 	}
 
-	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
-		if (host === null) {
+	/**
+	 * Wikis and gists are hosted by GitHub but aren't supported as repositories.
+	 */
+	public static isUnsupportedRepository(remote: Remote): boolean {
+		const host = remote.gitProtocol.normalizeUri();
+		return !!host && (host.path.endsWith('.wiki') || /gist[.]github[.]com/.test(host.authority.toLowerCase()));
+	}
+
+	private reportEnterpriseVersion(version: string): void {
+		if (GitHubManager._reportedEnterpriseVersions.has(version)) {
+			return;
+		}
+		GitHubManager._reportedEnterpriseVersions.add(version);
+		Logger.appendLine(`GitHub Enterprise version: ${version}`, 'GitHubServer');
+		/* __GDPR__
+			"github.enterprise.version" : {
+				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry?.sendTelemetryEvent('github.enterprise.version', { version });
+	}
+
+	public async isGitHub(remote: Remote): Promise<GitHubServerType> {
+		const host = remote.gitProtocol.normalizeUri();
+		if (!host) {
+			return GitHubServerType.None;
+		}
+		const authority = host.authority.toLowerCase();
+
+		if (GitHubManager.isUnsupportedRepository(remote)) {
 			return GitHubServerType.None;
 		}
 
-		// .wiki/.git repos are not supported
-		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
-			return GitHubServerType.None;
-		}
-
-		if (GitHubManager.isGithubDotCom(host.authority)) {
+		if (GitHubManager.isGithubDotCom(authority)) {
 			return GitHubServerType.GitHubDotCom;
 		}
 
-		const knownEnterprise = getEnterpriseUri();
-		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!this._servers.has(host.authority) || (this._servers.get(host.authority) === GitHubServerType.None))) {
+		const matchingKnownServer = Array.from(this._knownServers.keys()).find(server => authority.endsWith(server));
+
+		const enterprise = this.credentialStore.getHub(AuthProvider.githubEnterprise);
+		if (enterprise && remote.matchesServerUri(enterprise.serverUri)
+			&& (!matchingKnownServer || (this._knownServers.get(matchingKnownServer) === GitHubServerType.None))) {
 			return GitHubServerType.Enterprise;
 		}
 
-		if (this._servers.has(host.authority)) {
-			return this._servers.get(host.authority) ?? GitHubServerType.None;
+		try {
+			if (getEnterpriseUris().some(uri => remote.matchesServerUri(uri))) {
+				return GitHubServerType.Enterprise;
+			}
+		} catch (error) {
+			Logger.warn(`Cannot use GitHub Enterprise configuration for discovery: ${formatError(error)}`, 'GitHubServer');
+		}
+
+		if (matchingKnownServer) {
+			return this._knownServers.get(matchingKnownServer) ?? GitHubServerType.None;
 		}
 
 		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
@@ -59,6 +103,9 @@ export class GitHubManager {
 			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
 			const gitHubHeader = response.headers.get('x-github-request-id');
 			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
+			if (gitHubEnterpriseHeader) {
+				this.reportEnterpriseVersion(gitHubEnterpriseHeader);
+			}
 			if (!gitHubHeader && !gitHubEnterpriseHeader) {
 				const [uriFallBack] = await GitHubManager.getOptions(host, 'HEAD', '/status');
 				const response = await fetch(uriFallBack.toString());
@@ -85,7 +132,7 @@ export class GitHubManager {
 			return isGitHub;
 		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');
-			this._servers.set(host.authority, isGitHub);
+			this._knownServers.set(authority, isGitHub);
 		}
 	}
 

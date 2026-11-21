@@ -5,38 +5,33 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 import { Commit, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { Disposable, disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 
-export class ShareProviderManager implements vscode.Disposable {
-	private disposables: vscode.Disposable[] = [];
+export class ShareProviderManager extends Disposable {
 
 	constructor(repositoryManager: RepositoriesManager, gitAPI: GitApiImpl) {
+		super();
 		if (!vscode.window.registerShareProvider) {
 			return;
 		}
 
-		this.disposables.push(
-			new GitHubDevShareProvider(repositoryManager, gitAPI),
-			new GitHubPermalinkShareProvider(repositoryManager, gitAPI),
-			new GitHubPermalinkAsMarkdownShareProvider(repositoryManager, gitAPI),
-			new GitHubHeadLinkShareProvider(repositoryManager, gitAPI)
-		);
-	}
-
-	dispose() {
-		this.disposables.forEach((d) => d.dispose());
+		this._register(new GitHubDevShareProvider(repositoryManager, gitAPI));
+		this._register(new GitHubPermalinkShareProvider(repositoryManager, gitAPI));
+		this._register(new GitHubPermalinkAsMarkdownShareProvider(repositoryManager, gitAPI));
+		this._register(new GitHubHeadLinkShareProvider(repositoryManager, gitAPI));
 	}
 }
 
 const supportedSchemes = [Schemes.File, Schemes.Review, Schemes.Pr, Schemes.VscodeVfs];
 
-abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareProvider {
-	private disposables: vscode.Disposable[] = [];
+abstract class AbstractShareProvider extends Disposable implements vscode.ShareProvider {
 	protected shareProviderRegistrations: vscode.Disposable[] | undefined;
 
 	constructor(
@@ -47,12 +42,13 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 		public readonly priority: number,
 		private readonly origin = 'github.com'
 	) {
+		super();
 		this.initialize();
 	}
 
-	public dispose() {
-		this.disposables.forEach((d) => d.dispose());
-		this.shareProviderRegistrations?.map((d) => d.dispose());
+	public override dispose() {
+		super.dispose();
+		this.unregister();
 	}
 
 	private async initialize() {
@@ -60,13 +56,13 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 			this.register();
 		}
 
-		this.disposables.push(this.repositoryManager.onDidLoadAnyRepositories(async () => {
+		this._register(this.repositoryManager.onDidLoadAnyRepositories(async () => {
 			if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
 				this.register();
 			}
 		}));
 
-		this.disposables.push(this.gitAPI.onDidCloseRepository(() => {
+		this._register(this.gitAPI.onDidCloseRepository(() => {
 			if (!this.hasGitHubRepositories()) {
 				this.unregister();
 			}
@@ -91,8 +87,10 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 	}
 
 	private unregister() {
-		this.shareProviderRegistrations?.map((d) => d.dispose());
-		this.shareProviderRegistrations = undefined;
+		if (this.shareProviderRegistrations) {
+			disposeAll(this.shareProviderRegistrations);
+			this.shareProviderRegistrations = undefined;
+		}
 	}
 
 	protected abstract shouldRegister(): boolean;
@@ -198,17 +196,19 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 	}
 
 	protected async getUpstream(repository: Repository, commit: string): Promise<Remote | undefined> {
-		return getBestPossibleUpstream(this.repositoryManager, repository, await repository.getCommit(commit));
+		return getBestPossibleUpstream(this.repositoryManager, repository, (await repository.getCommit(commit)).hash);
 	}
 }
 
 export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShareProvider {
+	private static ID = 'GitHubPermalinkAsMarkdownShareProvider';
 
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
 		super(repositoryManager, gitApi, 'githubComPermalinkAsMarkdown', vscode.l10n.t('Copy GitHub Permalink as Markdown'), 12);
 	}
 
-	async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | string | undefined> {
+	override async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | string | undefined> {
+		Logger.trace('providing permalink markdown share', GitHubPermalinkAsMarkdownShareProvider.ID);
 		const link = await super.provideShare(item);
 
 		const text = await this.getMarkdownLinkText(item);
@@ -218,27 +218,7 @@ export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShare
 	}
 
 	private async getMarkdownLinkText(item: vscode.ShareableItem): Promise<string | undefined> {
-		const fileName = pathLib.basename(item.resourceUri.path);
-
-		if (item.selection) {
-			const document = await vscode.workspace.openTextDocument(item.resourceUri);
-
-			const editorSelection = item.selection.start === item.selection.end
-				? item.selection
-				: new vscode.Range(item.selection.start, new vscode.Position(item.selection.start.line + 1, 0));
-
-			const selectedText = document.getText(editorSelection);
-			if (selectedText) {
-				return selectedText;
-			}
-
-			const wordRange = document.getWordRangeAtPosition(item.selection.start);
-			if (wordRange) {
-				return document.getText(wordRange);
-			}
-		}
-
-		return fileName;
+		return pathLib.basename(item.resourceUri.path);
 	}
 }
 

@@ -1,0 +1,144 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+'use strict';
+
+import * as vscode from 'vscode';
+import { FetchIssueResult } from './fetchIssueTool';
+import { GitChangeType, InMemFileChange } from '../../common/file';
+import { CommentEvent, EventType, ReviewEvent } from '../../common/timelineEvent';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+
+interface PullRequestToolParams {
+	refresh?: boolean;
+}
+
+export abstract class PullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
+	constructor(
+		protected readonly folderManagers: RepositoriesManager
+	) { }
+
+	protected abstract _findActivePullRequest(): PullRequestModel | undefined | Promise<PullRequestModel | undefined>;
+
+	protected abstract _confirmationTitle(): string;
+
+	private _getPullRequestLabel(pullRequest: PullRequestModel): string {
+		return `${pullRequest.title} (#${pullRequest.number})`;
+	}
+
+	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
+		const pullRequest = await this._findActivePullRequest();
+		if (!pullRequest) {
+			return {
+				pastTenseMessage: vscode.l10n.t('No active pull request'),
+				invocationMessage: vscode.l10n.t('Reading active pull request'),
+				confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of the active pull request?') },
+			};
+		}
+
+		const label = this._getPullRequestLabel(pullRequest);
+		return {
+			pastTenseMessage: vscode.l10n.t('Read pull request "{0}"', label),
+			invocationMessage: vscode.l10n.t('Reading pull request "{0}"', label),
+			confirmationMessages: { title: this._confirmationTitle(), message: vscode.l10n.t('Allow reading the details of "{0}"?', label) },
+		};
+	}
+
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, _token: vscode.CancellationToken): Promise<vscode.ExtendedLanguageModelToolResult | undefined> {
+		const pullRequest = await this._findActivePullRequest();
+
+		if (!pullRequest) {
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('No active pull request was found. An open pull request may still exist for the checked-out branch.')]);
+		}
+
+		if ((options.input as PullRequestToolParams | undefined)?.refresh) {
+			await Promise.all([
+				pullRequest.githubRepository.getPullRequest(pullRequest.number, 'ActivePullRequestTool.invoke'),
+				pullRequest.getTimelineEvents(),
+				pullRequest.initializeReviewThreadCacheAndReviewComments(),
+			]);
+		}
+
+		const timeline = (pullRequest.timelineEvents && pullRequest.timelineEvents.length > 0) ? pullRequest.timelineEvents : await pullRequest.getTimelineEvents();
+		const reviewAndCommentEvents = timeline?.filter((event): event is ReviewEvent | CommentEvent => event.event === EventType.Reviewed || event.event === EventType.Commented) || [];
+
+		if (!pullRequest.reviewThreadsCacheReady || ((pullRequest.comments.length === 0) && (reviewAndCommentEvents.length !== 0))) {
+			// Probably missing some comments
+			await pullRequest.initializeReviewThreadCacheAndReviewComments();
+		}
+
+		const pullRequestInfo = {
+			title: pullRequest.title,
+			body: pullRequest.body,
+			author: pullRequest.author,
+			assignees: pullRequest.assignees,
+			reviewThreads: pullRequest.reviewThreadsCache.map(thread => {
+				return {
+					id: thread.id,
+					isResolved: thread.isResolved,
+					canResolve: thread.viewerCanResolve,
+					file: thread.path,
+					comments: thread.comments.map(c => ({
+						author: c.user?.login,
+						body: c.body,
+					})),
+				};
+			}),
+			timelineComments: reviewAndCommentEvents.map(event => {
+				return {
+					author: event.user?.login,
+					body: event.body,
+					commentType: event.event === EventType.Reviewed ? event.state : 'COMMENTED',
+				};
+			}),
+			state: pullRequest.state,
+			isDraft: pullRequest.isDraft ? 'is a draft and cannot be merged until marked as ready for review' : 'false',
+			changes: (await pullRequest.getFileChangesInfo()).map(change => {
+				if (change instanceof InMemFileChange) {
+					return change.diffHunks?.map(hunk => hunk.diffLines.map(line => line.raw).join('\n')).join('\n') || '';
+				} else {
+					return `File: ${change.fileName} was ${change.status === GitChangeType.ADD ? 'added' : change.status === GitChangeType.DELETE ? 'deleted' : 'modified'}.`;
+				}
+			}),
+			lastUpdatedAt: new Date(pullRequest.updatedAt).toLocaleString()
+		};
+
+		const result = new vscode.ExtendedLanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
+		result.toolResultDetails = [vscode.Uri.parse(pullRequest.html_url)];
+		return result;
+	}
+
+}
+
+export class ActivePullRequestTool extends PullRequestTool {
+	public static readonly toolId = 'github-pull-request_currentActivePullRequest';
+
+	protected async _findActivePullRequest(): Promise<PullRequestModel | undefined> {
+		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
+		if (folderManager?.activePullRequest) {
+			return folderManager.activePullRequest;
+		}
+
+		for (const manager of this.folderManagers.folderManagers) {
+			const branch = manager.repository.state.HEAD;
+			if (!branch?.name || !branch.upstream?.remote || !branch.upstream.name) {
+				continue;
+			}
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(
+				branch, branch.upstream.remote, undefined, branch.upstream.name,
+			);
+			if (metadata?.model.isOpen) {
+				return metadata.model;
+			}
+		}
+
+		return undefined;
+	}
+
+	protected _confirmationTitle(): string {
+		return vscode.l10n.t('Active Pull Request');
+	}
+}

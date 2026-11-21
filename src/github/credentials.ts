@@ -9,14 +9,17 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
-import { AuthProvider } from '../common/authentication';
+import { IAccount } from './interface';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
+import { convertRESTUserToAccount, isEnterprise } from './utils';
+import { AuthenticationError, AuthProvider, getSessionGitHubUri } from '../common/authentication';
+import { commands } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { EXTENSION_ID } from '../constants';
 import { agent } from '../env/node/net';
-import { IAccount } from './interface';
-import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -34,27 +37,119 @@ const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', '
 const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
 const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprise';
 
+type AuthenticationSessionGetter = (
+	authProviderId: string,
+	scopes: readonly string[],
+	options: vscode.AuthenticationGetSessionOptions,
+) => Thenable<vscode.AuthenticationSession | undefined>;
+
+interface ExistingSession {
+	session: vscode.AuthenticationSession;
+	scopes: string[];
+}
+
+export function hasAccountChanged(currentAccountId: string | undefined, newSession: vscode.AuthenticationSession | undefined): boolean {
+	return currentAccountId !== newSession?.account.id;
+}
+
+function sessionAccountOptions(session: vscode.AuthenticationSession): vscode.AuthenticationGetSessionOptions {
+	return {
+		account: session.account,
+		...(session.authorizationServer ? { authorizationServer: session.authorizationServer } : {}),
+	};
+}
+
+function isSameSessionAccount(first: vscode.AuthenticationSession, second: vscode.AuthenticationSession): boolean {
+	return first.account.id === second.account.id
+		&& first.authorizationServer?.toString() === second.authorizationServer?.toString();
+}
+
+function isSameSession(first: vscode.AuthenticationSession | undefined, second: vscode.AuthenticationSession | undefined): boolean {
+	return first === second || (!!first && !!second && isSameSessionAccount(first, second)
+		&& first.id === second.id && first.accessToken === second.accessToken
+		&& first.scopes.length === second.scopes.length && first.scopes.every(scope => second.scopes.includes(scope)));
+}
+
+export async function findExistingSession(
+	authProviderId: AuthProvider,
+	getSession: AuthenticationSessionGetter = (providerId, scopes, options) => vscode.authentication.getSession(providerId, scopes, options),
+): Promise<ExistingSession | undefined> {
+	// Establish the preferred account across all scopes before looking for its best session.
+	// A scope-specific lookup can otherwise fall back to the only account with those scopes.
+	const preferredSession = await getSession(authProviderId, [], { silent: true });
+	if (preferredSession) {
+		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
+		for (const scopes of scopesInPreferenceOrder) {
+			const session = await getSession(authProviderId, scopes, { silent: true, ...sessionAccountOptions(preferredSession) });
+			if (session && isSameSessionAccount(preferredSession, session)) {
+				return { session, scopes };
+			}
+		}
+		return { session: preferredSession, scopes: [...preferredSession.scopes] };
+	}
+
+	const scopePreferences = [
+		{ scopes: SCOPES_OLD, broaderScopes: [SCOPES_WITH_ADDITIONAL] },
+		{ scopes: SCOPES_OLDEST, broaderScopes: [SCOPES_WITH_ADDITIONAL, SCOPES_OLD] },
+		{ scopes: SCOPES_WITH_ADDITIONAL, broaderScopes: [] },
+	];
+
+	for (const preference of scopePreferences) {
+		const session = await getSession(authProviderId, preference.scopes, { silent: true });
+		if (!session) {
+			continue;
+		}
+
+		for (const broaderScopes of preference.broaderScopes) {
+			const broaderSession = await getSession(authProviderId, broaderScopes, { silent: true, ...sessionAccountOptions(session) });
+			if (broaderSession && isSameSessionAccount(session, broaderSession)) {
+				return { session: broaderSession, scopes: broaderScopes };
+			}
+		}
+		return { session, scopes: preference.scopes };
+	}
+}
+
 export interface GitHub {
+	readonly serverUri: vscode.Uri;
+	readonly session?: vscode.AuthenticationSession;
 	octokit: LoggingOctokit;
 	graphql: LoggingApolloClient;
-	currentUser?: Promise<IAccount>;
+	currentUser?: IAccount;
+	isEmu?: boolean;
 }
 
 interface AuthResult {
 	canceled: boolean;
+	unavailable?: boolean;
 }
 
-export class CredentialStore implements vscode.Disposable {
+export interface CredentialStoreSessionsChangeEvent extends vscode.AuthenticationSessionsChangeEvent {
+	accountChanged: boolean;
+	serverChanged: boolean;
+}
+
+export class CredentialStore extends Disposable {
+	private static readonly ID = 'Authentication';
 	private _githubAPI: GitHub | undefined;
-	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
-	private _enterpriseSessionId: string | undefined;
-	private _disposables: vscode.Disposable[];
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 	private _scopes: string[] = SCOPES_OLD;
 	private _scopesEnterprise: string[] = SCOPES_OLD;
+	private _isSamling: boolean = false;
+	private _handlingAuthError: Map<AuthProvider, Promise<AuthResult>> = new Map();
+	private _lastAuthErrorHandledAt: Map<AuthProvider, number> = new Map();
+	private _currentUserRequests: WeakMap<GitHub, Promise<void>> = new WeakMap();
+	private _hasOfferedAccountPreferences: boolean = false;
+	// Cooldown long enough to absorb retries from in-flight requests that were
+	// issued with the now-invalid token, but short enough that a token that
+	// is invalidated again soon after re-auth will still trigger another prompt.
+	private static readonly AUTH_ERROR_COOLDOWN_MS = 60_000;
+
+	private _onDidChangeSessions: vscode.EventEmitter<CredentialStoreSessionsChangeEvent> = new vscode.EventEmitter();
+	public readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private _onDidGetSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidGetSession = this._onDidGetSession.event;
@@ -63,26 +158,39 @@ export class CredentialStore implements vscode.Disposable {
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
+		super();
 		this.setScopesFromState();
 
-		this._disposables = [];
-		this._disposables.push(
-			vscode.authentication.onDidChangeSessions(async () => {
-				const promises: Promise<any>[] = [];
-				if (!this.isAuthenticated(AuthProvider.github)) {
-					promises.push(this.initialize(AuthProvider.github));
-				}
+		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
+	}
 
-				if (!this.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-					promises.push(this.initialize(AuthProvider.githubEnterprise));
-				}
-
-				await Promise.all(promises);
-				if (this.isAnyAuthenticated()) {
-					this._onDidGetSession.fire();
-				}
-			}),
-		);
+	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
+		const currentProvider = e.provider.id;
+		if (currentProvider !== AuthProvider.github && currentProvider !== AuthProvider.githubEnterprise) {
+			return;
+		}
+		const previousHub = this.getHub(currentProvider);
+		const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, false);
+		if (this.getHub(currentProvider) !== previousHub || isSameSession(previousHub?.session, newSession.session)) {
+			return;
+		}
+		if (currentProvider === AuthProvider.github) {
+			this._githubAPI = undefined;
+		} else {
+			this._githubEnterpriseAPI = undefined;
+		}
+		await this.initialize(currentProvider, { silent: true });
+		const github = this.getHub(currentProvider);
+		if (this.isAnyAuthenticated()) {
+			this._onDidGetSession.fire();
+		}
+		if (!this._isSamling) {
+			this._onDidChangeSessions.fire({
+				...e,
+				accountChanged: hasAccountChanged(previousHub?.session?.account.id, github?.session),
+				serverChanged: isEnterprise(currentProvider) && previousHub?.serverUri.toString() !== github?.serverUri.toString(),
+			});
+		}
 	}
 
 	private allScopesIncluded(actualScopes: string[], requiredScopes: string[]) {
@@ -94,19 +202,49 @@ export class CredentialStore implements vscode.Disposable {
 		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
 	}
 
+	get scopes() {
+		return this._scopes;
+	}
+
 	private async saveScopesInState() {
 		await this.context.globalState.update(LAST_USED_SCOPES_GITHUB_KEY, this._scopes);
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
+
+	private async tryInitializeFromEnvironmentToken(authProviderId: AuthProvider): Promise<AuthResult | undefined> {
+		if (isEnterprise(authProviderId)) {
+			return undefined;
+		}
+		const token = process.env.GITHUB_OAUTH_TOKEN;
+		if (!token) {
+			return undefined;
+		}
+		Logger.debug('Attempting authentication using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+		try {
+			const github = this.createHub(token, authProviderId);
+			this._githubAPI = github;
+			if (!this._isInitialized) {
+				this._isInitialized = true;
+				this._onDidInitialize.fire();
+			}
+			Logger.appendLine('Successfully authenticated using GITHUB_OAUTH_TOKEN environment variable.', CredentialStore.ID);
+			return { canceled: false };
+		} catch (e) {
+			Logger.error(`Failed to authenticate using GITHUB_OAUTH_TOKEN: ${e.message}`, CredentialStore.ID);
+			return undefined;
+		}
+	}
+
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = (!isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise), requireScopes?: boolean): Promise<AuthResult> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
-		if (isEnterprise(authProviderId)) {
-			if (!hasEnterpriseUri()) {
-				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
-				return { canceled: false };
-			}
+		const envResult = await this.tryInitializeFromEnvironmentToken(authProviderId);
+		if (envResult) {
+			return envResult;
 		}
-
+		const previousHub = this.getHub(authProviderId);
+		if (previousHub?.session && (requireScopes || getAuthSessionOptions.forceNewSession)) {
+			getAuthSessionOptions = { ...sessionAccountOptions(previousHub.session), ...getAuthSessionOptions };
+		}
 		if (getAuthSessionOptions.createIfNone === undefined && getAuthSessionOptions.forceNewSession === undefined) {
 			getAuthSessionOptions.createIfNone = false;
 		}
@@ -125,10 +263,18 @@ export class CredentialStore implements vscode.Disposable {
 				this._scopesEnterprise = scopes;
 			}
 			const result = await this.getSession(authProviderId, getAuthSessionOptions, scopes, !!requireScopes);
+			if (this.getHub(authProviderId) !== previousHub && !isSameSession(this.getHub(authProviderId)?.session, result.session)) {
+				Logger.debug('Authentication changed while looking up a session.', CredentialStore.ID);
+				return { canceled: true };
+			}
 			usedScopes = result.scopes;
 			session = result.session;
 			isNew = result.isNew;
 		} catch (e) {
+			if (this.getHub(authProviderId) !== previousHub) {
+				Logger.debug('Authentication changed while looking up a session.', CredentialStore.ID);
+				return { canceled: true };
+			}
 			this._scopes = oldScopes;
 			this._scopesEnterprise = oldEnterpriseScopes;
 			const userCanceld = (e.message === 'User did not consent to login.');
@@ -144,31 +290,53 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (session) {
-			if (!isEnterprise(authProviderId)) {
-				this._sessionId = session.id;
-			} else {
-				this._enterpriseSessionId = session.id;
-			}
 			let github: GitHub | undefined;
 			try {
-				github = await this.createHub(session.accessToken, authProviderId);
+				if ((getAuthSessionOptions.account && getAuthSessionOptions.account.id !== session.account.id)
+					|| (getAuthSessionOptions.authorizationServer && getAuthSessionOptions.authorizationServer.toString() !== session.authorizationServer?.toString())) {
+					throw new AuthenticationError(vscode.l10n.t('The authentication session no longer matches the requested GitHub account or server. Please sign in again.'));
+				}
+				const currentHub = this.getHub(authProviderId);
+				github = currentHub && isSameSession(currentHub.session, session) ? currentHub : this.createHub(session, authProviderId);
 			} catch (e) {
 				if ((e.message === 'Bad credentials') && !getAuthSessionOptions.forceNewSession) {
+					Logger.debug(`Creating hub failed ${e.message}`, CredentialStore.ID);
 					getAuthSessionOptions.forceNewSession = true;
 					getAuthSessionOptions.silent = false;
 					return this.initialize(authProviderId, getAuthSessionOptions, scopes, requireScopes);
+				} else {
+					Logger.error(`Creating hub failed ${e.message}`, CredentialStore.ID);
+					vscode.window.showErrorMessage(e instanceof AuthenticationError ? e.message : vscode.l10n.t('Unable to sign in with the provided credentials'));
+					authResult.unavailable = true;
 				}
 			}
+			if (!github && requireScopes) {
+				this._scopes = oldScopes;
+				this._scopesEnterprise = oldEnterpriseScopes;
+				return authResult;
+			}
 			if (!isEnterprise(authProviderId)) {
+				Logger.debug('Setting hub and scopes', CredentialStore.ID);
 				this._githubAPI = github;
 				this._scopes = usedScopes;
 			} else {
+				Logger.debug('Setting enterprise hub and scopes', CredentialStore.ID);
 				this._githubEnterpriseAPI = github;
 				this._scopesEnterprise = usedScopes;
 			}
+			if (github && previousHub !== github) {
+				this._onDidGetSession.fire();
+			}
+			if (previousHub && previousHub !== github && !this._isSamling) {
+				this._onDidChangeSessions.fire({
+					provider: { id: authProviderId, label: `GitHub${getGitHubSuffix(authProviderId)}` },
+					accountChanged: hasAccountChanged(previousHub.session?.account.id, github?.session),
+					serverChanged: isEnterprise(authProviderId) && previousHub.serverUri.toString() !== github?.serverUri.toString(),
+				});
+			}
 			await this.saveScopesInState();
 
-			if (!this._isInitialized || isNew) {
+			if (!this._isInitialized || (isNew && !this._isSamling)) {
 				this._isInitialized = true;
 				this._onDidInitialize.fire();
 			}
@@ -180,19 +348,23 @@ export class CredentialStore implements vscode.Disposable {
 			}
 			return authResult;
 		} else {
-			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
+			this._scopes = oldScopes;
+			this._scopesEnterprise = oldEnterpriseScopes;
+			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, CredentialStore.ID);
 			return authResult;
 		}
 	}
 
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
-		const github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
-		let enterprise: AuthResult | undefined;
-		if (hasEnterpriseUri()) {
-			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
-		}
+		const enterpriseOptions = this.isAuthenticated(AuthProvider.githubEnterprise) ? { ...options } : { silent: true };
+		const enterprise = await this.initialize(AuthProvider.githubEnterprise, enterpriseOptions, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		const keepPublicSilent = this.isAuthenticated(AuthProvider.githubEnterprise) && !enterprise.canceled
+			&& (!options.forceNewSession || !this.isAuthenticated(AuthProvider.github));
+		const githubOptions = keepPublicSilent ? { silent: true } : { ...options };
+		const github = await this.initialize(AuthProvider.github, githubOptions, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		return {
-			canceled: github.canceled || !!(enterprise && enterprise.canceled)
+			canceled: github.canceled || enterprise.canceled,
+			unavailable: !this.isAnyAuthenticated() && (github.unavailable || enterprise.unavailable),
 		};
 	}
 
@@ -202,6 +374,62 @@ export class CredentialStore implements vscode.Disposable {
 
 	public async recreate(reason?: string): Promise<AuthResult> {
 		return this.doCreate({ forceNewSession: reason ? { detail: reason } : true });
+	}
+
+	/**
+	 * Handles authentication errors that surface from API calls made with `failedHub`
+	 * (e.g. "Bad credentials" or 401 Unauthorized). Triggers a re-authentication prompt
+	 * for the affected provider, deduplicating concurrent requests so we don't show
+	 * multiple prompts when many in-flight calls fail at once.
+	 */
+	public async handleAuthError(authProviderId: AuthProvider, failedHub: GitHub): Promise<AuthResult> {
+		// Only prompt if the hub that failed is still the one in use for this provider.
+		// Otherwise the user signed out or the session was already replaced, and the
+		// regular session change handling takes care of it.
+		if (this.getHub(authProviderId) !== failedHub) {
+			return { canceled: true };
+		}
+		const inFlight = this._handlingAuthError.get(authProviderId);
+		if (inFlight) {
+			return inFlight;
+		}
+		// In-flight requests that were issued with the now-invalid token may continue
+		// to fail with auth errors for a short period after a successful re-auth.
+		// Suppress re-prompting for a cooldown window to avoid repeatedly nagging the
+		// user.
+		const lastHandled = this._lastAuthErrorHandledAt.get(authProviderId);
+		if (lastHandled !== undefined && (Date.now() - lastHandled) < CredentialStore.AUTH_ERROR_COOLDOWN_MS) {
+			return { canceled: true };
+		}
+		const promise = (async () => {
+			try {
+				// Sign-out can invalidate in-flight requests before the session change
+				// event clears our cached authentication state. Only prompt if the hub is
+				// unchanged and the session for its account and server still exists.
+				const existingSession = await findExistingSession(authProviderId);
+				if (!existingSession
+					|| this.getHub(authProviderId) !== failedHub
+					|| !failedHub.session
+					|| !isSameSessionAccount(failedHub.session, existingSession.session)) {
+					return { canceled: true };
+				}
+				Logger.appendLine(`Detected invalid GitHub${getGitHubSuffix(authProviderId)} credentials; prompting for re-authentication.`, CredentialStore.ID);
+				/* __GDPR__
+					"auth.badCredentials" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.badCredentials');
+				const reason = vscode.l10n.t('Your GitHub{0} authentication session is no longer valid. Please sign in again.', getGitHubSuffix(authProviderId));
+				// Force re-auth only for the affected provider, not both. Going through
+				// recreate()/doCreate() would prompt re-auth for both GitHub.com and
+				// GitHub Enterprise when both are configured.
+				return await this.initialize(authProviderId, { forceNewSession: { detail: reason } });
+			} finally {
+				this._handlingAuthError.delete(authProviderId);
+				this._lastAuthErrorHandledAt.set(authProviderId, Date.now());
+			}
+		})();
+		this._handlingAuthError.set(authProviderId, promise);
+		return promise;
 	}
 
 	public async reset() {
@@ -235,11 +463,42 @@ export class CredentialStore implements vscode.Disposable {
 		return this._githubEnterpriseAPI;
 	}
 
+	public getAccountId(authProviderId: AuthProvider): string | undefined {
+		return this.getHub(authProviderId)?.session?.account.id;
+	}
+
 	public areScopesOld(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
 			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
 		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+	}
+
+	async tryPromptForCopilotAuth(): Promise<boolean> {
+		if (this.isAnyAuthenticated()) {
+			return true;
+		}
+
+		const chatSetupResult = await commands.executeCommand(commands.CHAT_SETUP_ACTION_ID, 'agent', { additionalScopes: this.scopes });
+		if (!chatSetupResult) {
+			return false;
+		}
+
+		const result = await this.create({ createIfNone: { detail: vscode.l10n.t('Sign in to start delegating tasks to the GitHub coding agent.') } });
+
+		/* __GDPR__
+			"remoteAgent.command.auth" : {
+				"succeeded" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry.sendTelemetryEvent('remoteAgent.command.auth', {
+			succeeded: result.canceled || result.unavailable ? 'false' : 'true'
+		});
+
+		if (result.canceled || result.unavailable) {
+			return false;
+		}
+		return true;
 	}
 
 	public areScopesExtra(authProviderId: AuthProvider): boolean {
@@ -251,11 +510,12 @@ export class CredentialStore implements vscode.Disposable {
 
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {
 		const hasScopesAlready = this.isAuthenticatedWithAdditionalScopes(authProviderId);
-		await this.initialize(authProviderId, { createIfNone: !hasScopesAlready }, SCOPES_WITH_ADDITIONAL, true);
-		if (!hasScopesAlready) {
+		const session = this.getHub(authProviderId)?.session;
+		const result = await this.initialize(authProviderId, { createIfNone: !hasScopesAlready, ...(session ? sessionAccountOptions(session) : {}) }, SCOPES_WITH_ADDITIONAL, true);
+		if (!result.canceled && !result.unavailable && !hasScopesAlready && this.isAuthenticatedWithAdditionalScopes(authProviderId)) {
 			this._onDidUpgradeSession.fire();
 		}
-		return this.getHub(authProviderId);
+		return result.canceled || result.unavailable ? undefined : this.getHub(authProviderId);
 	}
 
 	public async getHubOrLogin(authProviderId: AuthProvider): Promise<GitHub | undefined> {
@@ -302,11 +562,12 @@ export class CredentialStore implements vscode.Disposable {
 		let isCanceled: boolean = false;
 		while (retry) {
 			try {
-				await this.initialize(authProviderId, sessionOptions);
+				const result = await this.initialize(authProviderId, sessionOptions);
+				isCanceled = result.canceled || !!result.unavailable;
 			} catch (e) {
-				Logger.error(`${errorPrefix}: ${e}`);
+				Logger.error(`Login error: ${errorPrefix}: ${e}`, CredentialStore.ID);
 				if (e instanceof Error && e.stack) {
-					Logger.error(e.stack);
+					Logger.error(e.stack, CredentialStore.ID);
 				}
 				if (e.message === 'Cancelled') {
 					isCanceled = true;
@@ -340,58 +601,120 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async showSamlMessageAndAuth(organizations: string[]): Promise<AuthResult> {
-		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization ({0}) when you sign in.', organizations.join(', ')));
+		this._isSamling = true;
+		const result = await this.recreate(vscode.l10n.t('GitHub Pull Requests requires that you provide SAML access to your organization ({0}) when you sign in.', organizations.join(', ')));
+		this._isSamling = false;
+		return result;
 	}
 
-	public async isCurrentUser(username: string): Promise<boolean> {
-		return (await this._githubAPI?.currentUser)?.login === username || (await this._githubEnterpriseAPI?.currentUser)?.login == username;
+	public async isCurrentUser(authProviderId: AuthProvider, username: string): Promise<boolean> {
+		return (await this.getCurrentUser(authProviderId))?.login === username;
 	}
 
-	public getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
+	public async showAccountPreferencesForInaccessibleRepository(authProviderId: AuthProvider, repository: string): Promise<void> {
+		// Enterprise accounts can belong to other hosts, and account information does not identify the host.
+		// A GITHUB_OAUTH_TOKEN credential has no session, so account preferences cannot replace it.
+		if (authProviderId !== AuthProvider.github || !this.getHub(AuthProvider.github)?.session || this.isDisposed || this._hasOfferedAccountPreferences) {
+			return;
+		}
+		try {
+			const accounts = await vscode.authentication.getAccounts(AuthProvider.github);
+			if (this.isDisposed || accounts.length < 2 || this._hasOfferedAccountPreferences) {
+				return;
+			}
+			this._hasOfferedAccountPreferences = true;
+			const manageAccounts = { title: vscode.l10n.t('Manage Account Preferences') };
+			const choice = await vscode.window.showWarningMessage(
+				vscode.l10n.t('The account selected for GitHub Pull Requests may not have access to {0}. You are signed in with multiple GitHub accounts. Would you like to choose a different account for this workspace?', repository),
+				manageAccounts,
+			);
+			if (!this.isDisposed && choice === manageAccounts) {
+				await commands.executeCommand(commands.MANAGE_EXTENSION_ACCOUNT_PREFERENCES, EXTENSION_ID, AuthProvider.github);
+			}
+		} catch (error) {
+			Logger.error(`Unable to show account preferences: ${error}`, CredentialStore.ID);
+		}
+	}
+
+	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
 		const github = this.getHub(authProviderId);
-		const octokit = github?.octokit;
-		return (octokit && github?.currentUser)!;
+		await this.ensureCurrentUser(github);
+		return !!github?.isEmu;
 	}
 
-	private setCurrentUser(github: GitHub): void {
-		github.currentUser = new Promise(resolve => {
-			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
-				resolve(convertRESTUserToAccount(result.data));
-			});
-		});
+	public async getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
+		const github = this.getHub(authProviderId);
+		await this.ensureCurrentUser(github);
+		return github?.currentUser!;
+	}
+
+	private ensureCurrentUser(github: GitHub | undefined): Promise<void> {
+		if (!github || (github.currentUser && github.isEmu !== undefined)) {
+			return Promise.resolve();
+		}
+
+		const existingRequest = this._currentUserRequests.get(github);
+		if (existingRequest) {
+			return existingRequest;
+		}
+
+		const request = this.setCurrentUser(github);
+		this._currentUserRequests.set(github, request);
+		const clearRequest = () => {
+			if (this._currentUserRequests.get(github) === request) {
+				this._currentUserRequests.delete(github);
+			}
+		};
+		void request.then(clearRequest, clearRequest);
+		return request;
+	}
+
+	private async setCurrentUser(github: GitHub): Promise<void> {
+		Logger.debug('Getting current user', CredentialStore.ID);
+		try {
+			const result = await github.octokit.call(github.octokit.api.users.getAuthenticated, {});
+			Logger.debug(`Got current user ${result.data.login}`, CredentialStore.ID);
+			github.currentUser = convertRESTUserToAccount(result.data);
+			github.isEmu = result.data.plan?.name === 'emu_user';
+		} catch (e) {
+			Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
+			throw e;
+		}
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
-		const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await this.findExistingScopes(authProviderId);
-		if (existingSession?.session) {
-			return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
-		}
-
-		const session = await vscode.authentication.getSession(authProviderId, requireScopes ? scopes : SCOPES_OLD, getAuthSessionOptions);
-		return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES_OLD };
-	}
-
-	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
-		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
-		for (const scopes of scopesInPreferenceOrder) {
-			const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
-			if (session) {
-				return { session, scopes };
+		try {
+			const existingSession = (getAuthSessionOptions.forceNewSession || requireScopes) ? undefined : await findExistingSession(authProviderId);
+			if (existingSession?.session) {
+				return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
 			}
+
+			const session = await vscode.authentication.getSession(authProviderId, requireScopes ? scopes : SCOPES_OLD, getAuthSessionOptions);
+			return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES_OLD };
+		} catch (error) {
+			if (authProviderId === AuthProvider.githubEnterprise && error instanceof Error
+				&& error.message === `No authentication provider '${AuthProvider.githubEnterprise}' is currently registered.`) {
+				Logger.appendLine('GitHub Enterprise authentication is unavailable. Set up GitHub Enterprise to sign in.', CredentialStore.ID);
+				return { session: undefined, isNew: false, scopes };
+			}
+			throw error;
 		}
 	}
 
-	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
+	private createHub(credentials: vscode.AuthenticationSession | string, authProviderId: AuthProvider): GitHub {
+		const session = typeof credentials === 'string' ? undefined : credentials;
+		const token = typeof credentials === 'string' ? credentials : credentials.accessToken;
+		const serverUri = getSessionGitHubUri(authProviderId, session);
 		let baseUrl = 'https://api.github.com';
-		let enterpriseServerUri: vscode.Uri | undefined;
-		if (isEnterprise(authProviderId)) {
-			enterpriseServerUri = getEnterpriseUri();
-		}
-
-		if (enterpriseServerUri && enterpriseServerUri.authority.endsWith('ghe.com')) {
-			baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
-		} else if (enterpriseServerUri) {
-			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
+		const enterpriseServerUri = isEnterprise(authProviderId) ? serverUri : undefined;
+		const hostname = new URL(serverUri.toString()).hostname.toLowerCase();
+		const isGhe = hostname === 'ghe.com' || hostname.endsWith('.ghe.com');
+		Logger.appendLine(`Creating hub for ${isEnterprise(authProviderId) ? 'enterprise' : '.com'}`, CredentialStore.ID);
+		if (enterpriseServerUri) {
+			Logger.appendLine(`Enterprise server authority ${enterpriseServerUri.authority}`, CredentialStore.ID);
+			baseUrl = isGhe
+				? enterpriseServerUri.with({ authority: `api.${enterpriseServerUri.authority}` }).toString().replace(/\/$/, '')
+				: vscode.Uri.joinPath(enterpriseServerUri, 'api/v3').toString();
 		}
 
 		let fetchCore: ((url: string, options: { headers?: Record<string, string> }) => any) | undefined;
@@ -416,12 +739,9 @@ export class CredentialStore implements vscode.Disposable {
 			baseUrl: baseUrl,
 		});
 
-		if (enterpriseServerUri) {
-			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api`;
-		}
-
+		const graphQLBaseUrl = enterpriseServerUri && !isGhe ? vscode.Uri.joinPath(enterpriseServerUri, 'api').toString() : baseUrl;
 		const graphql = new ApolloClient({
-			link: link(baseUrl, token || ''),
+			link: link(graphQLBaseUrl, token || ''),
 			cache: new InMemoryCache(),
 			defaultOptions: {
 				query: {
@@ -430,17 +750,17 @@ export class CredentialStore implements vscode.Disposable {
 			},
 		});
 
-		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId));
+		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId), (_e) => {
+			void this.handleAuthError(authProviderId, github);
+		});
 		const github: GitHub = {
+			serverUri,
+			session,
 			octokit: new LoggingOctokit(octokit, rateLogger),
 			graphql: new LoggingApolloClient(graphql, rateLogger),
 		};
-		this.setCurrentUser(github);
+		void this.ensureCurrentUser(github).catch(() => undefined);
 		return github;
-	}
-
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }
 
@@ -455,7 +775,7 @@ const link = (url: string, token: string) =>
 		createHttpLink({
 			uri: `${url}/graphql`,
 			// https://github.com/apollographql/apollo-link/issues/513
-			fetch: fetch as any,
+			fetch: fetch as (((input: URL | string, init?: RequestInit) => Promise<Response>) | undefined),
 		}),
 	);
 

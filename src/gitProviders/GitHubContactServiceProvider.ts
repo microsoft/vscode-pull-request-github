@@ -18,7 +18,7 @@ interface ContactServiceProvider {
 
 interface NotifyContactServiceEventArgs {
 	type: string;
-	body?: any | undefined;
+	body?: { contacts: Contact[]; exclusive?: boolean } | undefined;
 }
 
 /**
@@ -125,14 +125,14 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 		const origin = await this.pullRequestManager.folderManagers[0]?.getOrigin();
 		if (origin) {
-			const currentUser = origin.hub.currentUser ? await origin.hub.currentUser : undefined;
+			const currentUser = await origin.getAuthenticatedUser();
 			if (currentUser) {
 				return currentUser.login;
 			}
 		}
 	}
 
-	private notify(type: string, body: any) {
+	private notify(type: string, body: { contacts: Contact[]; exclusive?: boolean }) {
 		this.onNotifiedEmitter.fire({
 			type,
 			body,

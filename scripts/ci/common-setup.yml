@@ -1,9 +1,12 @@
 steps:
-  - task: NodeTool@0
+  - task: UseNode@1
     displayName: Upgrade Node
     inputs:
-      versionSpec: '16.x'
+      version: "24.x"
 
-  - script: yarn install --frozen-lockfile --check-files
+  - script: npm run check:package-quarantine
+    displayName: Enforce package quarantine
+
+  - script: npm ci
     displayName: Install dependencies
     retryCountOnTaskFailure: 3

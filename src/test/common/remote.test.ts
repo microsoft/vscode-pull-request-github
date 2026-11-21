@@ -1,0 +1,161 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { default as assert } from 'assert';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { Uri } from 'vscode';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { GitHubRemote, parseRemote, parseRepositoryRemotesAsync } from '../../common/remote';
+import { mockEnterpriseUris } from '../mocks/mockEnterpriseUris';
+import { MockRepository } from '../mocks/mockRepository';
+
+describe('GitHubRemote', () => {
+	let sinon: SinonSandbox;
+
+	beforeEach(() => {
+		sinon = createSandbox();
+	});
+
+	afterEach(() => {
+		sinon.restore();
+	});
+
+	it('uses GitHub Enterprise authentication for an enterprise server', () => {
+		const remote = parseRemote('origin', 'https://tenant.ghe.com/owner/repo.git');
+		assert.ok(remote);
+
+		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.Enterprise);
+
+		assert.strictEqual(githubRemote.authProviderId, AuthProvider.githubEnterprise);
+	});
+
+	it('uses GitHub authentication for GitHub.com', () => {
+		const remote = parseRemote('origin', 'https://github.com/owner/repo.git');
+		assert.ok(remote);
+
+		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.GitHubDotCom);
+
+		assert.strictEqual(githubRemote.authProviderId, AuthProvider.github);
+	});
+
+	it('does not classify an unconfigured non-GitHub server as Enterprise', () => {
+		mockEnterpriseUris(sinon, undefined);
+		for (const url of ['https://host-b.example/owner/repo.git', 'ssh://git@private.example/owner/repo.git', 'git@private.example:owner/repo.git']) {
+			const remote = parseRemote('origin', url);
+			assert.ok(remote);
+			assert.strictEqual(remote.authProviderId, AuthProvider.github, url);
+			assert.strictEqual(remote.isEnterprise, false, url);
+		}
+	});
+
+	it('does not classify an undetected GitHubRemote on an unconfigured server as Enterprise', () => {
+		mockEnterpriseUris(sinon, undefined);
+		const remote = parseRemote('zefiris', 'ssh://git@private.example/owner/repo.git');
+		assert.ok(remote);
+
+		const githubRemote = GitHubRemote.remoteAsGitHub(remote, GitHubServerType.None);
+
+		assert.strictEqual(githubRemote.isEnterprise, false);
+	});
+
+	it('classifies remotes of a configured Enterprise instance as Enterprise', () => {
+		mockEnterpriseUris(sinon, ['https://host-b.example:8443/deployment']);
+		const https = parseRemote('origin', 'https://host-b.example:8443/deployment/owner/repo.git');
+		const ssh = parseRemote('origin', 'git@host-b.example:owner/repo.git');
+		const otherHost = parseRemote('origin', 'https://host-a.example/owner/repo.git');
+		assert.ok(https && ssh && otherHost);
+
+		assert.strictEqual(https.authProviderId, AuthProvider.githubEnterprise);
+		assert.strictEqual(ssh.authProviderId, AuthProvider.githubEnterprise);
+		assert.strictEqual(otherHost.authProviderId, AuthProvider.github);
+	});
+
+	it('classifies GHE.com remotes as Enterprise without configuration', () => {
+		mockEnterpriseUris(sinon, undefined);
+		const remote = parseRemote('origin', 'https://tenant.ghe.com/owner/repo.git');
+		const lookalike = parseRemote('origin', 'https://notghe.com/owner/repo.git');
+		assert.ok(remote && lookalike);
+
+		assert.strictEqual(remote.authProviderId, AuthProvider.githubEnterprise);
+		assert.strictEqual(lookalike.authProviderId, AuthProvider.github);
+	});
+
+	it('treats invalid Enterprise configuration as unconfigured', () => {
+		mockEnterpriseUris(sinon, ['https://github.com']);
+		const remote = parseRemote('origin', 'https://host-b.example/owner/repo.git');
+		assert.ok(remote);
+
+		assert.strictEqual(remote.authProviderId, AuthProvider.github);
+	});
+
+	it('matches enterprise deployments including their paths and ports', () => {
+		const remote = parseRemote('origin', 'https://host-b.example:8443/deployment/owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.normalizedHost, 'https://host-b.example:8443/deployment');
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/deployment')), true);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-a.example:8443/deployment')), false);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:9443/deployment')), false);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/another')), false);
+	});
+
+	it('matches SSH remotes to the session deployment without treating SSH ports as API ports', () => {
+		const remote = parseRemote('origin', 'git@host-b.example:owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-b.example:8443/deployment')), true);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://host-a.example')), false);
+	});
+
+	it('preserves public SSH host routing', () => {
+		const remote = parseRemote('origin', 'git@ssh.github.com:owner/repo.git');
+		assert.ok(remote);
+		assert.strictEqual(remote.authProviderId, AuthProvider.github);
+		assert.strictEqual(remote.matchesServerUri(Uri.parse('https://github.com')), true);
+	});
+});
+
+describe('parseRepositoryRemotesAsync', () => {
+	it('resolves a remote URL using a global "url.<base>.insteadOf" alias', async () => {
+		const repository = new MockRepository();
+		// Simulate `git config url."https://github.abc.com/".insteadOf github:`
+		await repository.setConfig('url.https://github.abc.com/.insteadof', 'github:');
+		// And a remote stored as `github:org/repo` (as returned by `git config --get remote.origin.url`
+		// when the user clones with `git clone github:org/repo`).
+		await repository.addRemote('origin', 'github:org/repo');
+
+		const remotes = await parseRepositoryRemotesAsync(repository);
+
+		assert.strictEqual(remotes.length, 1);
+		assert.strictEqual(remotes[0].remoteName, 'origin');
+		assert.strictEqual(remotes[0].host, 'github.abc.com');
+		assert.strictEqual(remotes[0].owner, 'org');
+		assert.strictEqual(remotes[0].repositoryName, 'repo');
+	});
+
+	it('applies the longest matching insteadOf prefix when multiple match', async () => {
+		const repository = new MockRepository();
+		await repository.setConfig('url.https://short.example.com/.insteadof', 'gh:');
+		await repository.setConfig('url.https://long.example.com/.insteadof', 'gh:org/');
+		await repository.addRemote('origin', 'gh:org/repo');
+
+		const remotes = await parseRepositoryRemotesAsync(repository);
+
+		assert.strictEqual(remotes.length, 1);
+		assert.strictEqual(remotes[0].host, 'long.example.com');
+		assert.strictEqual(remotes[0].repositoryName, 'repo');
+	});
+
+	it('leaves URLs unchanged when no insteadOf alias matches', async () => {
+		const repository = new MockRepository();
+		await repository.setConfig('url.https://github.abc.com/.insteadof', 'github:');
+		await repository.addRemote('origin', 'https://github.com/owner/repo');
+
+		const remotes = await parseRepositoryRemotesAsync(repository);
+
+		assert.strictEqual(remotes.length, 1);
+		assert.strictEqual(remotes[0].host, 'github.com');
+		assert.strictEqual(remotes[0].owner, 'owner');
+		assert.strictEqual(remotes[0].repositoryName, 'repo');
+	});
+});

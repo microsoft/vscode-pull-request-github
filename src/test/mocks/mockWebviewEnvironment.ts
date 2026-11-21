@@ -1,4 +1,8 @@
-import installJsDomGlobal from 'jsdom-global';
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {
@@ -57,6 +61,11 @@ class MockWebviewEnvironment {
 
 	uninstall() {
 		this._uninstall();
+	}
+
+	reset() {
+		this._persistedState = undefined;
+		this._messages.length = 0;
 	}
 
 	/**

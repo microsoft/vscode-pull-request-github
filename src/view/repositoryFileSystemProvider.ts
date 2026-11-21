@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { CredentialStore } from '../github/credentials';
-import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export abstract class RepositoryFileSystemProvider extends ReadonlyFileSystemProvider {
 	constructor(protected gitAPI: GitApiImpl, protected credentialStore: CredentialStore) {
@@ -46,5 +47,21 @@ export abstract class RepositoryFileSystemProvider extends ReadonlyFileSystemPro
 			return;
 		}
 		return new Promise(resolve => this.credentialStore.onDidGetSession(() => resolve()));
+	}
+
+	protected async waitForAnyGitHubRepos(reposManager: RepositoriesManager): Promise<void> {
+		// Check if any folder manager already has GitHub repositories
+		if (reposManager.folderManagers.some(manager => manager.gitHubRepositories.length > 0)) {
+			return;
+		}
+
+		Logger.appendLine('Waiting for GitHub repositories.', 'RepositoryFileSystemProvider');
+		return new Promise(resolve => {
+			const disposable = reposManager.onDidChangeAnyGitHubRepository(() => {
+				Logger.appendLine('Found GitHub repositories.', 'RepositoryFileSystemProvider');
+				disposable.dispose();
+				resolve();
+			});
+		});
 	}
 }

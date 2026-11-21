@@ -23,7 +23,7 @@ export interface CreatePullRequestActionContext {
 				readonly name: string;
 				readonly provider?: RemoteProvider;
 				readonly url?: string;
-		  }
+			}
 		| undefined;
 }
 

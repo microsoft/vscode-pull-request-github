@@ -1,5 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { UserBuilder } from './userBuilder';
-import { RefBuilder } from './refBuilder';
+import { NonNullUserRefBuilder, RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
@@ -40,8 +45,8 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	closed_at: { default: '' },
 	merged_at: { default: '' },
 	merge_commit_sha: { default: '' },
-	head: { linked: RefBuilder },
-	base: { linked: RefBuilder },
+	head: { linked: NonNullUserRefBuilder },
+	base: { linked: NonNullUserRefBuilder },
 	draft: { default: false },
 	merged: { default: false },
 	mergeable: { default: true },

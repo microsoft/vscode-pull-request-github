@@ -1,0 +1,389 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { default as assert } from 'assert';
+import * as vscode from 'vscode';
+import { StateManager } from '../../issues/stateManager';
+import { CurrentIssue } from '../../issues/currentIssue';
+import { USE_BRANCH_FOR_ISSUES, ISSUES_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { Protocol } from '../../common/protocol';
+import { GitHubRemote } from '../../common/remote';
+import { MockRepository } from '../mocks/mockRepository';
+
+// Mock classes for testing
+class MockFolderRepositoryManager {
+	constructor(public repository: { rootUri: vscode.Uri }) { }
+}
+
+class MockSingleRepoState {
+	currentIssue?: MockCurrentIssue;
+	constructor(public folderManager: MockFolderRepositoryManager) { }
+}
+
+class MockCurrentIssue {
+	stopWorkingCalled = false;
+	stopWorkingCheckoutFlag = false;
+	issue = { number: 123 };
+
+	async stopWorking(checkoutDefaultBranch: boolean) {
+		this.stopWorkingCalled = true;
+		this.stopWorkingCheckoutFlag = checkoutDefaultBranch;
+	}
+}
+
+describe('StateManager branch behavior with useBranchForIssues setting', function () {
+	let stateManager: StateManager;
+	let mockContext: vscode.ExtensionContext;
+
+	beforeEach(() => {
+		mockContext = {
+			workspaceState: {
+				get: () => undefined,
+				update: () => Promise.resolve(),
+			},
+			subscriptions: [],
+		} as any;
+
+		stateManager = new StateManager(undefined as any, undefined as any, mockContext);
+		(stateManager as any)._singleRepoStates = new Map();
+	});
+
+	it('should not checkout default branch when useBranchForIssues is off', async function () {
+		// Mock workspace configuration to return 'off'
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string) => {
+						if (key === USE_BRANCH_FOR_ISSUES) {
+							return 'off';
+						}
+						return undefined;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			// Set up test state
+			const mockUri = vscode.Uri.parse('file:///test');
+			const mockFolderManager = new MockFolderRepositoryManager({ rootUri: mockUri });
+			const mockState = new MockSingleRepoState(mockFolderManager);
+			const mockCurrentIssue = new MockCurrentIssue();
+			mockState.currentIssue = mockCurrentIssue;
+
+			(stateManager as any)._singleRepoStates.set(mockUri.path, mockState);
+
+			// Call setCurrentIssue with checkoutDefaultBranch = true
+			await stateManager.setCurrentIssue(mockState as any, undefined, true, true);
+
+			// Verify that stopWorking was called with false (not the original true)
+			assert.strictEqual(mockCurrentIssue.stopWorkingCalled, true, 'stopWorking should have been called');
+			assert.strictEqual(mockCurrentIssue.stopWorkingCheckoutFlag, false, 'stopWorking should have been called with checkoutDefaultBranch=false when useBranchForIssues is off');
+		} finally {
+			// Restore original configuration
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('clears account-specific issue caches immediately', function () {
+		let issueDataChanged = 0;
+		stateManager.onDidChangeIssueData(() => issueDataChanged++);
+		stateManager.resolvedIssues.set('owner/repo', {} as never);
+		const state = {
+			issueCollection: new Map([['query', Promise.resolve({ issues: [], groupBy: [] })]]),
+			userMap: Promise.resolve(new Map()),
+		};
+		(stateManager as any)._singleRepoStates.set('/test', state);
+
+		stateManager.clearForAuthChange();
+
+		assert.strictEqual(stateManager.resolvedIssues.size, 0);
+		assert.strictEqual(state.issueCollection.size, 0);
+		assert.strictEqual(state.userMap, undefined);
+		assert.strictEqual(issueDataChanged, 1);
+	});
+
+	it('does not publish issue queries into a replacement collection', async function () {
+		const repository = new MockRepository();
+		const internal = stateManager as any;
+		internal._queries = [{ label: 'My Issues', query: 'is:open' }];
+		internal.getCurrentUser = async () => 'old-account';
+		const folderManager = {
+			repository,
+			getMaxIssue: async () => 0,
+			getIssues: async () => ({ items: [] }),
+			getActiveGitHubRemotes: () => [],
+		};
+
+		const pendingIssueData = internal.setIssueData(folderManager);
+		stateManager.clearForAuthChange();
+		await pendingIssueData;
+
+		const state = internal._singleRepoStates.get(repository.rootUri.path);
+		assert.strictEqual(state.issueCollection.size, 0);
+	});
+
+	it('should checkout default branch when useBranchForIssues is not off', async function () {
+		// Mock workspace configuration to return 'on'
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string) => {
+						if (key === USE_BRANCH_FOR_ISSUES) {
+							return 'on';
+						}
+						return undefined;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			// Set up test state
+			const mockUri = vscode.Uri.parse('file:///test');
+			const mockFolderManager = new MockFolderRepositoryManager({ rootUri: mockUri });
+			const mockState = new MockSingleRepoState(mockFolderManager);
+			const mockCurrentIssue = new MockCurrentIssue();
+			mockState.currentIssue = mockCurrentIssue;
+
+			(stateManager as any)._singleRepoStates.set(mockUri.path, mockState);
+
+			// Call setCurrentIssue with checkoutDefaultBranch = true
+			await stateManager.setCurrentIssue(mockState as any, undefined, true, true);
+
+			// Verify that stopWorking was called with true (preserving the original value)
+			assert.strictEqual(mockCurrentIssue.stopWorkingCalled, true, 'stopWorking should have been called');
+			assert.strictEqual(mockCurrentIssue.stopWorkingCheckoutFlag, true, 'stopWorking should have been called with checkoutDefaultBranch=true when useBranchForIssues is on');
+		} finally {
+			// Restore original configuration
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('should trim whitespace from query strings', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async (query: string) => {
+				// Verify that the query doesn't have trailing whitespace
+				assert.strictEqual(query, query.trim(), 'Query should be trimmed');
+				assert.strictEqual(query.endsWith(' '), false, 'Query should not end with whitespace');
+				return { items: [], hasMorePages: false, hasUnsearchedRepositories: false, totalCount: 0 };
+			},
+			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
+		};
+
+		// Mock workspace configuration with query that has trailing space
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo ', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			// Initialize the state manager with a query that has trailing space
+			const stateManager = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			(stateManager as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo ', groupBy: [] }];
+
+			// Manually trigger the setIssueData flow
+			await (stateManager as any).setIssueData(mockFolderManager);
+
+			// Await the collection promise so setIssues completes
+			const collection = stateManager.getIssueCollection(mockUri);
+			const testQueryPromise = collection.get('Test');
+			assert.ok(testQueryPromise, 'Expected issue collection to contain the \'Test\' query label');
+			await testQueryPromise;
+
+			// If we get here without assertion failures in getIssues, the test passed
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('should fire onDidChangeIssueData even when getIssues throws', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async () => {
+				throw new Error('Network error');
+			},
+			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
+		};
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open assignee:@me repo:owner/repo', groupBy: [] }];
+
+			let changeEventCount = 0;
+			sm.onDidChangeIssueData(() => changeEventCount++);
+
+			await (sm as any).setIssueData(mockFolderManager);
+
+			// setIssueData doesn't await setIssues - await the collection promises so the finally block fires
+			const collection = sm.getIssueCollection(mockUri);
+			const queryResult = await collection.get('Test');
+
+			// The event should have fired even though getIssues threw
+			assert.ok(changeEventCount > 0, 'onDidChangeIssueData should fire even when getIssues fails');
+			assert.strictEqual(queryResult?.issues, undefined, 'Issues should be undefined when getIssues fails');
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	it('should not reject promises in issueCollection when getIssues throws', async function () {
+		const mockUri = vscode.Uri.parse('file:///test');
+		const mockFolderManager = {
+			repository: { rootUri: mockUri, state: { HEAD: { commit: 'abc123' }, remotes: [] } },
+			getIssues: async () => {
+				throw new Error('API error');
+			},
+			getMaxIssue: async () => 0,
+			getActiveGitHubRemotes: () => [],
+		};
+
+		const originalGetConfiguration = vscode.workspace.getConfiguration;
+		vscode.workspace.getConfiguration = (section?: string) => {
+			if (section === ISSUES_SETTINGS_NAMESPACE) {
+				return {
+					get: (key: string, defaultValue?: any) => {
+						if (key === 'queries') {
+							return [{ label: 'Test', query: 'is:open repo:owner/repo', groupBy: [] }];
+						}
+						return defaultValue;
+					},
+				} as any;
+			}
+			return originalGetConfiguration(section);
+		};
+
+		try {
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: { isAnyAuthenticated: () => true, getCurrentUser: async () => ({ login: 'testuser' }) },
+			} as any, mockContext);
+
+			(sm as any)._queries = [{ label: 'Test', query: 'is:open repo:owner/repo', groupBy: [] }];
+
+			await (sm as any).setIssueData(mockFolderManager);
+
+			// Verify that the promises in issueCollection resolve (not reject)
+			const collection = sm.getIssueCollection(mockUri);
+			for (const [, promise] of collection) {
+				const result = await promise;
+				assert.ok(result !== undefined, 'Promise should resolve, not reject');
+				assert.strictEqual(result.issues, undefined, 'Issues should be undefined on error');
+			}
+		} finally {
+			vscode.workspace.getConfiguration = originalGetConfiguration;
+		}
+	});
+
+	describe('current user resolution for issue queries', function () {
+		// eslint-disable-next-line no-template-curly-in-string
+		const query = 'is:open assignee:${user} repo:owner/repo';
+
+		async function resolveQuery(gitRemotes: { name: string, url: string }[], githubRemotes: GitHubRemote[]): Promise<{ query: string | undefined, providers: AuthProvider[] }> {
+			const mockUri = vscode.Uri.parse('file:///test');
+			let receivedQuery: string | undefined;
+			const providers: AuthProvider[] = [];
+			const mockFolderManager = {
+				repository: {
+					rootUri: mockUri,
+					state: { HEAD: { commit: 'abc123' }, remotes: gitRemotes.map(remote => ({ name: remote.name, fetchUrl: remote.url, isReadOnly: false })) },
+					getConfigs: async () => [],
+				},
+				getIssues: async (q: string) => {
+					receivedQuery = q;
+					return { items: [], hasMorePages: false, hasUnsearchedRepositories: false };
+				},
+				getMaxIssue: async () => 0,
+				getActiveGitHubRemotes: () => githubRemotes,
+			};
+			const sm = new StateManager(undefined as any, {
+				folderManagers: [mockFolderManager],
+				credentialStore: {
+					getCurrentUser: async (provider: AuthProvider) => {
+						providers.push(provider);
+						return provider === AuthProvider.github ? { login: 'dotcom-user' } : { login: 'enterprise-user' };
+					},
+				},
+			} as any, mockContext);
+			(sm as any)._queries = [{ label: 'My Issues', query, groupBy: [] }];
+
+			await (sm as any).setIssueData(mockFolderManager);
+			await sm.getIssueCollection(mockUri).get('My Issues');
+			return { query: receivedQuery, providers };
+		}
+
+		function githubRemote(name: string, url: string, serverType: GitHubServerType): GitHubRemote {
+			return new GitHubRemote(name, url, new Protocol(url), serverType);
+		}
+
+		it('uses the github.com user when a non-GitHub remote is also configured', async function () {
+			const origin = { name: 'origin', url: 'https://github.com/owner/repo.git' };
+			const privateServer = { name: 'zefiris', url: 'ssh://git@zefiris.example.com/owner/repo.git' };
+
+			const result = await resolveQuery(
+				[origin, privateServer],
+				[githubRemote(origin.name, origin.url, GitHubServerType.GitHubDotCom)],
+			);
+
+			assert.deepStrictEqual(result.providers, [AuthProvider.github]);
+			assert.strictEqual(result.query, 'is:open assignee:dotcom-user repo:owner/repo');
+		});
+
+		it('uses the Enterprise user when an active remote is GitHub Enterprise', async function () {
+			const origin = { name: 'origin', url: 'https://ghe.example.com/owner/repo.git' };
+
+			const result = await resolveQuery(
+				[origin],
+				[githubRemote(origin.name, origin.url, GitHubServerType.Enterprise)],
+			);
+
+			assert.deepStrictEqual(result.providers, [AuthProvider.githubEnterprise]);
+			assert.strictEqual(result.query, 'is:open assignee:enterprise-user repo:owner/repo');
+		});
+	});
+});

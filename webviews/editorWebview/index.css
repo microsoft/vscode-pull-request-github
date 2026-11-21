@@ -3,21 +3,25 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+html {
+	scrollbar-gutter: stable;
+}
+
 #app {
 	display: grid;
-	grid-template-columns: 1fr minmax(200px, 300px);
+	grid-template-columns: minmax(0, 1fr) minmax(200px, 300px);
 	column-gap: 32px;
 }
 
 #title {
 	grid-column-start: 1;
 	grid-column-end: 3;
-	grid-row: 1;
+	grid-row: 2;
 }
 
 #main {
 	grid-column: 1;
-	grid-row: 2;
+	grid-row: 3;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -28,7 +32,141 @@
 	flex-direction: column;
 	gap: 16px;
 	grid-column: 2;
-	grid-row: 2;
+	grid-row: 3;
+}
+
+/* The stack recommendation is above the title. Its grid row takes no space when there is no recommendation. */
+.stack-recommendation {
+	grid-column: 1 / 3;
+	grid-row: 1;
+}
+
+/* With the experimental setting on, the overview is split into tabs below the title. */
+#overview-tabs {
+	grid-column: 1 / 3;
+	grid-row: 3;
+	min-width: 0;
+}
+
+/* The tab list takes the place of the line below the title. */
+.title:has(+ #overview-tabs) {
+	margin-bottom: 12px;
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
+/* The tabs, with the action of the selected tab on their right. */
+.overview-tab-bar {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	margin-bottom: 24px;
+}
+
+/* The line under the tabs stops at the last tab rather than continuing under the action. The selected tab's underline covers it. */
+.overview-tab-list {
+	display: flex;
+	flex-shrink: 0;
+	align-self: flex-end;
+	gap: 20px;
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+#overview-tabs .overview-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: -1px;
+	padding: 6px 2px;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: none;
+	color: var(--vscode-panelTitle-inactiveForeground);
+}
+
+#overview-tabs .overview-tab:hover,
+#overview-tabs .overview-tab[aria-selected='true'] {
+	color: var(--vscode-panelTitle-activeForeground);
+}
+
+#overview-tabs .overview-tab[aria-selected='true'] {
+	border-bottom-color: var(--vscode-panelTitle-activeBorder);
+}
+
+#overview-tabs .overview-tab:focus {
+	outline: none;
+}
+
+#overview-tabs .overview-tab:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.overview-tab-badge {
+	display: flex;
+}
+
+.overview-tab-badge.ready {
+	color: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.overview-tab-badge.checks-failed {
+	color: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.checks-failed svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.overview-tab-badge.blocked {
+	color: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-badge.blocked svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.overview-tab-count {
+	box-sizing: border-box;
+	min-width: 18px;
+	padding: 0 5px;
+	border-radius: 9px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	text-align: center;
+}
+
+/* Without the narrow sidebar column, the metadata sections are laid out side by side. */
+#overview-tabs #sidebar {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 24px 32px;
+}
+
+#overview-tabs .section {
+	padding-bottom: 0;
+	border-bottom: none;
+}
+
+/* Not `display`, so that `hidden` hides the actions of the other tabs. */
+#overview-tabs .overview-session-action {
+	min-width: 0;
+	margin-left: auto;
+}
+
+/* Narrow overviews shorten the label rather than wrap the bar; the title has the full label. */
+#overview-tabs .overview-session-action button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 #project a {
@@ -43,6 +181,105 @@ textarea:focus,
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
+/* Sticky Header */
+
+.sticky-header {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 200;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 32px;
+	background: var(--vscode-editor-background);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+	transform: translateY(-100%);
+	opacity: 0;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+	pointer-events: none;
+}
+
+.vscode-high-contrast .sticky-header {
+	box-shadow: none;
+}
+
+.sticky-header.visible {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.sticky-header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.sticky-header-left #sticky-status {
+	flex-shrink: 0;
+	box-sizing: border-box;
+	line-height: 18px;
+	color: var(--vscode-button-foreground);
+	border-radius: 18px;
+	padding: 2px 10px;
+	font-weight: 600;
+	font-size: 12px;
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.sticky-header-left #sticky-status svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast .sticky-header-left #sticky-status {
+	border: 1px solid var(--vscode-contrastBorder);
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast .sticky-header-left #sticky-status svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+.sticky-header-title {
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.sticky-header-number {
+	flex-shrink: 0;
+	color: var(--vscode-textLink-foreground);
+	white-space: nowrap;
+}
+
+.sticky-header-number:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.sticky-header .icon-button {
+	color: var(--vscode-foreground);
+}
+
+.sticky-header .icon-button:hover,
+.sticky-header .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	cursor: pointer;
+}
+
+.sticky-header .icon-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
 .title-text {
 	margin-right: 5px;
 }
@@ -50,9 +287,14 @@ textarea:focus,
 .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0;
+	margin: 20px 0 24px;
 	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	background: var(--vscode-editor-background);
+}
+
+.title .details {
+	flex: 1;
 }
 
 .title .pr-number {
@@ -66,14 +308,77 @@ textarea:focus,
 	transform: translate(-50%, -50%);
 }
 
+.loading-button {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
+.overview-placeholder {
+	display: inline-block;
+	height: 12px;
+	width: 70%;
+	border-radius: 4px;
+	background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.overview-preview-actions .overview-placeholder {
+	height: 26px;
+	width: 96px;
+}
+
+.overview-preview-actions .overview-placeholder + .overview-placeholder {
+	width: 72px;
+}
+
+.overview-preview-status {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.overview-preview-sidebar .collapsible-sidebar-header {
+	cursor: default;
+}
+
+.overview-preview-sidebar .collapsible-label-see-more .overview-placeholder {
+	width: 56px;
+}
+
+.vscode-high-contrast .overview-placeholder {
+	outline: 1px solid var(--vscode-contrastBorder);
+}
+
 .comment-body li div {
 	display: inline;
 }
 
+.comment-body li div.Box,
+.comment-body li div.Box div {
+	display: block;
+}
+
+.comment-body,
 .comment-body code,
 .comment-body a,
 span.lineContent {
 	overflow-wrap: anywhere;
+}
+
+.comment-reactions {
+	display: flex;
+	flex-direction: row;
+}
+
+.comment-reactions div {
+	font-size: 1.1em;
+	cursor: pointer;
+	user-select: none;
+}
+
+.comment-reactions .reaction-label {
+	border-radius: 5px;
+	border: 1px solid var(--vscode-panel-border);
+	width: 14px;
 }
 
 #title:empty {
@@ -121,13 +426,13 @@ body .comment-container.review {
 
 .review-comment-container {
 	width: 100%;
-	max-width: 1000px;
 	display: flex;
 	flex-direction: column;
 	position: relative;
 }
 
-body #main > .comment-container > .review-comment-container > .review-comment-header:not(:nth-last-child(2)) {
+body #main .comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)),
+#description .review-comment-header {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -139,12 +444,17 @@ body .comment-container .review-comment-header {
 	padding: 8px 16px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.review-comment-header.no-details {
+	border-bottom-left-radius: 0px;
+	border-bottom-right-radius: 0px;
 }
 
 .description-header {
@@ -173,6 +483,16 @@ body .comment-container .review-comment-header {
 	height: 14px;
 }
 
+.comment-actions .icon-button {
+	padding-left: 2px;
+	padding-top: 2px;
+}
+
+.status-scroll {
+	max-height: 220px;
+	overflow-y: auto;
+}
+
 .status-check {
 	display: flex;
 	align-items: center;
@@ -187,6 +507,17 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
+.status-check > div:not(.status-check-details) {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.status-check .icon-button,
+.view-check-logs-placeholder {
+	flex: 0 0 22px;
+}
+
 #merge-on-github {
 	margin-top: 10px;
 }
@@ -197,9 +528,9 @@ body .comment-container .review-comment-header {
 }
 
 .status-item:first-of-type {
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .status-item,
@@ -208,6 +539,30 @@ body .comment-container .review-comment-header {
 	display: flex;
 	gap: 8px;
 	align-items: center;
+}
+
+.status-item .button-container {
+	margin-left: auto;
+	margin-right: 0;
+}
+
+.commit-association {
+	display: flex;
+	font-style: italic;
+	flex-direction: row-reverse;
+	padding-top: 7px;
+}
+
+.commit-association span {
+	flex-direction: row;
+}
+
+.email {
+	font-weight: bold;
+}
+
+button.input-box {
+	float: right;
 }
 
 .status-item-detail-text {
@@ -219,18 +574,62 @@ body .comment-container .review-comment-header {
 	margin-right: 8px;
 }
 
+.workflow-approval-icon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background-color: var(--vscode-statusBarItem-warningBackground);
+	color: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-icon svg path {
+	fill: var(--vscode-statusBarItem-warningForeground);
+}
+
+.workflow-approval-heading {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.workflow-approval-description {
+	color: var(--vscode-descriptionForeground);
+}
+
 .status-section p {
 	margin: 0;
+}
+
+.status-section .check svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.status-section .close svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.status-section .pending svg path,
+.status-section .skip svg path {
+	fill: var(--vscode-list-warningForeground);
 }
 
 .merge-queue-container,
 .ready-for-review-container {
 	padding: 16px;
-	background-color: var(--vscode-editorWidget-background);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	background-color: var(--vscode-panel-background);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 	display: flex;
 	justify-content: space-between;
+	align-items: center;
+}
+
+.ready-for-review-container .button-container {
+	flex-direction: row;
+	display: flex;
 	align-items: center;
 }
 
@@ -249,7 +648,7 @@ body .comment-container .review-comment-header {
 
 #status-checks {
 	border: 1px solid var(--vscode-editorHoverWidget-border);
-	border-radius: 4px;
+	border-radius: 6px;
 }
 
 #status-checks .label {
@@ -261,6 +660,10 @@ body .comment-container .review-comment-header {
 	cursor: pointer;
 }
 
+#status-checks .icon-button:hover,
+#status-checks .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
 #status-checks summary {
 	display: flex;
 	align-items: center;
@@ -283,21 +686,30 @@ body .comment-container .review-comment-header {
 #status-checks .merge-select-container {
 	display: flex;
 	align-items: center;
-	background-color: var(--vscode-editorWidget-background);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	background-color: var(--vscode-panel-background);
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
-#status-checks .merge-select-container > * {
+#status-checks .merge-select-container>* {
 	margin-right: 5px;
 }
 
-#status-checks .merge-select-container > select {
+#status-checks .merge-select-container>select {
 	margin-left: 5px;
 }
 
 #status-checks .branch-status-container {
 	display: inline-block;
+}
+
+#status-checks .stacked-delete-branch-container {
+	display: block;
+	padding: 12px 16px;
+}
+
+#status-checks .stacked-delete-branch-container form {
+	margin: 0;
 }
 
 #status-checks .branch-status-message {
@@ -306,11 +718,14 @@ body .comment-container .review-comment-header {
 	padding: 16px;
 }
 
-body .comment-container .review-comment-header > span,
-body .comment-container .review-comment-header > a,
-body .commit .commit-message > a,
-body .merged .merged-message > a {
+body .comment-container .review-comment-header>span,
+body .comment-container .review-comment-header>a,
+body .merged .merged-message>a {
 	margin-right: 6px;
+}
+
+body .commit .commit-message>a {
+	margin-right: 3px;
 }
 
 body .comment-container .review-comment-container .pending-label,
@@ -333,9 +748,10 @@ body .diff .diffPath {
 	margin-right: 4px;
 }
 
-.comment-container form, #merge-comment-form {
+.comment-container form,
+#merge-comment-form {
 	padding: 16px;
-	background-color: var(--vscode-editorWidget-background);
+	background-color: var(--vscode-panel-background);
 }
 
 body .comment-container .comment-body,
@@ -351,16 +767,18 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p,
-body .comment-container .comment-body > div > p,
-.comment-container .review-body > p {
+body .comment-container .comment-body>p,
+body .comment-container .comment-body>div>p,
+body .comment-container .comment-body>div>ul,
+body .comment-container .comment-body>div>ol,
+.comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
 }
 
-body .comment-container .comment-body > p:last-child,
-body .comment-container .comment-body > div > p:last-child,
-.comment-container .review-body > p:last-child {
+body .comment-container .comment-body>p:last-child,
+body .comment-container .comment-body>div>p:last-child,
+.comment-container .review-body>p:last-child {
 	margin-bottom: 0;
 }
 
@@ -400,8 +818,14 @@ body button .icon {
 	margin-top: 18px;
 }
 
+.overview-title {
+	display: flex;
+	align-items: center;
+}
+
 .overview-title h2 {
-	font-size: 32px;
+	font-size: 28px;
+	margin-right: 6px;
 }
 
 .overview-title textarea {
@@ -417,16 +841,368 @@ body button .icon {
 	align-items: center;
 	flex-wrap: wrap;
 	row-gap: 12px;
+	column-gap: 8px;
+}
+
+.stack-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 16px;
+	color: var(--vscode-foreground);
+	text-decoration: none;
+}
+
+.stack-badge:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.stack-badge .icon svg,
+.stack-header .icon svg,
+.stack-recommendation-banner .icon svg,
+.stack-entry-readiness svg {
+	width: 16px;
+	height: 16px;
+}
+
+.stack-section {
+	scroll-margin-top: 64px;
+	/* Whether the Unstack all button fits beside the heading depends on the section's width, not the page's. */
+	container: stack-section / inline-size;
+}
+
+.stack-header {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon heading actions toggle";
+	gap: 8px;
+	cursor: pointer;
+}
+
+.stack-header > .icon {
+	grid-area: icon;
+}
+
+.stack-heading-text {
+	grid-area: heading;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.stack-actions {
+	grid-area: actions;
+	display: flex;
+	gap: 8px;
+}
+
+.stack-header .stack-chevron {
+	grid-area: toggle;
+	margin: 0;
+}
+
+.stack-chevron[aria-expanded="false"] .icon {
+	transform: rotate(-90deg);
+}
+
+/* Too narrow for the button to sit beside the heading, so it goes below it, still in the header. */
+@container stack-section (max-width: 400px) {
+	.stack-header {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon heading toggle"
+			". actions .";
+	}
+
+	.stack-actions {
+		justify-self: start;
+	}
+}
+
+.stack-description,
+.stack-entry-meta {
+	display: block;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}
+
+.stack-entries {
+	list-style: none;
+	margin: 0;
+	padding: 12px 20px 4px 20px;
+}
+
+.stack-entry,
+.stack-base {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr);
+	column-gap: 8px;
+	position: relative;
+	padding: 6px 8px 12px 8px;
+}
+
+.stack-entry::before {
+	content: '';
+	position: absolute;
+	left: 17px;
+	top: 28px;
+	bottom: 6px;
+	border-left: 1px solid var(--vscode-descriptionForeground);
+	opacity: 0.5;
+}
+
+.stack-entry.current {
+	background: var(--vscode-panel-background);
+	border-radius: 4px;
+}
+
+.stack-entry.current::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 3px;
+	border-radius: 2px 0 0 2px;
+	background: var(--vscode-focusBorder);
+}
+
+.stack-entry-readiness {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	position: relative;
+	z-index: 1;
+	border-radius: 50%;
+	background: var(--vscode-editor-background);
+}
+
+.stack-entry.current .stack-entry-readiness {
+	background: var(--vscode-panel-background);
+}
+
+.stack-entry-readiness.ready {
+	color: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.ready svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.stack-entry-readiness.merged {
+	color: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.merged svg path {
+	fill: var(--vscode-pullRequests-merged);
+}
+
+.stack-entry-readiness.draft {
+	color: var(--vscode-pullRequests-draft);
+}
+
+.stack-entry-readiness.draft svg path {
+	fill: var(--vscode-pullRequests-draft);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged,
+.vscode-high-contrast-light .stack-entry-readiness.merged,
+.vscode-high-contrast .stack-entry-readiness.draft,
+.vscode-high-contrast-light .stack-entry-readiness.draft {
+	color: var(--vscode-foreground);
+}
+
+.vscode-high-contrast .stack-entry-readiness.merged svg path,
+.vscode-high-contrast-light .stack-entry-readiness.merged svg path,
+.vscode-high-contrast .stack-entry-readiness.draft svg path,
+.vscode-high-contrast-light .stack-entry-readiness.draft svg path {
+	fill: var(--vscode-foreground);
+}
+
+.stack-entry-readiness.blocked {
+	color: var(--vscode-pullRequests-closed);
+}
+
+.stack-entry-readiness.blocked svg path {
+	fill: var(--vscode-pullRequests-closed);
+}
+
+.stack-entry-readiness.waiting {
+	color: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-readiness.waiting svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.stack-entry-readiness.conflict {
+	color: var(--vscode-errorForeground);
+}
+
+.stack-entry-readiness.conflict svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.stack-entry-details {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.stack-base {
+	align-items: center;
+}
+
+.stack-base-marker {
+	box-sizing: border-box;
+	width: 8px;
+	height: 8px;
+	margin-left: 5px;
+	border: 2px solid var(--vscode-descriptionForeground);
+	border-radius: 50%;
+}
+
+.stack-base .branch-tag {
+	width: fit-content;
+}
+
+.stack-recommendation {
+	margin-top: 20px;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 6px;
+	/* Keeps the banner's background inside the rounded corners. */
+	overflow: hidden;
+	/* Whether the Preview stack button fits beside the message depends on the recommendation's width, not the page's. */
+	container: stack-recommendation / inline-size;
+}
+
+.stack-recommendation-banner {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	grid-template-areas: "icon message toggle dismiss";
+	align-items: center;
+	gap: 8px;
+	padding: 8px 8px 8px 12px;
+	background: var(--vscode-textBlockQuote-background);
+}
+
+.stack-recommendation-banner > .icon {
+	grid-area: icon;
+	color: var(--vscode-textLink-foreground);
+}
+
+.stack-recommendation-message {
+	grid-area: message;
+}
+
+.stack-recommendation-toggle {
+	grid-area: toggle;
+}
+
+.stack-recommendation-dismiss {
+	grid-area: dismiss;
+}
+
+/* Too narrow for the button to sit beside the message, so it goes below it. Dismiss stays in the top right corner. */
+@container stack-recommendation (max-width: 400px) {
+	.stack-recommendation-banner {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas:
+			"icon message dismiss"
+			". toggle .";
+		align-items: start;
+	}
+
+	.stack-recommendation-toggle {
+		justify-self: start;
+	}
+}
+
+.stack-recommendation-preview {
+	border-top: 1px solid var(--vscode-panel-border);
+	padding: 12px 12px 8px;
+}
+
+.stack-recommendation-preview-header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.stack-recommendation-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 8px;
+}
+
+/* Points to a stack recommendation that was added above the page while it was being read. */
+.stack-recommendation-hint {
+	position: fixed;
+	top: 4px;
+	left: 50%;
+	/* Below the sticky header. */
+	z-index: 150;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 10px 2px 6px;
+	border-radius: 12px;
+	font-size: 12px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	transform: translateX(-50%);
+	animation: stack-recommendation-hint-in 0.2s ease-out;
+}
+
+.stack-recommendation-hint .icon {
+	animation: stack-recommendation-hint-nudge 1s ease-in-out 0.2s 3;
+}
+
+.vscode-high-contrast .stack-recommendation-hint,
+.vscode-high-contrast-light .stack-recommendation-hint {
+	border-color: var(--vscode-contrastBorder);
+	box-shadow: none;
+}
+
+@keyframes stack-recommendation-hint-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -100%);
+	}
+}
+
+@keyframes stack-recommendation-hint-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(-3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stack-recommendation-hint,
+	.stack-recommendation-hint .icon {
+		animation: none;
+	}
 }
 
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
+	margin-top: 2px;
 	margin-right: 6px;
 }
 
 .subtitle .author {
 	display: flex;
-	align-items: center;
 }
 
 .merge-branches {
@@ -437,7 +1213,8 @@ body button .icon {
 }
 
 .branch-tag {
-	padding: 2px 4px;
+	margin-top: 0;
+	padding: 4px;
 	background: var(--vscode-editorInlayHint-background);
 	color: var(--vscode-editorInlayHint-foreground);
 	border-radius: 4px;
@@ -451,13 +1228,46 @@ body button .icon {
 .button-group {
 	display: flex;
 	gap: 8px;
+	flex-wrap: wrap;
+	align-items: flex-start;
 }
 
-.small-button {
+small-button {
 	display: flex;
 	font-size: 11px;
-	font-weight: 600;
 	padding: 0 5px;
+}
+
+.header-actions {
+	display: flex;
+	gap: 8px;
+	padding-top: 4px;
+	align-items: center;
+}
+
+.header-actions>div:first-of-type {
+	flex: 1;
+}
+
+button.secondary.change-base {
+	background-color: transparent;
+	padding: unset;
+	border-radius: 4px;
+	margin-top: 2px;
+}
+
+.change-base code {
+	display: flex;
+	align-items: center;
+	padding: 2px 4px;
+}
+
+.change-base .icon {
+	margin-left: 4px;
+}
+
+:not(.status-item)>.small-button {
+	font-weight: 600;
 }
 
 #status {
@@ -466,7 +1276,6 @@ body button .icon {
 	color: var(--vscode-button-foreground);
 	border-radius: 18px;
 	padding: 4px 12px;
-	margin-right: 10px;
 	font-weight: 600;
 	display: flex;
 	gap: 4px;
@@ -503,11 +1312,11 @@ body button .icon {
 }
 
 .section {
-	padding-bottom: 24px;
+	padding-bottom: 16px;
 	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 8px;
 }
 
 .section:last-of-type {
@@ -519,6 +1328,9 @@ body button .icon {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+}
+
+.section-header.clickable {
 	cursor: pointer;
 }
 
@@ -539,6 +1351,20 @@ body button .icon {
 	height: 16px;
 	display: block;
 	margin-right: 0;
+}
+
+.section .icon-button,
+.section .icon-button .icon {
+	color: currentColor;
+}
+
+.icon-button-group {
+	display: flex;
+	flex-direction: row;
+}
+
+.section svg path {
+	fill: currentColor;
 }
 
 .commit svg {
@@ -573,17 +1399,34 @@ body button .icon {
 }
 
 .commit .commit-message,
+.commit .timeline-with-detail,
 .merged .merged-message {
-	display: flex;
 	align-items: center;
 	overflow: hidden;
 	flex-grow: 1;
 }
 
+.commit .commit-message,
+.merged .merged-message {
+	display: flex;
+}
+
+.commit .timeline-with-detail {
+	display: block;
+}
+
+.commit-message-detail {
+	margin-left: 20px;
+}
+
 .commit .commit-message .avatar-container,
 .merged .merged-message .avatar-container {
-	margin-right: 4px;
+	margin-right: 6px;
 	flex-shrink: 0;
+}
+
+.commit-message .icon {
+	padding-top: 2px;
 }
 
 .commit .avatar-container .avatar,
@@ -607,7 +1450,37 @@ body button .icon {
 	white-space: nowrap;
 }
 
-.sha-with-timestamp {
+.commit .commit-message a.message {
+	cursor: pointer;
+}
+
+.commit .commit-message .message.wrap {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.commit .commit-message .label.timeline-label {
+	display: inline-flex;
+	vertical-align: middle;
+	margin: 1px 0;
+}
+
+.commit .commit-message .message .previous-title {
+	color: var(--vscode-descriptionForeground);
+}
+
+.commit .commit-message .message .current-title {
+	text-decoration: none;
+}
+
+.timeline-event-detail {
+	margin-left: 24px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--vscode-descriptionForeground);
+}
+
+.timeline-detail {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -617,6 +1490,125 @@ body button .icon {
 	min-width: 50px;
 	font-family: var(--vscode-editor-font-family);
 	margin-bottom: -2px;
+	cursor: pointer;
+}
+
+.verified-pill-container {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.verified-pill-container .verified-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 7px;
+	height: 18px;
+	line-height: 18px;
+	font-size: 11px;
+	font-weight: 500;
+	font-family: inherit;
+	border-radius: 2em;
+	border: 1px solid var(--vscode-badge-background);
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.verified-pill-container .verified-pill.verified {
+	color: var(--vscode-issues-open);
+	border-color: var(--vscode-issues-open);
+}
+
+.verified-pill:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.verified-popover {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	z-index: 100;
+	width: 300px;
+	max-width: 90vw;
+	padding: 12px 16px;
+	background-color: var(--vscode-editorHoverWidget-background);
+	color: var(--vscode-editorHoverWidget-foreground);
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	cursor: default;
+	text-align: left;
+	white-space: normal;
+}
+
+.verified-popover-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding-bottom: 12px;
+	margin-bottom: 12px;
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.verified-popover-icon {
+	flex-shrink: 0;
+	display: flex;
+	margin-top: 1px;
+}
+
+.verified-popover-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.verified-popover-icon.verified svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.verified-popover-icon.unverified svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.verified-popover-message {
+	line-height: 1.4;
+}
+
+.verified-popover-signer {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.verified-popover-signer .avatar-container .avatar,
+.verified-popover-signer .avatar-container .avatar-icon,
+.verified-popover-signer .avatar-container .avatar-icon svg {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+}
+
+.verified-popover-signer-names {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.3;
+}
+
+.verified-popover-signer-login {
+	font-weight: 600;
+}
+
+.verified-popover-signer-name {
+	color: var(--vscode-descriptionForeground);
+}
+
+.verified-popover-detail {
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.6;
+	word-break: break-all;
 }
 
 .merged .merged-message .message,
@@ -648,7 +1640,7 @@ body button .icon {
 	display: flex;
 	margin: 0;
 	align-items: center;
-	border-radius: 4px;
+	border-radius: 6px;
 	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -657,7 +1649,7 @@ body button .icon {
 	border: none;
 }
 
-.comment-container[data-type='commit'] + .comment-container[data-type='commit'] {
+.comment-container[data-type='commit']+.comment-container[data-type='commit'] {
 	border-top: none;
 }
 
@@ -672,8 +1664,8 @@ body button .icon {
 	padding: 16px;
 	background-color: var(--vscode-editorHoverWidget-background);
 	border-top: 1px solid var(--vscode-editorHoverWidget-border);
-	border-bottom-left-radius: 3px;
-	border-bottom-right-radius: 3px;
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
 }
 
 .review-comment-container .review-comment .review-comment-header {
@@ -720,10 +1712,108 @@ textarea {
 	max-height: 500px;
 }
 
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	border-radius: 4px;
+	margin-bottom: 4px;
+	overflow: hidden;
+	resize: vertical;
+}
+
+.textarea-wrapper:focus-within {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	width: 100%;
+	box-sizing: border-box;
+	border: none;
+	background: transparent;
+	border-radius: 0;
+	outline: none;
+	margin: 0;
+	resize: none;
+	padding-right: 40px;
+}
+
+.textarea-wrapper .title-action {
+	position: absolute;
+	top: 6px;
+	right: 5px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+}
+
+.textarea-wrapper .title-action:hover {
+	outline-style: none;
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .title-action:focus {
+	outline-style: none;
+}
+
+.textarea-wrapper .title-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+}
+
+.textarea-wrapper .title-action svg {
+	padding: 2px;
+}
+
+.textarea-wrapper .comment-upload-button {
+	align-self: flex-start;
+	margin: 2px 0 4px 4px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+}
+
+.textarea-wrapper .comment-upload-button:hover:not(:disabled) {
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .comment-upload-button:focus {
+	outline-style: none;
+}
+
+.textarea-wrapper .comment-upload-button:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+}
+
+.textarea-wrapper .comment-upload-button:disabled {
+	opacity: 0.5;
+}
 .editing-form {
 	padding: 5px 0;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	min-width: 300px;
 }
 
@@ -733,8 +1823,8 @@ textarea {
 	justify-content: flex-end;
 }
 
-.comment-form .form-actions > button,
-.comment-form .form-actions > input[type='submit'] {
+.comment-form .form-actions>button,
+.comment-form .form-actions>input[type='submit'] {
 	margin-right: 0;
 	margin-left: 0;
 }
@@ -743,8 +1833,11 @@ textarea {
 	flex-grow: unset;
 }
 
-.form-actions {
-	display: flex;
+:not(.button-group) .dropdown-container {
+	justify-content: right;
+}
+
+:not(.title-editing-form)>.form-actions {
 	justify-content: flex-end;
 	padding-top: 10px;
 }
@@ -753,7 +1846,7 @@ textarea {
 	flex-direction: row-reverse;
 }
 
-.main-comment-form > .form-actions {
+.main-comment-form>.form-actions {
 	margin-bottom: 10px;
 }
 
@@ -795,17 +1888,61 @@ blockquote p:last-child {
 	border-bottom: 2px solid;
 }
 
-.comment-body h1 {
+h2,
+h3 {
+	font-weight: normal;
+}
+
+/* Markdown headings, lists, and inline code follow github.com's markdown styles. */
+.comment-body h1,
+.comment-body h2,
+.comment-body h3,
+.comment-body h4,
+.comment-body h5,
+.comment-body h6 {
+	display: block;
+	margin-top: 24px;
+	margin-bottom: 16px;
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.comment-body h1,
+.comment-body h2 {
 	padding-bottom: 0.3em;
-	line-height: 1.2;
 	border-bottom-width: 1px;
 	border-bottom-style: solid;
 }
 
-.comment-body h1,
-h2,
-h3 {
-	font-weight: normal;
+.comment-body h1 {
+	font-size: 2em;
+}
+
+.comment-body h2 {
+	font-size: 1.5em;
+}
+
+.comment-body h3 {
+	font-size: 1.25em;
+}
+
+.comment-body h4 {
+	font-size: 1em;
+}
+
+.comment-body h5 {
+	font-size: 0.875em;
+}
+
+.comment-body h6 {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.comment-body :not(pre)>code {
+	padding: 0.2em 0.4em;
+	font-size: 85%;
+	border-radius: 6px;
 }
 
 .comment-body h1 code,
@@ -814,32 +1951,50 @@ h3 {
 .comment-body h4 code,
 .comment-body h5 code,
 .comment-body h6 code {
+	padding: 0 0.2em;
 	font-size: inherit;
 	line-height: auto;
+}
+
+.comment-body ul,
+.comment-body ol {
+	padding-left: 2em;
+}
+
+.comment-body li+li {
+	margin-top: 0.25em;
+}
+
+.markdown-body>:first-child {
+	margin-top: 0;
+}
+
+.markdown-body>:last-child {
+	margin-bottom: 0;
 }
 
 .comment-body table {
 	border-collapse: collapse;
 }
 
-.comment-body table > thead > tr > th {
+.comment-body table>thead>tr>th {
 	text-align: left;
 	border-bottom: 1px solid;
 }
 
-.comment-body table > thead > tr > th,
-.comment-body table > thead > tr > td,
-.comment-body table > tbody > tr > th,
-.comment-body table > tbody > tr > td {
+.comment-body table>thead>tr>th,
+.comment-body table>thead>tr>td,
+.comment-body table>tbody>tr>th,
+.comment-body table>tbody>tr>td {
 	padding: 5px 10px;
 }
 
-.comment-body table > tbody > tr + tr > td {
+.comment-body table>tbody>tr+tr>td {
 	border-top: 1px solid;
 }
 
 code {
-	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .comment-body .snippet-clipboard-content {
@@ -874,21 +2029,22 @@ code {
 }
 
 .comment-body pre:not(.hljs),
-.comment-body pre.hljs code > div {
+.comment-body pre.hljs code>div {
 	padding: 16px;
-	border-radius: 3px;
+	border-radius: 6px;
 	overflow: auto;
 }
 
 .timestamp,
 .timestamp:hover {
-	color: inherit;
+	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 }
 
 .timestamp {
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding-left: 8px;
 }
 
 /** Theming */
@@ -898,13 +2054,21 @@ code {
 }
 
 .vscode-light .comment-body pre:not(.hljs),
-.vscode-light .comment-body code > div {
+.vscode-light .comment-body code>div {
 	background-color: rgba(220, 220, 220, 0.4);
 }
 
 .vscode-dark .comment-body pre:not(.hljs),
-.vscode-dark .comment-body code > div {
+.vscode-dark .comment-body code>div {
 	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-light .comment-body :not(pre)>code {
+	background-color: rgba(129, 139, 152, 0.12);
+}
+
+.vscode-dark .comment-body :not(pre)>code {
+	background-color: rgba(101, 108, 118, 0.2);
 }
 
 .vscode-high-contrast .comment-body pre:not(.hljs),
@@ -913,8 +2077,9 @@ code {
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .comment-body h1 {
-	border: 1px solid rgb(0, 0, 0);
+.vscode-high-contrast .comment-body h1,
+.vscode-high-contrast .comment-body h2 {
+	border-color: var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .comment-container .review-comment-header,
@@ -928,23 +2093,25 @@ code {
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-light .comment-body table > thead > tr > th {
+.vscode-light .comment-body table>thead>tr>th {
 	border-color: rgba(0, 0, 0, 0.69);
 }
 
-.vscode-dark .comment-body table > thead > tr > th {
+.vscode-dark .comment-body table>thead>tr>th {
 	border-color: rgba(255, 255, 255, 0.69);
 }
 
 .vscode-light .comment-body h1,
+.vscode-light .comment-body h2,
 .vscode-light .comment-body hr,
-.vscode-light .comment-body table > tbody > tr + tr > td {
+.vscode-light .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(0, 0, 0, 0.18);
 }
 
 .vscode-dark .comment-body h1,
+.vscode-dark .comment-body h2,
 .vscode-dark .comment-body hr,
-.vscode-dark .comment-body table > tbody > tr + tr > td {
+.vscode-dark .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -980,9 +2147,9 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	background: var(--vscode-editorWidget-background);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	background: var(--vscode-panel-background);
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .resolved-container .diffPath:hover {
@@ -998,15 +2165,15 @@ code {
 }
 
 .win32 .diff .diffLine {
-	font-family: Consolas, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Consolas, Inconsolata, 'Courier New', monospace;
 }
 
 .darwin .diff .diffLine {
-	font-family: Monaco, Menlo, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Monaco, Menlo, Inconsolata, 'Courier New', monospace;
 }
 
 .linux .diff .diffLine {
-	font-family: 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .diff .diffLine.add {
@@ -1056,6 +2223,10 @@ code {
 	border-bottom: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast .title.stuck::after {
+	box-shadow: none;
+}
+
 .vscode-high-contrast .diff .diffLine {
 	background: none;
 }
@@ -1076,7 +2247,51 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 925px) {
+/*
+ * While the main column is narrower than its maximum width, let the timeline use the full width once it is below the sidebar.
+ * The lower bound must match singleColumnLayoutQuery in overview.tsx, and the upper bound must match the body max-width.
+ */
+@media (1000px < width <= 1280px) {
+	#app {
+		display: flow-root;
+	}
+
+	/* The sidebar is before #main in the DOM so that the timeline can flow around it. */
+	#app > #sidebar {
+		float: right;
+		width: 300px;
+		margin: 0 0 16px 32px;
+	}
+
+	#app > #main {
+		display: block;
+	}
+
+	/* Each item establishes its own formatting context so that it narrows next to the sidebar instead of going under it. */
+	#app > #main > * {
+		width: auto;
+	}
+
+	#app > #main > :not(.comment-container) {
+		display: flow-root;
+	}
+
+	#app > #main > * + * {
+		margin-top: 16px;
+	}
+}
+
+/* Keep in sync with singleColumnLayoutQuery in overview.tsx */
+@media (max-width: 1000px) {
+	.title {
+		border-bottom: none;
+		padding-bottom: 0px;
+	}
+
+	.title.stuck .overview-title h2 {
+		font-size: 16px;
+	}
+
 	#app {
 		display: block;
 	}
@@ -1084,9 +2299,9 @@ code {
 	#sidebar {
 		display: grid;
 		column-gap: 20px;
-		grid-template-columns: 50% 50%;
+		row-gap: 12px;
+		grid-template-columns: calc(50% - 10px) calc(50% - 10px);
 		padding: 0;
-		padding-bottom: 24px;
 	}
 
 	.section-content {
@@ -1104,7 +2319,6 @@ code {
 	}
 
 	.section-header button {
-		margin-left: 8px;
 		display: flex;
 	}
 
@@ -1126,6 +2340,10 @@ code {
 	display: flex;
 }
 
+.icon.copilot-icon {
+	margin-right: 6px;
+}
+
 .action-bar {
 	position: absolute;
 	display: flex;
@@ -1144,8 +2362,8 @@ code {
 	min-width: 42px;
 }
 
-.action-bar > button,
-.flex-action-bar > button {
+.action-bar>button,
+.flex-action-bar>button {
 	margin-left: 4px;
 	margin-right: 4px;
 }
@@ -1154,8 +2372,8 @@ code {
 	flex-grow: 1;
 }
 
-.title-editing-form > .form-actions {
-	margin-left: 0;
+.title-editing-form>.form-actions {
+	margin-left: 8px;
 }
 
 /* permalinks */
@@ -1172,14 +2390,14 @@ code {
 }
 
 .comment-body .Box-header {
-	background-color: var(--vscode-editorWidget-background);
+	background-color: var(--vscode-panel-background);
 	color: var(--vscode-disabledForeground);
 	border-bottom-style: solid;
 	border-bottom-width: 1px;
 	padding: 8px 16px;
 	border-bottom-color: var(--vscode-editorHoverWidget-border);
-	border-top-left-radius: 3px;
-	border-top-right-radius: 3px;
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
 }
 
 .comment-body .blob-num {
@@ -1256,4 +2474,174 @@ code {
 
 .blob-code-marker-deletion::before {
 	content: "- ";
+}
+
+.markdown-alert.markdown-alert-warning {
+	border-left: .25em solid var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-note {
+	border-left: .25em solid var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-tip {
+	border-left: .25em solid var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-important {
+	border-left: .25em solid var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+	color: var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-caution {
+	border-left: .25em solid var(--vscode-editorError-foreground);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+	color: var(--vscode-editorError-foreground);
+}
+
+.markdown-alert {
+	padding: .5rem .5rem;
+	margin-bottom: 1rem;
+	color: inherit;
+}
+
+.markdown-alert .markdown-alert-title {
+	display: flex;
+	align-items: center;
+	line-height: 1;
+}
+
+.markdown-alert-title svg {
+	padding-right: 3px;
+}
+
+.markdown-alert>:first-child {
+	margin-top: 0;
+}
+
+svg.octicon path {
+	display: inline-block;
+	overflow: visible !important;
+	vertical-align: text-bottom;
+	fill: currentColor;
+}
+
+.collapsible-sidebar {
+	border-top: 1px solid var(--vscode-editorWidget-border);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	margin-bottom: 24px;
+}
+
+.collapsible-sidebar-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 16px 0px 8px;
+	user-select: none;
+	outline: none;
+}
+
+.collapsible-sidebar-header.expanded {
+	padding: 8px 0px;
+}
+
+.collapsible-sidebar-header:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.collapsible-sidebar-title {
+	font-size: 13px;
+	width: 100%;
+}
+
+.collapsible-sidebar-content {
+	padding-bottom: 16px;
+}
+
+.collapsed-label {
+	gap: 8px;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-gap: 8px 20px;
+}
+
+.collapsed-section {
+	gap: 8px;
+	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+	height: 22px;
+}
+
+.collapsed-section-label {
+	padding-right: 4px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.collapsed-section-count {
+	color: var(--vscode-descriptionForeground);
+}
+
+.pill-container {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	flex: 1;
+	flex-wrap: nowrap;
+	overflow: hidden;
+}
+
+.pill-item {
+	flex-shrink: 0;
+	white-space: nowrap;
+	border-radius: 20px;
+	margin-right: 2px;
+	border-style: none;
+	text-overflow: ellipsis;
+	max-width: -webkit-fill-available;
+	overflow: hidden;
+	display: inline-block;
+}
+
+.pill-overflow {
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	margin-left: 4px;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.collapsed-section .stacked-avatar {
+	position: absolute;
+}
+
+.avatar-stack {
+	position: relative;
+	height: 22px;
+}
+
+.collapsible-label-see-more {
+	padding-bottom: 16px;
+	display: block;
+	font-size: 13px;
+	cursor: pointer;
 }

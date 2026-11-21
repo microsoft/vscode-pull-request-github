@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
-import { DiffHunk, parsePatch } from '../common/diffHunk';
+import { DiffChangeType, DiffHunk, parsePatch } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SimpleFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
@@ -13,14 +13,28 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 
 export abstract class FileChangeModel {
+	private static readonly ID = 'FileChangeModel';
 	protected _filePath: vscode.Uri;
 	get filePath(): vscode.Uri {
-		return this._filePath;
+		return this.submoduleUri(this._filePath, false);
 	}
 
 	protected _parentFilePath: vscode.Uri;
 	get parentFilePath(): vscode.Uri {
-		return this._parentFilePath;
+		return this.submoduleUri(this._parentFilePath, true);
+	}
+
+	get submoduleChange(): { base: string; head: string } | undefined {
+		return this.change instanceof InMemFileChange ? this.change.submoduleChange : undefined;
+	}
+
+	private submoduleUri(uri: vscode.Uri, isBase: boolean): vscode.Uri {
+		if (!(this.change instanceof InMemFileChange) || !this.submoduleChange) {
+			return uri;
+		}
+		return toPRUri(uri, this.pullRequest, this.change.baseCommit, this.sha ?? this.pullRequest.head!.sha,
+			this.fileName, isBase, this.status, this.change.previousFileName,
+			isBase ? this.submoduleChange.base : this.submoduleChange.head);
 	}
 
 	get status(): GitChangeType {
@@ -51,7 +65,7 @@ export abstract class FileChangeModel {
 	async diffHunks(): Promise<DiffHunk[]> {
 		let diffHunks: DiffHunk[] = [];
 
-		if (this.change instanceof InMemFileChange) {
+		if (this.change instanceof InMemFileChange && this.change.diffHunks) {
 			return this.change.diffHunks;
 		} else if (this.status !== GitChangeType.RENAME) {
 			try {
@@ -59,10 +73,32 @@ export abstract class FileChangeModel {
 				const patch = await this.folderRepoManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.fileName);
 				diffHunks = parsePatch(patch);
 			} catch (e) {
-				Logger.error(`Failed to parse patch for outdated comments: ${e}`);
+				Logger.error(`Failed to parse patch for outdated comments: ${e}`, FileChangeModel.ID);
 			}
 		}
 		return diffHunks;
+	}
+
+	public async calculateChangedLinesCount(): Promise<{ added: number; removed: number }> {
+		try {
+			const diffHunks = await this.diffHunks();
+			let added = 0;
+			let removed = 0;
+
+			for (const hunk of diffHunks) {
+				for (const line of hunk.diffLines) {
+					if (line.type === DiffChangeType.Add) {
+						++added;
+					} else if (line.type === DiffChangeType.Delete) {
+						++removed;
+					}
+				}
+			}
+			return { added, removed };
+		} catch (error) {
+			Logger.warn(`Failed to calculate added/removed lines for ${this.fileName}: ${error}`, FileChangeModel.ID);
+			return { added: 0, removed: 0 };
+		}
 	}
 
 	constructor(public readonly pullRequest: PullRequestModel,
@@ -78,7 +114,7 @@ export class GitFileChangeModel extends FileChangeModel {
 		change: SimpleFileChange,
 		filePath: vscode.Uri,
 		parentFilePath: vscode.Uri,
-		public readonly sha: string,
+		sha: string,
 		preload?: boolean
 	) {
 		super(pullRequest, folderRepositoryManager, change, sha);
@@ -93,11 +129,18 @@ export class GitFileChangeModel extends FileChangeModel {
 		}
 	}
 
-	private _show: Promise<string>
-	async showBase(): Promise<string> {
-		if (!this._show) {
-			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha);
-			const absolutePath = vscode.Uri.joinPath(this.folderRepoManager.repository.rootUri, this.fileName).fsPath;
+	private _show: Promise<string | undefined>;
+	async showBase(): Promise<string | undefined> {
+		if (this.submoduleChange) {
+			return this.submoduleChange.base;
+		}
+		if (!this._show && this.change.status !== GitChangeType.ADD) {
+			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha!);
+			const fileName = (this.change.status === GitChangeType.RENAME) &&
+				(this.change instanceof InMemFileChange || this.change instanceof SlimFileChange)
+				? this.change.previousFileName!
+				: this.fileName;
+			const absolutePath = vscode.Uri.joinPath(this.folderRepoManager.repository.rootUri, fileName).fsPath;
 			this._show = this.folderRepoManager.repository.show(commit, absolutePath);
 		}
 		return this._show;
@@ -111,40 +154,37 @@ export class InMemFileChangeModel extends FileChangeModel {
 
 	async isPartial(): Promise<boolean> {
 		let originalFileExist = false;
+		let fileName: string | undefined = undefined;
 
-		switch (this.change.status) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.fileName);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.previousFileName!);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
+		if ((this.change.patch === '') &&
+			((this.change.status === GitChangeType.MODIFY) || (this.change.status === GitChangeType.RENAME) || (this.change.status === GitChangeType.ADD))) {
+			return true;
 		}
-		return !originalFileExist && (this.change.status !== GitChangeType.ADD);
+
+		if ((this.change.status === GitChangeType.DELETE) || (this.change.status === GitChangeType.MODIFY)) {
+			fileName = this.change.fileName;
+		} else if (this.change.status === GitChangeType.RENAME) {
+			fileName = this.change.previousFileName!;
+		}
+
+		try {
+			if (fileName) {
+				await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, fileName);
+				originalFileExist = true;
+			}
+		} catch (err) {
+			/* noop */
+		}
+		return !originalFileExist;
 	}
 
 	get patch(): string {
 		return this.change.patch;
 	}
 
-	async diffHunks(): Promise<DiffHunk[]> {
-		return this.change.diffHunks;
-	}
-
 	constructor(folderRepositoryManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		public readonly change: InMemFileChange,
+		public override readonly change: InMemFileChange,
 		isCurrentPR: boolean,
 		mergeBase: string) {
 		super(pullRequest, folderRepositoryManager, change);
@@ -193,13 +233,9 @@ export class RemoteFileChangeModel extends FileChangeModel {
 		return this.change.previousFileName;
 	}
 
-	get blobUrl(): string {
-		return this.change.blobUrl;
-	}
-
 	constructor(
 		folderRepositoryManager: FolderRepositoryManager,
-		public readonly change: SlimFileChange,
+		public override readonly change: SlimFileChange,
 		pullRequest: PullRequestModel,
 	) {
 		super(pullRequest, folderRepositoryManager, change);

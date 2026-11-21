@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri } from 'vscode';
+import { EventEmitter, Uri } from 'vscode';
 import { RefType } from '../../api/api1';
 
 import type {
@@ -19,6 +19,7 @@ import type {
 	BranchQuery,
 	FetchOptions,
 	RefQuery,
+	Worktree,
 } from '../../api/api';
 
 type Mutable<T> = {
@@ -67,19 +68,25 @@ export class MockRepository implements Repository {
 		return Promise.reject(new Error(`Unexpected log(${options})`));
 	}
 
+	private _onDidChangeState = new EventEmitter<void>();
+
 	private _state: Mutable<RepositoryState & { refs: Ref[] }> = {
-		HEAD: undefined,
+		HEAD: {
+			type: RefType.Head
+		},
 		refs: [],
 		remotes: [],
 		submodules: [],
+		worktrees: undefined,
 		rebaseCommit: undefined,
 		mergeChanges: [],
 		indexChanges: [],
 		workingTreeChanges: [],
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: this._onDidChangeState.event,
 	};
-	private _config: Map<string, string> = new Map();
+	private _config: { key: string; value: string }[] = [];
 	private _branches: Branch[] = [];
+	preserveConfigOnNextBranchDelete = false;
 	private _expectedFetches: { remoteName?: string; ref?: string; depth?: number }[] = [];
 	private _expectedPulls: { unshallow?: boolean }[] = [];
 	private _expectedPushes: { remoteName?: string; branchName?: string; setUpstream?: boolean }[] = [];
@@ -96,16 +103,32 @@ export class MockRepository implements Repository {
 	};
 
 	async getConfigs(): Promise<{ key: string; value: string }[]> {
-		return Array.from(this._config, ([k, v]) => ({ key: k, value: v }));
+		return [...this._config];
 	}
 
 	async getConfig(key: string): Promise<string> {
-		return this._config.get(key) || '';
+		for (let i = this._config.length - 1; i >= 0; i--) {
+			if (this._config[i].key === key) {
+				return this._config[i].value;
+			}
+		}
+		return '';
 	}
 
 	async setConfig(key: string, value: string): Promise<string> {
-		const oldValue = this._config.get(key) || '';
-		this._config.set(key, value);
+		const oldValue = await this.getConfig(key);
+		this._config.push({ key, value });
+		return oldValue;
+	}
+
+	async unsetConfig(key: string): Promise<string> {
+		const matchingIndexes = this._config
+			.map((config, index) => config.key === key ? index : -1)
+			.filter(index => index !== -1);
+		if (matchingIndexes.length !== 1) {
+			return '';
+		}
+		const [{ value: oldValue }] = this._config.splice(matchingIndexes[0], 1);
 		return oldValue;
 	}
 
@@ -149,8 +172,12 @@ export class MockRepository implements Repository {
 		return Promise.reject(new Error('Unexpected hashObject(...)'));
 	}
 
+	private _hasBranch(ref: string) {
+		return this._branches.some(b => b.name === ref);
+	}
+
 	async createBranch(name: string, checkout: boolean, ref?: string | undefined): Promise<void> {
-		if (this._branches.some(b => b.name === name)) {
+		if (this._hasBranch(name)) {
 			throw new Error(`A branch named ${name} already exists`);
 		}
 
@@ -171,9 +198,17 @@ export class MockRepository implements Repository {
 	async deleteBranch(name: string, force?: boolean | undefined): Promise<void> {
 		const index = this._branches.findIndex(b => b.name === name);
 		if (index === -1) {
-			throw new Error(`Attempt to delete nonexistent branch ${name}`);
+			const error: Error & { stderr?: string } = new Error(`Attempt to delete nonexistent branch ${name}`);
+			error.stderr = `error: branch '${name}' not found.`;
+			throw error;
 		}
 		this._branches.splice(index, 1);
+		if (this.preserveConfigOnNextBranchDelete) {
+			this.preserveConfigOnNextBranchDelete = false;
+		} else {
+			const section = `branch.${name}`;
+			this._config = this._config.filter(({ key }) => key.slice(0, key.lastIndexOf('.')) !== section);
+		}
 	}
 
 	async getBranch(name: string): Promise<Branch> {
@@ -186,6 +221,10 @@ export class MockRepository implements Repository {
 
 	async getBranches(_query: BranchQuery): Promise<Ref[]> {
 		return [];
+	}
+
+	async getBranchBase(name: string): Promise<Branch | undefined> {
+		throw new Error(`Unexpected getBranchBase(${name})`);
 	}
 
 	async setBranchUpstream(name: string, upstream: string): Promise<void> {
@@ -233,7 +272,7 @@ export class MockRepository implements Repository {
 		this._state.HEAD = branch;
 	}
 
-	async addRemote(name: string, url: string): Promise<void> {
+	async addRemote(name: string, url: string, pushUrl: string = url): Promise<void> {
 		if (this._state.remotes.some(r => r.name === name)) {
 			throw new Error(`A remote named ${name} already exists.`);
 		}
@@ -241,7 +280,7 @@ export class MockRepository implements Repository {
 		this._state.remotes.push({
 			name,
 			fetchUrl: url,
-			pushUrl: url,
+			pushUrl,
 			isReadOnly: false,
 		});
 	}
@@ -271,7 +310,7 @@ export class MockRepository implements Repository {
 			throw new Error(`Unexpected fetch(${remoteName}, ${ref}, ${depth})`);
 		}
 
-		if (ref) {
+		if (ref && !this._hasBranch(ref)) {
 			const match = /^(?:\+?[^:]+\:)?(.*)$/.exec(ref);
 			if (match) {
 				const [, localRef] = match;
@@ -318,5 +357,18 @@ export class MockRepository implements Repository {
 
 	expectPush(remoteName?: string, branchName?: string, setUpstream?: boolean) {
 		this._expectedPushes.push({ remoteName, branchName, setUpstream });
+	}
+
+	merge(ref: string): Promise<void> {
+		return Promise.reject(new Error(`Unexpected merge(${ref})`));
+	}
+
+	mergeAbort(): Promise<void> {
+		return Promise.reject(new Error(`Unexpected mergeAbort`));
+	}
+
+	setWorktrees(worktrees: Worktree[]) {
+		this._state.worktrees = worktrees;
+		this._onDidChangeState.fire();
 	}
 }

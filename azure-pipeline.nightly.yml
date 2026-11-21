@@ -3,7 +3,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: '0 9 * * Mon-Thu'
+  - cron: '0 4 * * Mon-Fri'
     displayName: Nightly Release Schedule
     always: true
     branches:
@@ -27,20 +27,22 @@ parameters:
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
+    ghCreateRelease: false
+
     l10nSourcePaths: ./src
-    customNPMRegistry: ''
+
+    nodeVersion: "24.x"
 
     buildSteps:
-      - script: yarn install --frozen-lockfile --check-files
+      - script: npm ci
         displayName: Install dependencies
         retryCountOnTaskFailure: 3
 
-      - script: yarn run bundle
+      - script: npm run bundle
         displayName: Compile
 
       - script: >
           node ./scripts/prepare-nightly-build.js
-          -v "$VERSION"
         displayName: Generate package.json
 
       - script: |
@@ -49,11 +51,11 @@ extends:
         displayName: Override package.json
 
     testSteps:
-      - script: yarn install --frozen-lockfile --check-files
+      - script: npm ci
         displayName: Install dependencies
         retryCountOnTaskFailure: 3
 
-      - script: yarn run bundle
+      - script: npm run bundle
         displayName: Compile
 
       - bash: |
@@ -61,25 +63,31 @@ extends:
           echo ">>> Started xvfb"
         displayName: Start xvfb
 
-      - script: yarn run test
+      - script: npm run test
         displayName: Run test suite
         env:
           DISPLAY: ':99.0'
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      # - script: yarn run browsertest --browserType=chromium
+      # - script: npm run browsertest --browserType=chromium
       #   displayName: Run test suite (chromium)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      # - script: yarn run browsertest --browserType=firefox
+      # - script: npm run browsertest --browserType=firefox
       #   displayName: Run test suite (firefox)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      # - script: yarn run browsertest --browserType=webkit
+      # - script: npm run browsertest --browserType=webkit
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+    tsa:
+      config:
+        areaPath: 'Visual Studio Code Web Extensions'
+        serviceTreeID: '1788a767-5861-45fb-973b-c686b67c5541'
+      enabled: true
 
     publishExtension: ${{ parameters.publishExtension }}

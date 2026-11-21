@@ -12,29 +12,36 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
+import { AutoMerge, QueuedToMerge, StackAutoMerge } from './automergeSelect';
+import { ContextDropdown } from './contextDropdown';
+import { Dropdown } from './dropdown';
+import { checkIcon, chevronDownIcon, circleFilledIcon, closeIcon, gitMergeIcon, layersIcon, loadingIcon, outputIcon, requestChangesIcon, skipIcon, warningIcon } from './icon';
+import { canUpdatePullRequestStack, isStackMembershipKnown, StackActions, StackSection, StackUpdateButton, useStackActions } from './pullRequestStack';
+import { nbsp } from './space';
+import { Avatar } from './user';
+import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
+	getStackMergeAllTarget,
 	GithubItemStateEnum,
+	hasConflictingStackEntry,
+	isStackMergeable,
 	MergeMethod,
 	PullRequestCheckStatus,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	reviewerId,
+	ReviewState,
 } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
-import { AutoMerge, QueuedToMerge } from './automergeSelect';
-import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
-import { nbsp } from './space';
-import { Avatar } from './user';
 
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return pr.state === GithubItemStateEnum.Merged ? (
 		<div className="branch-status-message">
-			<div className="branch-status-icon">{isSimple ? mergeIcon : null}</div>{' '}
+			<div className="branch-status-icon">{isSimple ? gitMergeIcon : null}</div>{' '}
 			{'Pull request successfully merged.'}
 		</div>
 	) : pr.state === GithubItemStateEnum.Closed ? (
@@ -63,7 +70,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 				toggleDetails();
 			}
 		}
-	}, status?.statuses);
+	}, [status?.statuses]);
 
 	return state === GithubItemStateEnum.Open && status?.statuses.length ? (
 		<>
@@ -73,16 +80,50 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 					<p className="status-item-detail-text">{getSummaryLabel(status.statuses)}</p>
 					<button
 						id="status-checks-display-button"
-						className="secondary small-button"
+						className="icon-button"
 						onClick={toggleDetails}
+						aria-expanded={showDetails}
+						aria-label={showDetails ? 'Hide status checks' : 'Show status checks'}
+						title={showDetails ? 'Hide status checks' : 'Show status checks'}
 					>
-						{showDetails ? 'Hide' : 'Show'}
+						{chevronDownIcon}
 					</button>
 				</div>
 				{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
 			</div>
 		</>
 	) : null;
+};
+
+const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
+	const { approveWorkflowRuns } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const workflowRunIds = pr.status?.workflowRunIdsAwaitingApproval;
+	if (pr.state !== GithubItemStateEnum.Open || !workflowRunIds?.length) {
+		return null;
+	}
+
+	const approve = () => {
+		setBusy(true);
+		approveWorkflowRuns(workflowRunIds).finally(() => setBusy(false));
+	};
+	const isPlural = workflowRunIds.length > 1;
+	return (
+		<div className="status-section">
+			<div className="status-item">
+				<span className="workflow-approval-icon">{warningIcon}</span>
+				<div>
+					<p className="workflow-approval-heading">{workflowRunIds.length} {isPlural ? 'workflows' : 'workflow'} awaiting approval</p>
+					<p className="workflow-approval-description">{isPlural ? 'These workflows require' : 'This workflow requires'} approval from a maintainer.</p>
+				</div>
+				{pr.hasWritePermission ? (
+					<div className="button-container">
+						<button className="secondary" onClick={approve} disabled={isBusy}>Approve workflows to run</button>
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
 };
 
 const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
@@ -105,19 +146,42 @@ const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
 };
 
 const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	return isSimple && pr.state === GithubItemStateEnum.Open ? (
-		pr.reviewers ? (
+	if (!isSimple || pr.state !== GithubItemStateEnum.Open || pr.reviewers.length === 0) {
+		return null;
+	}
+
+	// match an event to each reviewer
+	// Use events as the outer loop as there are likely to be more events than reviewers
+	const reviewInfos: {event: ReviewEvent, reviewState: ReviewState}[] = [];
+	const remainingReviewers = new Set(pr.reviewers);
+	let eventIndex = pr.events.length - 1;
+	while (eventIndex >= 0 && remainingReviewers.size > 0) {
+		const event = pr.events[eventIndex];
+		if (event.event === EventType.Reviewed) {
+			for (const reviewState of remainingReviewers) {
+				if (event.user.id === reviewState.reviewer.id) {
+					reviewInfos.push({event, reviewState});
+					remainingReviewers.delete(reviewState);
+					break;
+				}
+			}
+		}
+		eventIndex--;
+	}
+
+	return  (
 			<div className="section">
 				{' '}
-				{pr.reviewers.map(state => (
-					<Reviewer key={reviewerId(state.reviewer)} {...state} />
-				))}
+				{reviewInfos.map(reviewerInfo => {
+
+					return <Reviewer key={reviewerId(reviewerInfo.reviewState.reviewer)} {...reviewerInfo} />;
+				})}
 			</div>
-		) : null
-	) : null;
+	);
 };
 
 export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	const stackActions = useStackActions();
 	if (pr.isIssue) {
 		return null;
 	}
@@ -128,9 +192,11 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 				<>
 					<PRStatusMessage pr={pr} isSimple={isSimple} />
 					<RequiredReviewers pr={pr} />
+					<WorkflowsAwaitingApproval pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
-					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
+					{!isSimple ? <StackSection pr={pr} actions={stackActions} /> : null}
+					<MergeStatusAndActions pr={pr} isSimple={isSimple} stackActions={stackActions} />
 					<DeleteOption pr={pr} />
 				</>
 			}
@@ -138,7 +204,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 	);
 };
 
-export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+export const MergeStatusAndActions = ({ pr, isSimple, stackActions }: { pr: PullRequest; isSimple: boolean; stackActions?: StackActions }) => {
 	const { create, checkMergeability } = useContext(PullRequestContext);
 
 	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
@@ -157,6 +223,9 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	}
 
 	const { mergeable: _mergeable } = pr;
+	const canUpdateWithMergeCommit = !pr.stack && isStackMembershipKnown(pr) && !pr.stackLoadError;
+	// Stacked branches are updated by rebasing the whole stack, which is also how their conflicts are resolved.
+	const stackUpdate = stackActions && canUpdatePullRequestStack(pr) ? <StackUpdateButton pr={pr} actions={stackActions} /> : undefined;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
@@ -166,16 +235,22 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	useEffect(() => {
 		const handle = setInterval(async () => {
 			if (mergeable === PullRequestMergeability.Unknown) {
-				const newMergeability = await checkMergeability();
+				const { mergeability: newMergeability } = await checkMergeability();
 				setMergeability(newMergeability);
 			}
 		}, 3000);
 		return () => clearInterval(handle);
 	}, [mergeable]);
 
+	const stackConflicts = hasConflictingStackEntry(pr.stack);
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} canUpdateBranch={pr.canUpdateBranch}
+				canUpdateWithMergeCommit={canUpdateWithMergeCommit} stackUpdate={stackUpdate}
+				stackHasConflicts={stackConflicts} />
+			{stackActions?.updateError ? <div className="stack-action-error" role="alert">{stackActions.updateError}</div> : null}
+			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut}
+				canUpdateBranch={pr.canUpdateBranch && canUpdateWithMergeCommit} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
 	);
@@ -183,61 +258,180 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability; isSimple: boolean }) => {
-	let icon: JSX.Element | null = pendingIcon;
+export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWithMergeCommit, stackUpdate, stackHasConflicts }: {
+	mergeable: PullRequestMergeability;
+	isSimple: boolean;
+	canUpdateBranch: boolean;
+	canUpdateWithMergeCommit: boolean;
+	/** Updates the stack that this branch is in. Set when the stack can be updated; stacked branches never get merge commits. */
+	stackUpdate?: React.ReactElement;
+	/** An open pull request in this branch's stack has conflicts, which block merging the stack and are resolved by updating it. */
+	stackHasConflicts?: boolean;
+}) => {
+	const { updateBranch } = useContext(PullRequestContext);
+	const [busy, setBusy] = useState(false);
+
+	const onClick = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	};
+
+	let icon: JSX.Element | null = circleFilledIcon;
 	let summary: string = 'Checking if this branch can be merged...';
-	if (mergeable === PullRequestMergeability.Mergeable) {
-		icon = checkIcon;
-		summary = 'This branch has no conflicts with the base branch.';
-	} else if (mergeable === PullRequestMergeability.Conflict) {
+	let action: string | null = null;
+	const hasConflicts = mergeable === PullRequestMergeability.Conflict || !!stackHasConflicts;
+	if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
+		action = canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
+	} else if (stackHasConflicts) {
+		// This branch's own status would contradict the stack's conflicts, which block merging it.
+		icon = closeIcon;
+		summary = 'A pull request in this stack has conflicts that must be resolved.';
+	} else if (mergeable === PullRequestMergeability.Mergeable) {
+		icon = checkIcon;
+		summary = 'This branch has no conflicts with the base branch.';
 	} else if (mergeable === PullRequestMergeability.NotMergeable) {
 		icon = closeIcon;
 		summary = 'Branch protection policy must be fulfilled before merging.';
 	} else if (mergeable === PullRequestMergeability.Behind) {
-		icon = alertIcon;
+		icon = closeIcon;
 		summary = 'This branch is out-of-date with the base branch.';
+		action = canUpdateWithMergeCommit ? 'Update with merge commit' : null;
 	}
 
+	// The editor offers to update the stack with the branch's status, whatever it is. The sidebar only offers it to resolve conflicts.
+	let offerStackUpdate = true;
 	if (isSimple) {
 		icon = null;
+		if (!hasConflicts) {
+			action = null;
+			offerStackUpdate = false;
+		}
 	}
+	const button = offerStackUpdate && stackUpdate
+		? stackUpdate
+		: action && canUpdateBranch
+			? <button className="secondary" onClick={onClick} disabled={busy}>{action}</button>
+			: null;
 	return (
-		<div className="status-item status-section">
-			{icon}
-			<p>
-				{summary}
-			</p>
+		<div className="status-section">
+			<div className="status-item">
+				{icon}
+				<p>
+					{summary}
+				</p>
+				{button ? <div className="button-container">{button}</div> : null}
+			</div>
 		</div>
 	);
 };
 
-export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
+export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean; canUpdateBranch: boolean }) => {
+	const { updateBranch } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-	const { readyForReview, updatePR } = useContext(PullRequestContext);
+	const update = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	};
+	const isNotCheckedoutWithConflicts = !isCurrentlyCheckedOut && mergeable === PullRequestMergeability.Conflict;
+	if (!canUpdateBranch || isNotCheckedoutWithConflicts || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
+		return null;
+	}
+	return (
+		<div className="status-item status-section">
+			{warningIcon}
+			<p>This branch is out-of-date with the base branch.</p>
+			<button className="secondary" onClick={update} disabled={isBusy} >Update with Merge Commit</button>
+		</div>
+	);
+
+};
+
+export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
+	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(pr?.busy ?? false);
 
 	const markReadyForReview = useCallback(async () => {
 		try {
 			setBusy(true);
-			await readyForReview();
-			updatePR({ isDraft: false });
+			const result = await readyForReview();
+			updatePR(result);
 		} finally {
 			setBusy(false);
 		}
-	}, [setBusy, readyForReview, updatePR]);
+	}, [readyForReview, updatePR]);
+
+	const markReadyAndMerge = useCallback(async () => {
+		try {
+			setBusy(true);
+			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
+			updatePR(result);
+		} finally {
+			setBusy(false);
+		}
+	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+
+	const allOptions = useCallback(() => {
+		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
+			{
+				label: 'Ready for Review',
+				value: 'ready',
+				action: markReadyForReview
+			}
+		];
+
+		if (isCopilotOnMyBehalf) {
+			actions.push({
+				label: 'Ready, Approve, and Auto-Merge',
+				value: 'readyAndMerge',
+				action: markReadyAndMerge
+			});
+		}
+
+		return actions;
+	}, [isCopilotOnMyBehalf, markReadyForReview, markReadyAndMerge]);
 
 	return (
 		<div className="ready-for-review-container">
 			<div className='ready-for-review-text-wrapper'>
-				<div className="ready-for-review-icon">{isSimple ? null : alertIcon}</div>
+				<div className="ready-for-review-icon">{isSimple ? null : warningIcon}</div>
 				<div>
 					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
 					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
 				</div>
 			</div>
 			<div className='button-container'>
-				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+				<ContextDropdown
+					optionsContext={() => {
+						if (!pr) {
+							throw new Error('PR context is required for ready for review options');
+						}
+						let ctx: ReadyForReviewContext | ReadyForReviewAndMergeContext = {
+							'preventDefaultContextMenuItems': true,
+							'github:readyForReviewMenu': true,
+							owner: pr.owner,
+							repo: pr.repo,
+							number: pr.number,
+						};
+						if (isCopilotOnMyBehalf) {
+							ctx = {
+								...ctx,
+								'github:readyForReviewMenuWithMerge': true,
+								mergeMethod,
+							};
+						}
+						return JSON.stringify(ctx);
+					}}
+					defaultAction={markReadyForReview}
+					defaultOptionLabel={() => 'Ready for Review'}
+					defaultOptionValue={() => 'ready'}
+					allOptions={allOptions}
+					optionsTitle='Ready for Review'
+					disabled={isBusy || pr?.busy}
+					hasSingleAction={!isCopilotOnMyBehalf}
+					spreadable={false}
+				/>
 			</div>
 		</div>
 	);
@@ -270,18 +464,49 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable, continueOnGitHub } = pr;
-	if (continueOnGitHub) {
-		return canEdit ? <MergeOnGitHub /> : null;
+	const { hasWritePermission, canEdit, isDraft, mergeable, isCopilotOnMyBehalf, defaultMergeMethod } = pr;
+	if (pr.stackLoadError) {
+		return <div className="status-item">Unable to load pull request stack details. Refresh to retry merging.</div>;
+	}
+	if (!isStackMembershipKnown(pr)) {
+		return <div className="status-item">Checking pull request stack membership...</div>;
 	}
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
-		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
+		if (!canEdit) {
+			return null;
+		}
+
+		return <ReadyForReview isSimple={isSimple} isCopilotOnMyBehalf={isCopilotOnMyBehalf && !pr.stack} mergeMethod={defaultMergeMethod} />;
 	}
 
-	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
+	if (pr.stackMergeStatus === 'pending') {
+		return <div className="status-item">Stack merge is still processing on GitHub. Refresh to check its status.</div>;
+	}
+	if (pr.stackMergeStatus === 'enqueued') {
+		return <div className="status-item">Pull request stack added to the merge queue.</div>;
+	}
+	if (pr.stack) {
+		if (!hasWritePermission || pr.mergeQueueEntry) {
+			return null;
+		}
+		// Merging a stack depends on every pull request in it, which may not be loaded yet.
+		if (pr.stackLoaded === false) {
+			return <div className="status-item">Checking whether the stack can be merged...</div>;
+		}
+		const ready = isReadyToMerge(pr);
+		// A pull request that is ready is merged rather than given a new request, but a request that already covers it,
+		// which may have been enabled through a pull request above that is not ready, is still shown so it can be disabled.
+		const showAutoMerge = !isSimple && (!ready || pr.stackAutoMerge?.enabledThrough !== undefined);
+		return <>
+			{ready ? <MergeStack pr={pr} /> : null}
+			{showAutoMerge ? <StackAutoMerge pr={pr} /> : null}
+		</>;
+	}
+
+	if (!pr.stack && mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
-	} else if (hasWritePermission && !pr.mergeQueueEntry) {
+	} else if (!pr.stack && !isSimple && hasWritePermission && !pr.mergeQueueEntry) {
 		const ctx = useContext(PullRequestContext);
 		return (
 			<AutoMerge
@@ -300,24 +525,159 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 	return null;
 };
 
-export const MergeOnGitHub = () => {
-	const { openOnGitHub } = useContext(PullRequestContext);
-	return (
-		<button id="merge-on-github" type="submit" onClick={() => openOnGitHub()}>
-			Merge on github.com
-		</button>
-	);
+/** Whether the pull request can be merged now, whether or not the user is allowed to merge it. */
+function isReadyToMerge(pr: PullRequest): boolean {
+	if (pr.isDraft) {
+		return false;
+	}
+	if (!pr.stack) {
+		return pr.mergeable === PullRequestMergeability.Mergeable;
+	}
+	// The lowest open pull request can be merged while behind the stack's base, as long as it has no conflicts.
+	const isBottom = !pr.stack.pullRequests.some(entry => entry.position < pr.stack!.position && entry.state === GithubItemStateEnum.Open);
+	return (pr.mergeable === PullRequestMergeability.Mergeable || isBottom && pr.mergeable === PullRequestMergeability.Behind)
+		&& isStackMergeable(pr.stack, pr.number);
+}
+
+export type MergeReadiness = 'ready' | 'checks-failed' | 'blocked';
+
+/** The pull request as it would be once it is marked ready for review. */
+function asReadyForReview(pr: PullRequest): PullRequest {
+	return {
+		...pr,
+		isDraft: false,
+		stack: pr.stack && {
+			...pr.stack,
+			pullRequests: pr.stack.pullRequests.map(entry => entry.number === pr.number ? { ...entry, isDraft: false } : entry),
+		},
+	};
+}
+
+/**
+ * Whether an open pull request can be merged and, if it cannot, whether a check failed. Undefined for pull requests
+ * that are not open, for drafts that could otherwise be merged, and while it is not known whether it can be merged.
+ */
+export function getMergeReadiness(pr: PullRequest): MergeReadiness | undefined {
+	if (pr.isIssue || pr.state !== GithubItemStateEnum.Open) {
+		return undefined;
+	}
+	if (pr.mergeable === PullRequestMergeability.Unknown || pr.stackLoadError || !isStackMembershipKnown(pr)
+		|| (pr.stack && pr.stackLoaded === false)) {
+		return undefined;
+	}
+	// Merging a stack also merges the open pull requests below this one, so it depends on their mergeability too.
+	const stack = pr.stack;
+	if (stack?.pullRequests.some(entry => entry.position <= stack.position && entry.state === GithubItemStateEnum.Open
+		&& entry.mergeable === PullRequestMergeability.Unknown)) {
+		return undefined;
+	}
+	if (isReadyToMerge(pr.isDraft ? asReadyForReview(pr) : pr)) {
+		return pr.isDraft ? undefined : 'ready';
+	}
+	return pr.status?.statuses.some(status => status.state === CheckState.Failure) ? 'checks-failed' : 'blocked';
+}
+
+export const MergeStack = ({ pr }: { pr: PullRequest }) => {
+	const { mergeStack, updatePR } = useContext(PullRequestContext);
+	const [method, setMethod] = useState<MergeMethod>(pr.defaultMergeMethod);
+	const [confirming, setConfirming] = useState<'stack' | 'all' | undefined>();
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | undefined>();
+	if (!pr.stack) {
+		throw new Error('A pull request stack is required for stack merge actions.');
+	}
+	const queue = !!pr.mergeQueueMethod;
+	const open = pr.stack.pullRequests.filter(entry => entry.state === GithubItemStateEnum.Open);
+	const count = 1 + open.filter(entry => entry.position < pr.stack!.position).length;
+	const downstack = count - 1;
+	const stackName = count < open.length ? 'partial stack' : 'stack';
+	const downstackDescription = `${downstack} open pull request${downstack === 1 ? '' : 's'} below it`;
+	// Merging the pull request at the top of the stack also merges every open pull request below it.
+	const top = getStackMergeAllTarget(pr.stack, pr.number);
+	const actions = {
+		stack: {
+			label: queue ? `Add ${stackName} to merge queue` : `Merge ${stackName} (${count} pull request${count === 1 ? '' : 's'})`,
+			prompt: queue
+				? downstack ? `Add this pull request and ${downstackDescription} to the merge queue?` : 'Add this pull request to the merge queue?'
+				: downstack ? `Merge this pull request and ${downstackDescription}?` : 'Merge this pull request?',
+			progress: queue ? `Adding ${stackName} to merge queue...` : `Merging ${stackName}...`,
+			upTo: undefined,
+		},
+		all: top && {
+			label: queue ? 'Add all to merge queue' : `Merge all (${open.length} pull requests)`,
+			// The icon button that offers this has no text, so this names it.
+			description: queue
+				? `Add all ${open.length} open pull requests in this stack to the merge queue`
+				: `Merge all ${open.length} open pull requests in this stack`,
+			prompt: queue
+				? `Add all ${open.length} open pull requests in this stack to the merge queue?`
+				: `Merge all ${open.length} open pull requests in this stack?`,
+			progress: queue ? 'Adding all to merge queue...' : 'Merging all...',
+			upTo: top.number,
+		},
+	};
+	// The stack can change while the user confirms, so a merge that is no longer possible goes back to the choices.
+	const confirmed = confirming && actions[confirming];
+
+	const submit = async () => {
+		try {
+			setBusy(true);
+			setError(undefined);
+			const result = await (confirmed?.upTo === undefined ? mergeStack(method) : mergeStack(method, confirmed.upTo));
+			if (result.status !== 'cancelled') {
+				updatePR({
+					state: result.state ?? pr.state,
+					revertable: result.status === 'merged',
+					stackMergeStatus: result.status === 'pending' || result.status === 'enqueued' ? result.status : undefined,
+				});
+			}
+			setConfirming(undefined);
+		} catch (mergeError) {
+			setError(mergeError instanceof Error ? mergeError.message || mergeError.name : String(mergeError));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return <div className="automerge-section wrapper stack-merge">
+		{confirmed ? <>
+			<p>{confirmed.prompt}</p>
+			{error ? <p role="alert">Unable to merge stack: {error}</p> : null}
+			<button className="secondary" disabled={busy} onClick={() => setConfirming(undefined)}>Cancel</button>
+			<button disabled={busy} onClick={submit}>
+				{busy ? <span className="loading-button">{loadingIcon}</span> : null}
+				{busy ? confirmed.progress : confirmed.label}
+			</button>
+		</> : <>
+			<div className="stack-merge-buttons">
+				<button onClick={() => setConfirming('stack')}>{actions.stack.label}</button>
+				{actions.all ? <button className="icon-button" type="button" title={actions.all.description} aria-label={actions.all.description}
+					onClick={() => setConfirming('all')}>{layersIcon}</button> : null}
+			</div>
+			{!queue ? <div className="stack-merge-method">
+				<span>using method</span>
+				<MergeSelect {...pr} onChange={event => setMethod(event.target.value as MergeMethod)} />
+			</div> : null}
+		</>}
+	</div>;
 };
 
 export const MergeSimple = (pr: PullRequest) => {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { merge, updatePR, enqueue } = useContext(PullRequestContext);
+
+	if (pr.mergeQueueMethod) {
+		return <div className='button-container'>
+			<button onClick={() => enqueue()}>Add to Merge Queue</button>
+		</div>;
+	}
+
 	async function submitAction(selected: MergeMethod): Promise<void> {
-		const { state } = await merge({
+		const newContext = await merge({
 			title: '',
 			description: '',
 			method: selected,
 		});
-		updatePR({ state });
+		updatePR(newContext);
 	}
 
 	const availableOptions = Object.keys(MERGE_METHODS)
@@ -338,7 +698,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 		return <div />;
 	} else {
 		return (
-			<div className="branch-status-container">
+			<div className={`branch-status-container${pr.stack ? ' stacked-delete-branch-container' : ''}`}>
 				<form
 					onSubmit={async event => {
 						event.preventDefault();
@@ -355,7 +715,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 					}}
 				>
 					<button disabled={isBusy} className="secondary" type="submit">
-						Delete branch...
+						Delete Branch...
 					</button>
 				</form>
 			</div>
@@ -364,9 +724,9 @@ export const DeleteBranch = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMethod; cancel: () => void }) {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { merge, updatePR, changeEmail } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-
+	const emailForCommit = pr.emailForCommit;
 	return (
 		<div>
 			<form id='merge-comment-form'
@@ -376,12 +736,13 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 					try {
 						setBusy(true);
 						const { title, description }: any = event.target;
-						const { state } = await merge({
+						const mergeResult = await merge({
 							title: title?.value,
 							description: description?.value,
 							method,
+							email: emailForCommit
 						});
-						updatePR({ state });
+						updatePR(mergeResult);
 					} finally {
 						setBusy(false);
 					}
@@ -389,6 +750,16 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 			>
 				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
 				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
+				{(method === 'rebase' || !emailForCommit) ? null : (
+					<div className='commit-association'>
+						<span>
+							Commit will be associated with <button className='input-box' title='Change email' aria-label='Change email' disabled={isBusy} onClick={() => {
+								setBusy(true);
+								changeEmail(emailForCommit).finally(() => setBusy(false));
+							}}>{emailForCommit}</button>
+						</span>
+					</div>
+				)}
 				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>
 					<button className="secondary" onClick={cancel}>Cancel</button>
 					<button disabled={isBusy} type="submit" id="confirm-merge">{method === 'rebase' ? 'Confirm ' : ''}{MERGE_METHODS[method]}</button>
@@ -401,7 +772,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
 		case 'merge':
-			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.head}`;
+			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.qualifiedHead}`;
 		case 'squash':
 			return pr.squashCommitMeta?.title ?? `${pr.title} (#${pr.number})`;
 		default:
@@ -442,32 +813,69 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 	},
 );
 
-const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
-	<div>
-		{statuses.map(s => (
-			<div key={s.id} className="status-check">
-				<div className="status-check-details">
-					<StateIcon state={s.state} />
-					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
-					<span className="status-check-detail-text">
-						{/* allow-any-unicode-next-line */}
-						{s.context} {s.description ? `— ${s.description}` : ''}
-					</span>
+// State order for sorting status checks: failure first, then pending, unknown, neutral, and success
+const CHECK_STATE_ORDER: Record<CheckState, number> = {
+	[CheckState.Failure]: 0,
+	[CheckState.Pending]: 1,
+	[CheckState.Unknown]: 2,
+	[CheckState.Neutral]: 3,
+	[CheckState.Success]: 4,
+
+};
+
+const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+	const { viewCheckLogs } = useContext(PullRequestContext);
+	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
+	// Required checks come first, then each group is ordered by state.
+	// Use slice() to avoid mutating the original array
+	const sortedStatuses = statuses.slice().sort((a, b) => {
+		if (a.isRequired !== b.isRequired) {
+			return a.isRequired ? -1 : 1;
+		}
+		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
+	});
+
+	const handleViewLogs = async (s: PullRequestCheckStatus) => {
+		setLoadingLogId(s.id);
+		try {
+			await viewCheckLogs(s);
+		} finally {
+			setLoadingLogId(null);
+		}
+	};
+
+	return (
+		<div className='status-scroll'>
+			{sortedStatuses.map(s => (
+				<div key={s.id} className="status-check">
+					<div className="status-check-details">
+						<StateIcon state={s.state} />
+						<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
+						<span className="status-check-detail-text">
+							{/* allow-any-unicode-next-line */}
+							{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
+						</span>
+					</div>
+					<div>
+						{s.isRequired ? (
+							<span className="label">Required</span>
+						) : null}
+						{!!s.targetUrl ? (
+							<a href={s.targetUrl} title={s.targetUrl}>
+								Details
+							</a>
+						) : <span className="status-check-link-placeholder" aria-hidden="true">Details</span>}
+						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? (
+							<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
+								{loadingLogId === s.id ? loadingIcon : outputIcon}
+							</button>
+						) : <span className="view-check-logs-placeholder" aria-hidden="true" />}
+					</div>
 				</div>
-				<div>
-				{s.isRequired ? (
-					<span className="label">Required</span>
-				) : null }
-				{!!s.targetUrl ? (
-					<a href={s.targetUrl} title={s.targetUrl}>
-						Details
-					</a>
-				) : null}
-				</div>
-			</div>
-		))}
-	</div>
-);
+			))}
+		</div>
+	);
+};
 
 function getSummaryLabel(statuses: PullRequestCheckStatus[]) {
 	const statusTypes = groupBy(statuses, (status: PullRequestCheckStatus) => {
@@ -516,13 +924,13 @@ function StateIcon({ state }: { state: CheckState }) {
 		case CheckState.Failure:
 			return closeIcon;
 	}
-	return pendingIcon;
+	return circleFilledIcon;
 }
 
 function RequiredReviewStateIcon({ state }: { state: CheckState }) {
 	switch (state) {
 		case CheckState.Pending:
-			return requestChanges;
+			return requestChangesIcon;
 		case CheckState.Failure:
 			return closeIcon;
 	}

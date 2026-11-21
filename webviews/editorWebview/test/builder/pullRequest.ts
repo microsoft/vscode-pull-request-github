@@ -3,14 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AccountBuilder } from './account';
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
 import { PullRequest } from '../../../../src/github/views';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
 
-import { AccountBuilder } from './account';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
+	owner: { default: 'owner' },
+	repo: { default: 'name' },
 	number: { default: 1234 },
 	title: { default: 'the default title' },
 	titleHTML: { default: 'the default title' },
@@ -27,12 +29,22 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isRemoteHeadDeleted: { default: false },
 	isLocalHeadDeleted: { default: false },
 	head: { default: 'my-fork:my-branch' },
+	qualifiedHead: { default: 'my-fork/name:my-branch' },
+	stack: { default: undefined },
+	canUpdateStack: { default: false },
+	stackLoaded: { default: true },
+	stackLoadError: { default: false },
+	stackMergeStatus: { default: undefined },
+	stackAutoMerge: { default: undefined },
 	labels: { default: [] },
+	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
+	doneCheckoutBranch: { default: 'main' },
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: undefined },
+	pendingReviewSummaryText: { default: undefined },
 	pendingCommentDrafts: { default: undefined },
 	status: { linked: CombinedStatusBuilder },
 	reviewRequirement: { default: null },
@@ -42,6 +54,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	allowAutoMerge: { default: false },
 	mergeQueueEntry: { default: undefined },
 	mergeQueueMethod: { default: undefined },
+	canUpdateBranch: { default: false },
 	reviewers: { default: [] },
 	isDraft: { default: false },
 	isIssue: { default: false },
@@ -50,9 +63,17 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
 	currentUserReviewState: { default: 'REQUESTED' },
+	emailForCommit: { default: 'email-address' },
 	isDarkTheme: { default: true },
 	isEnterprise: { default: false },
 	hasReviewDraft: { default: false },
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
+	closingIssues: { default: [] },
+	canAssignCopilot: { default: false },
+	canRequestCopilotReview: { default: false },
+	isCopilotOnMyBehalf: { default: false },
+	isAgentSessionsWorkspace: { default: false },
+	overviewTabs: { default: false },
+	reactions: { default: [] },
 });

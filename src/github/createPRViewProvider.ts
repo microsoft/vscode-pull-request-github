@@ -1,0 +1,1893 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import {
+	byRemoteName,
+	FolderRepositoryManager,
+	PullRequestDefaults,
+	titleAndBodyFrom,
+} from './folderRepositoryManager';
+import { GitHubRepository, isRateLimitError, ViewerPermission } from './githubRepository';
+import { IAccount, ILabel, IMilestone, IProject, isITeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
+import { PullRequestModel } from './pullRequestModel';
+import { getDefaultMergeMethod } from './pullRequestOverview';
+import { chooseStackAutoMerge, enableAutoMergeForStack, stackWithoutAutoMerge } from './pullRequestStack';
+import { branchPicks, cachedBranchPicks, getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { ChangeTemplateReply, DisplayLabel, PreReviewState } from './views';
+import { RemoteInfo } from '../../common/types';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, StackCandidate, TitleAndDescriptionArgs } from '../../common/views';
+import type { Branch, UpstreamRef } from '../api/api';
+import { debounce } from '../common/async';
+import { GitHubServerType } from '../common/authentication';
+import { emojify, ensureEmojis } from '../common/emoji';
+import { commands, contexts } from '../common/executeCommands';
+import Logger from '../common/logger';
+import { Protocol } from '../common/protocol';
+import { GitHubRemote } from '../common/remote';
+import {
+	ASSIGN_TO,
+	CREATE_BASE_BRANCH,
+	DEFAULT_CREATE_OPTION,
+	PR_SETTINGS_NAMESPACE,
+	PULL_REQUEST_DESCRIPTION,
+	PULL_REQUEST_LABELS,
+	PUSH_BRANCH,
+	SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION
+} from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
+import { toOpenPullRequestWebviewUri } from '../common/uri';
+import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
+import { generateUuid } from '../common/uuid';
+import { IRequestMessage, WebviewViewBase } from '../common/webview';
+import { PREVIOUS_CREATE_METHOD, RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+import { getIssueForBranch } from '../issues/stateManager';
+import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
+
+const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
+
+export interface BasePullRequestDataModel {
+	baseOwner: string;
+	repositoryName: string;
+}
+
+export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider {
+	protected static readonly ID = 'CreatePullRequestViewProvider';
+	public override readonly viewType = 'github:createPullRequestWebview';
+
+	protected _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
+	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
+
+	protected _firstLoad: boolean = true;
+
+	constructor(
+		protected readonly telemetry: ITelemetry,
+		protected readonly model: T,
+		extensionUri: vscode.Uri,
+		protected readonly _folderRepositoryManager: FolderRepositoryManager,
+		protected readonly _pullRequestDefaults: PullRequestDefaults,
+		protected _defaultCompareBranch: string
+	) {
+		super(extensionUri);
+	}
+
+	public override resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		_context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken,
+	) {
+		super.resolveWebviewView(webviewView, _context, _token);
+		webviewView.webview.html = this._getHtmlForWebview();
+
+		if (this._firstLoad) {
+			this._firstLoad = false;
+			// Reset any stored state.
+			return this.initializeParams(true);
+		} else {
+			return this.initializeParams();
+		}
+	}
+
+	public override show() {
+		super.show();
+	}
+
+	public static withProgress<R>(task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Thenable<R>) {
+		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, task);
+	}
+
+	protected async getPullRequestDefaultLabels(defaultBaseRemote: RemoteInfo): Promise<ILabel[]> {
+
+		const pullRequestLabelSettings = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(PULL_REQUEST_LABELS);
+
+		if (!pullRequestLabelSettings) {
+			return [];
+		}
+
+		const defaultLabelValues = new Array<string>();
+
+		if (pullRequestLabelSettings.workspaceValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.workspaceValue);
+		}
+		if (pullRequestLabelSettings.globalValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.globalValue);
+		}
+
+		// Return early if no config present
+		if (!defaultLabelValues || defaultLabelValues.length === 0) {
+			return [];
+		}
+
+		// Fetch labels from the repo and filter with case-sensitive comparison to be safe,
+		// dropping any labels that don't exist on the repo.
+		// TODO: @alexr00 - Add a cache for this.
+		const labels = await this._folderRepositoryManager.getLabels(undefined, { owner: defaultBaseRemote.owner, repo: defaultBaseRemote.repositoryName });
+		const defaultLabels = labels.filter(label => defaultLabelValues.includes(label.name));
+
+		return defaultLabels;
+	}
+
+	protected abstract getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }>;
+
+	protected async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods | undefined> {
+		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
+		if (!repo) {
+			return undefined;
+		}
+		return repo.getRepoAccessAndMergeMethods(refetch);
+	}
+
+	protected saveRecentlyUsedBranch(owner: string, repositoryName: string, branchName: string): void {
+		const repoKey = `${owner}/${repositoryName}`;
+		const state = this._folderRepositoryManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+
+		// Get the current list for this repo
+		let recentBranches = state.branches[repoKey] || [];
+
+		// Remove the branch if it's already in the list
+		recentBranches = recentBranches.filter(b => b !== branchName);
+
+		// Add it to the front
+		recentBranches.unshift(branchName);
+
+		// Limit to 10 branches
+		recentBranches = recentBranches.slice(0, 10);
+
+		// Save back to state
+		state.branches[repoKey] = recentBranches;
+		this._folderRepositoryManager.context.workspaceState.update(RECENTLY_USED_BRANCHES, state);
+	}
+
+	private initializeWhenVisibleDisposable: vscode.Disposable | undefined;
+	public async initializeParams(reset: boolean = false): Promise<void> {
+		if (this._view?.visible === false && this.initializeWhenVisibleDisposable === undefined) {
+			this.initializeWhenVisibleDisposable = this._view?.onDidChangeVisibility(() => {
+				this.initializeWhenVisibleDisposable?.dispose();
+				this.initializeWhenVisibleDisposable = undefined;
+				void this.initializeParams();
+			});
+			return;
+		}
+
+		if (reset) {
+			// First clear all state ASAP
+			this._postMessage({ command: 'reset' });
+		}
+		await this.initializeParamsPromise();
+	}
+
+	private _alreadyInitializing: Promise<CreateParamsNew> | undefined;
+	private async initializeParamsPromise(): Promise<CreateParamsNew> {
+		if (!this._alreadyInitializing) {
+			this._alreadyInitializing = this.doInitializeParams();
+			this._alreadyInitializing.then(() => {
+				this._alreadyInitializing = undefined;
+			});
+		}
+		return this._alreadyInitializing;
+	}
+
+	protected abstract detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined>;
+
+	// Called once the detected base branch is known, before getTitleAndDescription runs.
+	// Subclasses can override to update model state that getTitleAndDescription depends on.
+	protected onBaseBranchDetected(_baseOwner: string, _baseBranch: string): void { }
+
+	protected getTitleAndDescriptionProvider(name?: string) {
+		return this._folderRepositoryManager.getTitleAndDescriptionProvider(name);
+	}
+
+	protected async getCreateParams(): Promise<CreateParamsNew> {
+		const defaultCompareBranch = await this._folderRepositoryManager.repository.getBranch(this._defaultCompareBranch);
+		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
+			this.detectBaseMetadata(defaultCompareBranch),
+			this._folderRepositoryManager.getGitHubRemotes(),
+			this._folderRepositoryManager.getOrigin(defaultCompareBranch),
+			ensureEmojis(this._folderRepositoryManager.context)
+		]);
+
+		const defaultBaseRemote: RemoteInfo = {
+			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
+			repositoryName: detectedBaseMetadata?.repositoryName ?? this._pullRequestDefaults.repo,
+		};
+
+		const defaultCompareRemote: RemoteInfo = {
+			owner: defaultOrigin.remote.owner,
+			repositoryName: defaultOrigin.remote.repositoryName,
+		};
+
+		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
+
+		// Notify subclasses so they can update model state before getTitleAndDescription runs.
+		this.onBaseBranchDetected(defaultBaseRemote.owner, defaultBaseBranch);
+
+		let defaultTitleAndDescription: { title: string; description: string };
+		let mergeConfiguration: RepoAccessAndMergeMethods | undefined;
+		let viewerPermission: ViewerPermission;
+		let mergeQueueMethodForBranch: MergeMethod | undefined;
+		let labels: ILabel[];
+		try {
+			[defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
+				this.getTitleAndDescription(defaultCompareBranch, defaultBaseBranch),
+				this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+				defaultOrigin.getViewerPermission(),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+				this.getPullRequestDefaultLabels(defaultBaseRemote)
+			]);
+		} catch (e) {
+			if (isRateLimitError(e)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'));
+			}
+			Logger.error(`Error initializing create pull request view: ${e}`, BaseCreatePullRequestViewProvider.ID);
+			return {
+				canModifyBranches: true,
+				defaultBaseRemote,
+				defaultBaseBranch,
+				defaultCompareRemote,
+				defaultCompareBranch: this._defaultCompareBranch,
+				defaultTitle: '',
+				defaultDescription: '',
+				baseHasMergeQueue: false,
+				remoteCount: remotes.length,
+				autoMergeDefault: false,
+				createError: '',
+				isDraftDefault: false,
+				isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+				generateTitleAndDescriptionTitle: undefined,
+				creating: false,
+				initializeWithGeneratedTitleAndDescription: false,
+				preReviewState: PreReviewState.None,
+				preReviewer: undefined,
+				reviewing: false,
+				usingTemplate: false,
+			};
+		}
+
+		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
+		const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
+		const repoMergeMethod = mergeConfiguration ? getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability) : 'merge' as MergeMethod;
+
+		// default values are for 'create'
+		let defaultMergeMethod: MergeMethod = repoMergeMethod;
+		let isDraftDefault: boolean = false;
+		let autoMergeDefault: boolean = false;
+		defaultMergeMethod = (defaultCreateOption === 'lastUsed' && lastCreateMethod?.mergeMethod) ? lastCreateMethod?.mergeMethod : repoMergeMethod;
+
+		if (defaultCreateOption === 'lastUsed') {
+			defaultMergeMethod = lastCreateMethod?.mergeMethod ?? repoMergeMethod;
+			isDraftDefault = !!lastCreateMethod?.isDraft;
+			autoMergeDefault = !!mergeConfiguration?.viewerCanAutoMerge && !!lastCreateMethod?.autoMerge;
+		} else if (defaultCreateOption === 'createDraft') {
+			isDraftDefault = true;
+		} else if (defaultCreateOption === 'createAutoMerge') {
+			autoMergeDefault = !!mergeConfiguration?.viewerCanAutoMerge;
+		}
+		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
+
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		const useCopilot: boolean = !!this.getTitleAndDescriptionProvider('Copilot') && (descriptionSource === 'Copilot');
+		const usingTemplate: boolean = descriptionSource === 'template';
+		const defaultTitleAndDescriptionProvider = this.getTitleAndDescriptionProvider()?.title;
+		if (defaultTitleAndDescriptionProvider) {
+			/* __GDPR__
+				"pr.defaultTitleAndDescriptionProvider" : {
+					"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
+		}
+		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
+
+		this.labels = labels.map(label => ({ ...label, displayName: emojify(label.name) }));
+
+		const params: CreateParamsNew = {
+			canModifyBranches: true,
+			defaultBaseRemote,
+			defaultBaseBranch,
+			defaultCompareRemote,
+			defaultCompareBranch: this._defaultCompareBranch,
+			defaultTitle: defaultTitleAndDescription.title,
+			defaultDescription: defaultTitleAndDescription.description,
+			defaultMergeMethod,
+			baseHasMergeQueue: !!mergeQueueMethodForBranch,
+			remoteCount: remotes.length,
+			allowAutoMerge: mergeConfiguration?.viewerCanAutoMerge,
+			mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability,
+			autoMergeDefault,
+			createError: '',
+			labels: this.labels,
+			isDraftDefault,
+			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+			generateTitleAndDescriptionTitle: defaultTitleAndDescriptionProvider,
+			creating: false,
+			initializeWithGeneratedTitleAndDescription: useCopilot,
+			preReviewState: PreReviewState.None,
+			preReviewer: preReviewer?.title,
+			reviewing: false,
+			usingTemplate
+		};
+
+		return params;
+	}
+
+	private async doInitializeParams(): Promise<CreateParamsNew> {
+		const params = await this.getCreateParams();
+
+		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, BaseCreatePullRequestViewProvider.ID);
+
+		this._postMessage({
+			command: 'pr.initialize',
+			params,
+		});
+		return params;
+	}
+
+	private async autoAssign(pr: PullRequestModel): Promise<void> {
+		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(ASSIGN_TO);
+		if (!configuration) {
+			return;
+		}
+		const resolved = variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
+		if (!resolved) {
+			return;
+		}
+		try {
+			const user = await pr.githubRepository.resolveUser(resolved);
+			if (user) {
+				await pr.replaceAssignees([user]);
+			}
+		} catch (e) {
+			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
+		}
+	}
+
+	private async enableAutoMerge(pr: PullRequestModel, autoMerge: boolean, automergeMethod: MergeMethod | undefined): Promise<void> {
+		if (autoMerge && automergeMethod) {
+			return pr.enableAutoMerge(automergeMethod);
+		}
+	}
+
+	private async setLabels(pr: PullRequestModel, labels: ILabel[]): Promise<void> {
+		if (labels.length > 0) {
+			await pr.setLabels(labels.map(label => label.name));
+		}
+	}
+
+	private async setAssignees(pr: PullRequestModel, assignees: IAccount[]): Promise<void> {
+		if (assignees.length) {
+			await pr.replaceAssignees(assignees);
+		} else {
+			await this.autoAssign(pr);
+		}
+	}
+
+	private async setReviewers(pr: PullRequestModel, reviewers: (IAccount | ITeam)[]): Promise<void> {
+		if (reviewers.length) {
+			const users: IAccount[] = [];
+			const teams: ITeam[] = [];
+			for (const reviewer of reviewers) {
+				if (isITeam(reviewer)) {
+					teams.push(reviewer);
+				} else {
+					users.push(reviewer);
+				}
+			}
+			await pr.requestReview(users, teams, true);
+		}
+	}
+
+	private setMilestone(pr: PullRequestModel, milestone: IMilestone | undefined) {
+		if (milestone) {
+			return pr.updateMilestone(milestone.id);
+		}
+	}
+
+	private setProjects(pr: PullRequestModel, projects: IProject[]) {
+		if (projects.length) {
+			return pr.updateProjects(projects);
+		}
+	}
+
+	private async getBaseRemote(): Promise<GitHubRemote> {
+		return (await this._folderRepositoryManager.getGitHubRemotes()).find(remote => compareIgnoreCase(remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(remote.repositoryName, this.model.repositoryName) === 0)!;
+	}
+
+	private getBaseGitHubRepo(): GitHubRepository | undefined {
+		return this._folderRepositoryManager.gitHubRepositories.find(repo => compareIgnoreCase(repo.remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0);
+	}
+
+	private milestone: IMilestone | undefined;
+	public async addMilestone(): Promise<void> {
+		const remote = await this.getBaseRemote();
+		const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
+
+		return getMilestoneFromQuickPick(this._folderRepositoryManager, repo, this.milestone, (milestone) => {
+			this.milestone = milestone;
+			return this._postMessage({
+				command: 'set-milestone',
+				params: { milestone: this.milestone }
+			});
+		});
+	}
+
+	private reviewers: (IAccount | ITeam)[] = [];
+	public async addReviewers(): Promise<void> {
+		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
+			user?: IAccount | ITeam | undefined;
+		}> | undefined;
+		const remote = await this.getBaseRemote();
+		try {
+			const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
+			const [metadata, author, teamsCount] = await Promise.all([repo?.getMetadata(), this._folderRepositoryManager.getCurrentUser(), this._folderRepositoryManager.getOrgTeamsCount(repo)]);
+			quickPick = await reviewersQuickPick(this._folderRepositoryManager, remote.remoteName, !!metadata?.organization, teamsCount, author, this.reviewers.map(reviewer => { return { reviewer, state: 'REQUESTED' }; }), []);
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick!.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount | ITeam })[] | undefined;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const allReviewers = await Promise.race<(vscode.QuickPickItem & { user: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
+
+			if (allReviewers) {
+				this.reviewers = allReviewers.map(item => item.user);
+				this._postMessage({
+					command: 'set-reviewers',
+					params: { reviewers: this.reviewers }
+				});
+			}
+		} catch (e) {
+			Logger.error(`Failed to add reviewers: ${formatError(e)}`, BaseCreatePullRequestViewProvider.ID);
+			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick?.hide();
+			quickPick?.dispose();
+		}
+	}
+
+	private assignees: IAccount[] = [];
+	public async addAssignees(): Promise<void> {
+		const remote = await this.getBaseRemote();
+		const currentRepo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === remote.owner && repo.remote.repositoryName === remote.repositoryName);
+		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, currentRepo, remote.remoteName, this.assignees, undefined, true),
+			{ canPickMany: true, matchOnDescription: true, placeHolder: vscode.l10n.t('Add assignees') });
+		if (assigneesToAdd) {
+			const seenNewAssignees = new Set<string>();
+			const addedAssignees = assigneesToAdd.map(assignee => assignee.user).filter<IAccount>((assignee): assignee is IAccount => {
+				if (assignee && !seenNewAssignees.has(assignee.login)) {
+					seenNewAssignees.add(assignee.login);
+					return true;
+				}
+				return false;
+			});
+			this.assignees = addedAssignees;
+			this._postMessage({
+				command: 'set-assignees',
+				params: { assignees: this.assignees }
+			});
+		}
+	}
+	private projects: IProject[] = [];
+	public async addProjects(): Promise<void> {
+		const githubRepo = this.getBaseGitHubRepo();
+		if (!githubRepo) {
+			return;
+		}
+		await new Promise<void>((resolve) => {
+			getProjectFromQuickPick(this._folderRepositoryManager, githubRepo, this.projects, async (projects) => {
+				this.projects = projects;
+				this._postMessage({
+					command: 'set-projects',
+					params: { projects: this.projects }
+				});
+				resolve();
+			});
+		});
+	}
+
+	private labels: DisplayLabel[] = [];
+	public async addLabels(): Promise<void> {
+		let newLabels: DisplayLabel[] = [];
+
+		const labelsToAdd = await vscode.window.showQuickPick<vscode.QuickPickItem & { name: string }>(
+			getLabelOptions(this._folderRepositoryManager, this.labels, this.model.baseOwner, this.model.repositoryName).then(options => {
+				newLabels = options.newLabels;
+				return options.labelPicks;
+			}),
+			{ canPickMany: true, matchOnDescription: true, placeHolder: vscode.l10n.t('Apply labels') },
+		);
+
+		if (labelsToAdd) {
+			const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
+			this.labels = addedLabels;
+			this._postMessage({
+				command: 'set-labels',
+				params: { labels: this.labels }
+			});
+		}
+	}
+
+	private async removeLabel(message: IRequestMessage<{ label: ILabel }>,): Promise<void> {
+		const { label } = message.args;
+		if (!label)
+			return;
+
+		const previousLabelsLength = this.labels.length;
+		this.labels = this.labels.filter(l => l.name !== label.name);
+		if (previousLabelsLength === this.labels.length)
+			return;
+
+		this._postMessage({
+			command: 'set-labels',
+			params: { labels: this.labels }
+		});
+	}
+
+	public async createFromCommand(isDraft: boolean, autoMerge: boolean, autoMergeMethod: MergeMethod | undefined, mergeWhenReady?: boolean) {
+		const params: Partial<CreateParamsNew> = {
+			isDraft,
+			autoMerge,
+			autoMergeMethod: mergeWhenReady ? 'merge' : autoMergeMethod,
+			creating: true
+		};
+		return this._postMessage({
+			command: 'create',
+			params
+		});
+	}
+
+	protected abstract create(message: IRequestMessage<CreatePullRequestNew>): Promise<void>;
+
+	protected async postCreate(message: IRequestMessage<CreatePullRequestNew>, createdPR: PullRequestModel) {
+		return Promise.all([
+			this.setLabels(createdPR, message.args.labels),
+			this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
+			this.setAssignees(createdPR, message.args.assignees),
+			this.setReviewers(createdPR, message.args.reviewers),
+			this.setMilestone(createdPR, message.args.milestone),
+			this.setProjects(createdPR, message.args.projects)]);
+	}
+
+	private async cancel(message: IRequestMessage<CancelCreatePullRequestNew>) {
+		if (message.args.hasUnsavedChanges
+			&& vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION, true)) {
+			const discard = vscode.l10n.t('Discard');
+			const dontAskAgain = vscode.l10n.t('Don\'t Ask Again');
+			const result = await vscode.window.showWarningMessage(
+				vscode.l10n.t('Are you sure you want to cancel creating this pull request?'),
+				{ modal: true, detail: vscode.l10n.t('Your unsaved changes to this pull request will be lost.') },
+				discard,
+				dontAskAgain
+			);
+			if (result !== discard && result !== dontAskAgain) {
+				return this._replyMessage(message, { cancelled: false });
+			}
+			if (result === dontAskAgain) {
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(SHOW_CREATE_PULL_REQUEST_CANCEL_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
+			}
+		}
+		// Reply before firing _onDone so the webview receives the message before
+		// the panel is disposed (disposing clears _webview, making _replyMessage a no-op).
+		this._replyMessage(message, { cancelled: true });
+		this._onDone.fire(undefined);
+		// Re-fetch the automerge info so that it's updated for next time.
+		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
+	}
+
+	private async openDescriptionSettings(): Promise<void> {
+		return vscode.commands.executeCommand('workbench.action.openSettings', 'githubPullRequests.pullRequestDescription');
+	}
+
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		const result = await super._onDidReceiveMessage(message);
+		if (result !== this.MESSAGE_UNHANDLED) {
+			return;
+		}
+
+		switch (message.command) {
+			case 'pr.requestInitialize':
+				return this.initializeParamsPromise();
+
+			case 'pr.cancelCreate':
+				return this.cancel(message);
+
+			case 'pr.create':
+				return this.create(message);
+
+			case 'pr.changeLabels':
+				return this.addLabels();
+
+			case 'pr.changeReviewers':
+				return this.addReviewers();
+
+			case 'pr.changeAssignees':
+				return this.addAssignees();
+
+			case 'pr.changeMilestone':
+				return this.addMilestone();
+
+			case 'pr.changeProjects':
+				return this.addProjects();
+
+			case 'pr.removeLabel':
+				return this.removeLabel(message);
+
+			case 'pr.openDescriptionSettings':
+				return this.openDescriptionSettings();
+
+			default:
+				return this.MESSAGE_UNHANDLED;
+		}
+	}
+
+	override dispose() {
+		super.dispose();
+		this._postMessage({ command: 'reset' });
+	}
+
+	private _getHtmlForWebview() {
+		const nonce = generateUuid();
+
+		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-create-pr-view-new.js');
+
+		return `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>Create Pull Request</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
+	</body>
+</html>`;
+	}
+}
+
+function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) {
+	return { owner: remote.owner, repositoryName: remote.repositoryName };
+}
+
+export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider {
+	public override readonly viewType = 'github:createPullRequestWebview';
+	private _stackCandidateSequence = 0;
+
+	constructor(
+		telemetry: ITelemetry,
+		model: CreatePullRequestDataModel,
+		extensionUri: vscode.Uri,
+		folderRepositoryManager: FolderRepositoryManager,
+		pullRequestDefaults: PullRequestDefaults,
+	) {
+		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
+
+		this._register(this.model.onDidChange(async (e) => {
+			const stackCandidateSequence = ++this._stackCandidateSequence;
+			let baseRemote: RemoteInfo | undefined;
+			let baseBranch: string | undefined;
+			if (e.baseOwner) {
+				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.baseOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				baseRemote = gitHubRemote ? serializeRemoteInfo(gitHubRemote) : undefined;
+				baseBranch = this.model.baseBranch;
+			}
+			if (e.baseBranch) {
+				baseBranch = e.baseBranch;
+			}
+			let compareRemote: RemoteInfo | undefined;
+			let compareBranch: string | undefined;
+			if (e.compareOwner) {
+				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.compareOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				compareRemote = gitHubRemote ? serializeRemoteInfo(gitHubRemote) : undefined;
+				compareBranch = this.model.compareBranch;
+			}
+			if (e.compareBranch) {
+				compareBranch = e.compareBranch;
+			}
+			const params: Partial<CreateParamsNew> = {
+				baseRemote,
+				baseBranch,
+				compareRemote,
+				compareBranch,
+				warning: await this.existingPRMessage(),
+				stackCandidate: await this.getStackCandidateForView(
+					{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+					this.model.baseBranch,
+					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName },
+					this.model.compareBranch
+				),
+			};
+			if (stackCandidateSequence !== this._stackCandidateSequence) {
+				return;
+			}
+			// TODO: consider updating title and description
+			return this._postMessage({
+				command: 'pr.initialize',
+				params,
+			});
+
+		}));
+	}
+
+	private async existingPRMessage(): Promise<string | undefined> {
+		const branchName = this.model.compareBranch;
+		const [metadata, hasUpstream] = await Promise.all([
+			PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this._folderRepositoryManager.repository, [branchName]),
+			this.model.getCompareHasUpstream(),
+		]);
+		const existingPR = metadata.get(branchName);
+		if (!existingPR || !hasUpstream) {
+			return undefined;
+		}
+
+		const [pr, compareBranch] = await Promise.all([this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(branchName)]);
+		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
+	}
+
+	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
+		if (!compareBranch?.name) {
+			return;
+		}
+		this._defaultCompareBranch = compareBranch.name;
+		const { baseOwner, baseBranch, compareOwner } = this.model;
+		const isCurrentSelection = () =>
+			this.model.baseOwner === baseOwner && this.model.baseBranch === baseBranch
+			&& this.model.compareOwner === compareOwner && this.model.compareBranch === compareBranch.name;
+		try {
+			const titleAndDescription = await this.changeBranch(compareBranch.name, false);
+			if (!isCurrentSelection()) {
+				return;
+			}
+			const [warning, stackCandidate] = await Promise.all([
+				this.existingPRMessage(),
+				this.getStackCandidateForView(
+					{ owner: baseOwner, repositoryName: this.model.repositoryName },
+					baseBranch,
+					{ owner: compareOwner, repositoryName: this.model.repositoryName },
+					compareBranch.name
+				),
+			]);
+			if (!isCurrentSelection()) {
+				return;
+			}
+			const params: Partial<CreateParamsNew> = {
+				defaultTitle: titleAndDescription.title,
+				defaultDescription: titleAndDescription.description,
+				compareBranch: compareBranch.name,
+				defaultCompareBranch: compareBranch.name,
+				warning,
+				stackCandidate,
+			};
+			await this._postMessage({
+				command: 'pr.initialize',
+				params,
+			});
+		} catch (error) {
+			Logger.error(`Failed to change the default compare branch: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			void vscode.window.showErrorMessage(vscode.l10n.t('Unable to change compare branch: {0}', formatError(error)));
+		}
+	}
+
+	public override show(compareBranch?: Branch): void {
+		if (compareBranch) {
+			this.setDefaultCompareBranch(compareBranch); // don't await, view will be updated when the branch is changed
+		}
+
+		super.show();
+	}
+
+	private async getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<{ commit: { message: string }; parents: { sha: string }[] }[] | undefined> {
+		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
+
+		if (compareBranch.upstream) {
+			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(compareBranch.upstream.remote));
+
+			if (headRepo) {
+				const headBranch = `${headRepo.remote.owner}:${compareBranch.name ?? ''}`;
+				const baseBranch = `${this._pullRequestDefaults.owner}:${baseBranchName}`;
+				const compareResult = await origin.compareCommits(baseBranch, headBranch);
+
+				return compareResult?.commits;
+			}
+		}
+
+		return undefined;
+	}
+
+	protected async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
+		let title: string = '';
+		let description: string = '';
+		const descriptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'branchName' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
+		if (descriptionSource === 'none') {
+			return { title, description };
+		}
+
+		const name = compareBranch.name;
+		const branchNameTitle = (name: string) => {
+			const nameWithSpaces = name.replace(/[-_]/g, ' ');
+			return `${nameWithSpaces.charAt(0).toUpperCase()}${nameWithSpaces.slice(1)}`;
+		};
+
+		// If branchName is selected, use the branch name as the title
+		if (descriptionSource === 'branchName') {
+			if (name) {
+				title = branchNameTitle(name);
+			}
+			return { title, description };
+		}
+
+		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
+		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
+		// compare branch if it has a GitHub remote.
+		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
+
+		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
+		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
+		try {
+			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
+				this.getTotalGitHubCommits(compareBranch, baseBranch),
+				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
+				descriptionSource === 'template' ? this.getPullRequestTemplate(name, baseBranch) : undefined
+			]);
+			let totalNonMergeCommitsCount: number | undefined = totalCommits?.filter(commit => commit.parents.length < 2).length;
+
+			// If we couldn't determine the number of commits from GitHub (e.g. no upstream, or the compare API
+			// call failed), fall back to the local git log so that we can still match github.com's behavior of
+			// using the branch name when there is more than one commit.
+			if (totalNonMergeCommitsCount === undefined) {
+				try {
+					const localCommits = await this.model.gitCommits();
+					totalNonMergeCommitsCount = localCommits.filter(commit => commit.parents.length < 2).length;
+				} catch (e) {
+					Logger.debug(`Failed to retrieve local git commits as fallback for PR title for branch ${name}: ${e}`, CreatePullRequestViewProvider.ID);
+				}
+			}
+
+			Logger.debug(`Total commits: ${totalNonMergeCommitsCount}`, CreatePullRequestViewProvider.ID);
+			if (totalNonMergeCommitsCount === undefined) {
+				// We couldn't determine the number of commits at all. Use the last commit as the title and description.
+				useBranchName = false;
+			} else if (totalNonMergeCommitsCount > 1) {
+				const defaultBranch = await origin.getDefaultBranch();
+				useBranchName = defaultBranch !== compareBranch.name;
+			}
+
+			if (name && !lastCommit) {
+				Logger.appendLine('Timeout getting last commit message', CreatePullRequestViewProvider.ID);
+				/* __GDPR__
+					"pr.create.getCommitTimeout" : {}
+				*/
+				this.telemetry.sendTelemetryEvent('pr.create.getCommitTimeout');
+			}
+			// Set title
+			if (useBranchName && name) {
+				title = branchNameTitle(name);
+			} else if (name && lastCommit) {
+				title = lastCommit.title;
+			}
+
+			// Set description
+			// Match GitHub.com behavior: only use the commit body when there is a single commit.
+			if (pullRequestTemplate && lastCommit?.body && !useBranchName) {
+				description = `${lastCommit.body}\n\n${pullRequestTemplate}`;
+			} else if (pullRequestTemplate) {
+				description = pullRequestTemplate;
+			} else if (lastCommit?.body && !useBranchName && (this._pullRequestDefaults.base !== compareBranch.name)) {
+				description = lastCommit.body;
+			}
+
+			// If the description is empty, check to see if the title of the PR contains something that looks like an issue
+			if (!description) {
+				const issueExpMatch = title.match(ISSUE_EXPRESSION);
+				const match = parseIssueExpressionOutput(issueExpMatch);
+				if (match?.issueNumber && !match.name && !match.owner) {
+					description = `#${match.issueNumber}`;
+					const prefix = title.substr(0, title.indexOf(issueExpMatch![0]));
+
+					const keyWordMatch = prefix.match(ISSUE_CLOSING_KEYWORDS);
+					if (keyWordMatch) {
+						description = `${keyWordMatch[0]} ${description}`;
+					}
+				}
+			}
+		} catch (e) {
+			// Ignore and fall back to commit message
+			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProvider.ID);
+		}
+		return { title, description };
+	}
+
+	private async getPullRequestTemplate(compareBranch: string | undefined, baseBranch: string): Promise<string | undefined> {
+		const template = await this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
+		return template === undefined ? undefined : this.resolvePullRequestTemplate(template, compareBranch, baseBranch);
+	}
+
+	private async resolvePullRequestTemplate(template: string, compareBranch: string | undefined, baseBranch: string): Promise<string> {
+		if (!template.includes('${')) {
+			return template;
+		}
+		const issue = compareBranch ? await this.lookupTemplateValue('issue', () => getIssueForBranch(this._folderRepositoryManager, compareBranch)) : undefined;
+		const user = /\$\{user\}/.test(template) ? await this.lookupTemplateValue('user', () => this._folderRepositoryManager.getCurrentUser()) : undefined;
+		return variableSubstitution(template, issue, {
+			owner: this.model.baseOwner,
+			repo: this.model.repositoryName,
+			base: baseBranch,
+		}, user?.login);
+	}
+
+	private async lookupTemplateValue<T>(name: string, lookup: () => Promise<T>): Promise<T | undefined> {
+		try {
+			return await lookup();
+		} catch (e) {
+			Logger.debug(`Unable to resolve the ${name} for pull request template variables: ${e}`, CreatePullRequestViewProvider.ID);
+			return undefined;
+		}
+	}
+
+	private async changeTemplate(message: IRequestMessage<any>): Promise<void> {
+		const templates = await this._folderRepositoryManager.getAllPullRequestTemplates(this.model.baseOwner);
+
+		if (!templates || templates.length === 0) {
+			// No templates found - show helpful options
+			const learnMore = vscode.l10n.t('Learn More');
+			const createTemplate = vscode.l10n.t('Create Template');
+			const selected = await vscode.window.showQuickPick(
+				[
+					{
+						label: createTemplate,
+						description: vscode.l10n.t('Create a new pull request template')
+					},
+					{
+						label: learnMore,
+						description: vscode.l10n.t('Open GitHub documentation')
+					}
+				],
+				{
+					placeHolder: vscode.l10n.t('No pull request templates found'),
+					ignoreFocusOut: true
+				}
+			);
+
+			if (selected?.label === learnMore) {
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository'));
+			} else if (selected?.label === createTemplate) {
+				await this.createPullRequestTemplate();
+			}
+			return this._replyMessage(message, undefined);
+		}
+
+		// Multiple templates exist - show quick pick
+		const selectedTemplate = await vscode.window.showQuickPick(
+			templates.map((template, index) => {
+				// Try to extract a meaningful name from the template (first line or first few chars)
+				const firstLine = template.split('\n')[0].trim();
+				const label = firstLine || vscode.l10n.t('Template {0}', index + 1);
+				return {
+					label: label.substring(0, 50) + (label.length > 50 ? '...' : ''),
+					description: vscode.l10n.t('{0} characters', template.length),
+					template: template
+				};
+			}),
+			{
+				placeHolder: vscode.l10n.t('Select a pull request template'),
+				ignoreFocusOut: true
+			}
+		);
+
+		if (selectedTemplate) {
+			const reply: ChangeTemplateReply = {
+				description: await this.resolvePullRequestTemplate(selectedTemplate.template, this.model.compareBranch, this.model.baseBranch)
+			};
+			return this._replyMessage(message, reply);
+		}
+		return this._replyMessage(message, undefined);
+	}
+
+	private async createPullRequestTemplate(): Promise<void> {
+		// Show options for where to create the template
+		const templateLocations = [
+			{
+				label: '.github/pull_request_template.md',
+				description: vscode.l10n.t('Default location for a single template')
+			},
+			{
+				label: 'docs/pull_request_template.md',
+				description: vscode.l10n.t('Alternative location in docs folder')
+			},
+			{
+				label: '.github/PULL_REQUEST_TEMPLATE/template.md',
+				description: vscode.l10n.t('For multiple templates')
+			}
+		];
+
+		const selected = await vscode.window.showQuickPick(templateLocations, {
+			placeHolder: vscode.l10n.t('Choose where to create the pull request template'),
+			ignoreFocusOut: true
+		});
+
+		if (!selected) {
+			return;
+		}
+
+		// Get the repository root
+		const workspaceFolder = this._folderRepositoryManager.repository.rootUri;
+		const templatePath = vscode.Uri.joinPath(workspaceFolder, selected.label);
+
+		// Default template content
+		const templateContent = `## Sample Pull Request Template Description
+
+This is a sample pull request template. You can customize it to fit your project's needs.
+
+Don't forget to commit your template file to the repository so that it can be used for future pull requests!
+`;
+
+		try {
+			// Ensure all parent directories exist by creating them step by step
+			const pathParts = selected.label.split('/');
+			let currentPath = workspaceFolder;
+
+			// Create each directory in the path (excluding the file name)
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				currentPath = vscode.Uri.joinPath(currentPath, pathParts[i]);
+				try {
+					await vscode.workspace.fs.createDirectory(currentPath);
+				} catch (e) {
+					// Re-throw if it's not a FileSystemError about the directory already existing
+					if (e instanceof vscode.FileSystemError && e.code !== 'FileExists') {
+						throw e;
+					}
+					// Directory already exists, which is fine
+				}
+			}
+
+			// Create the template file
+			const encoder = new TextEncoder();
+			await vscode.workspace.fs.writeFile(templatePath, encoder.encode(templateContent));
+
+			// Open the file for editing
+			const document = await vscode.workspace.openTextDocument(templatePath);
+			await vscode.window.showTextDocument(document);
+
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('Pull request template created at {0}', selected.label)
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Failed to create pull request template: {0}', error instanceof Error ? error.message : String(error))
+			);
+		}
+	}
+
+	protected async detectBaseMetadata(defaultCompareBranch: Branch): Promise<BaseBranchMetadata | undefined> {
+		const owner = this.model.compareOwner;
+		const repositoryName = this.model.repositoryName;
+		const settingValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch' | 'auto'>(CREATE_BASE_BRANCH);
+		if (!defaultCompareBranch.name || settingValue === 'repositoryDefault') {
+			return undefined;
+		}
+		const githubRepo = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, owner) === 0 && compareIgnoreCase(repo.remote.repositoryName, repositoryName) === 0);
+		if (settingValue === 'auto' && (await githubRepo?.getMetadata())?.fork) {
+			return undefined;
+		}
+
+		try {
+			const baseFromProvider = await this._folderRepositoryManager.repository.getBranchBase(defaultCompareBranch.name);
+			if (baseFromProvider?.name) {
+				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
+				if (repo) {
+					return {
+						// A branch created from `<remote>/HEAD` is based on the branch that the remote's HEAD points to, which is the default branch.
+						branch: baseFromProvider.name === 'HEAD' ? await repo.getDefaultBranch() : baseFromProvider.name,
+						owner: repo.remote.owner,
+						repositoryName: repo.remote.repositoryName
+					};
+				}
+			}
+		} catch (e) {
+			// Not all providers will support `getBranchBase`
+			return undefined;
+		}
+	}
+
+	protected override onBaseBranchDetected(baseOwner: string, baseBranch: string): void {
+		this.model.baseOwner = baseOwner;
+		this.model.baseBranch = baseBranch;
+	}
+
+	protected override async getCreateParams(): Promise<CreateParamsNew> {
+		const params = await super.getCreateParams();
+		// Pre-fetch branches so they're cached when the user opens the branch picker
+		this.prefetchBranches(params.defaultBaseRemote!);
+		params.stackCandidate = await this.getStackCandidateForView(params.defaultBaseRemote, params.defaultBaseBranch, params.defaultCompareRemote, params.defaultCompareBranch);
+		return params;
+	}
+
+	private async getStackCandidate(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
+		if (!baseRemote || !baseBranch || !compareRemote || !compareBranch ||
+			(compareIgnoreCase(baseRemote.owner, compareRemote.owner) === 0 &&
+				compareIgnoreCase(baseRemote.repositoryName, compareRemote.repositoryName) === 0 &&
+				baseBranch === compareBranch)) {
+			return;
+		}
+		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(baseRemote.owner, baseRemote.repositoryName);
+		if (!repo) {
+			throw new Error(vscode.l10n.t('Unable to find the selected base repository.'));
+		}
+		return repo.getStackCandidate(baseBranch);
+	}
+
+	protected async getStackCandidateForView(baseRemote: RemoteInfo | undefined, baseBranch: string | undefined, compareRemote: RemoteInfo | undefined, compareBranch: string | undefined): Promise<StackCandidate | undefined> {
+		try {
+			const candidate = await this.getStackCandidate(baseRemote, baseBranch, compareRemote, compareBranch);
+			if (!candidate || !baseRemote) {
+				return candidate;
+			}
+			const [url, stackMergeQueue] = await Promise.all([
+				toOpenPullRequestWebviewUri({
+					owner: baseRemote.owner,
+					repo: baseRemote.repositoryName,
+					pullRequestNumber: candidate.parentPullRequestNumber,
+				}),
+				candidate.base !== undefined
+					? this._folderRepositoryManager.mergeQueueMethodForBranch(candidate.base, baseRemote.owner, baseRemote.repositoryName)
+					: undefined,
+			]);
+			return {
+				...candidate,
+				url: url.toString(),
+				...(candidate.base !== undefined ? { baseHasMergeQueue: !!stackMergeQueue } : {}),
+			};
+		} catch (error) {
+			Logger.error(`Failed to check stack eligibility: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			// The check can finish after the view is gone, when there is nothing left to warn about.
+			if (!this.isDisposed) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('Unable to check pull request stack eligibility: {0}', formatError(error)));
+			}
+			return;
+		}
+	}
+
+	private prefetchBranches(baseRemote: RemoteInfo): void {
+		const githubRepository = this._folderRepositoryManager.findRepo(
+			repo => repo.remote.owner === baseRemote.owner && repo.remote.repositoryName === baseRemote.repositoryName,
+		);
+		if (githubRepository) {
+			githubRepository.listBranches(baseRemote.owner, baseRemote.repositoryName, undefined).catch(e => {
+				Logger.debug(`Pre-fetching branches failed: ${e}`, CreatePullRequestViewProvider.ID);
+			});
+		}
+	}
+
+
+	private async remotePicks(isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo })[]> {
+		const remotes = isBase ? this._folderRepositoryManager.getActiveGitHubRemotes(await this._folderRepositoryManager.getGitHubRemotes()) : this._folderRepositoryManager.gitHubRepositories.map(repo => repo.remote);
+		return remotes.map(remote => {
+			return {
+				iconPath: new vscode.ThemeIcon('repo'),
+				label: `${remote.owner}/${remote.repositoryName}`,
+				remote: {
+					owner: remote.owner,
+					repositoryName: remote.repositoryName,
+				}
+			};
+		});
+	}
+
+	private async processRemoteAndBranchResult(githubRepository: GitHubRepository, result: { remote: RemoteInfo, branch: string }, isBase: boolean) {
+		let viewerPermission: ViewerPermission;
+		try {
+			viewerPermission = await githubRepository.getViewerPermission();
+		} catch (e) {
+			if (isRateLimitError(e)) {
+				vscode.window.showErrorMessage(vscode.l10n.t('GitHub API rate limit exceeded. Please wait and try again.'));
+				viewerPermission = ViewerPermission.Unknown;
+			} else {
+				throw e;
+			}
+		}
+		const defaultBranch = await githubRepository.getDefaultBranch();
+
+		let chooseResult: ChooseBaseRemoteAndBranchResult | ChooseCompareRemoteAndBranchResult;
+		if (isBase) {
+			const warning = await this.existingPRMessage();
+			commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
+			const baseRemoteChanged = this.model.baseOwner !== result.remote.owner;
+			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
+			this.model.baseOwner = result.remote.owner;
+			this.model.baseBranch = result.branch;
+
+			// Save the selected base branch to recently used branches
+			this.saveRecentlyUsedBranch(result.remote.owner, result.remote.repositoryName, result.branch);
+
+			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
+			const [mergeConfiguration, titleAndDescription, mergeQueueMethodForBranch] = await Promise.all([
+				this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName),
+				this.getTitleAndDescription(compareBranch, this.model.baseBranch),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(this.model.baseBranch, this.model.baseOwner, this.model.repositoryName)]);
+			let autoMergeDefault = false;
+			if (mergeConfiguration?.viewerCanAutoMerge) {
+				const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
+				const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
+				autoMergeDefault = (defaultCreateOption === 'lastUsed' && lastCreateMethod?.autoMerge) || (defaultCreateOption === 'createAutoMerge');
+			}
+
+			chooseResult = {
+				baseRemote: result.remote,
+				baseBranch: result.branch,
+				defaultBaseBranch: defaultBranch,
+				defaultMergeMethod: mergeConfiguration ? getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability) : 'merge' as MergeMethod,
+				allowAutoMerge: mergeConfiguration?.viewerCanAutoMerge ?? false,
+				baseHasMergeQueue: !!mergeQueueMethodForBranch,
+				stackCandidate: await this.getStackCandidateForView(result.remote, result.branch,
+					{ owner: this.model.compareOwner, repositoryName: this.model.repositoryName }, this.model.compareBranch),
+				warning,
+				mergeMethodsAvailability: mergeConfiguration?.mergeMethodsAvailability ?? { merge: true, squash: true, rebase: true },
+				autoMergeDefault,
+				defaultTitle: titleAndDescription.title,
+				defaultDescription: titleAndDescription.description
+			};
+			if (baseRemoteChanged) {
+				/* __GDPR__
+				"pr.create.changedBaseRemote" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseRemote');
+			}
+			if (baseBranchChanged) {
+				/* __GDPR__
+				"pr.create.changedBaseBranch" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
+			}
+		} else {
+			const compareBranch = await this._folderRepositoryManager.repository.getBranch(result.branch);
+			const previousOwner = this.model.compareOwner;
+			const previousBranch = this.model.compareBranch;
+			try {
+				this.model.compareOwner = result.remote.owner;
+				await this.model.setCompareBranch(result.branch);
+				const titleAndDescription = await this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+				chooseResult = {
+					compareRemote: result.remote,
+					compareBranch: result.branch,
+					defaultCompareBranch: defaultBranch,
+					defaultDescription: titleAndDescription.description,
+					stackCandidate: await this.getStackCandidateForView(
+						{ owner: this.model.baseOwner, repositoryName: this.model.repositoryName },
+						this.model.baseBranch, result.remote, result.branch),
+					warning: await this.existingPRMessage()
+				};
+			} catch (error) {
+				const ownerChanged = this.model.compareOwner !== previousOwner;
+				this.model.compareOwner = previousOwner;
+				if (ownerChanged || this.model.compareBranch !== previousBranch) {
+					await this.model.setCompareBranch(previousBranch);
+				}
+				throw error;
+			}
+			commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
+			/* __GDPR__
+			"pr.create.changedCompare" : {}
+			*/
+			this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedCompare');
+		}
+		return chooseResult;
+	}
+
+	private async changeRemoteAndBranch(message: IRequestMessage<ChooseRemoteAndBranchArgs>, isBase: boolean): Promise<void> {
+		this.cancelGenerateTitleAndDescription();
+		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })>();
+		let githubRepository = this._folderRepositoryManager.findRepo(
+			repo => message.args.currentRemote?.owner === repo.remote.owner && message.args.currentRemote.repositoryName === repo.remote.repositoryName,
+		);
+
+		const chooseDifferentRemote = vscode.l10n.t('Change Repository...');
+		const remotePlaceholder = vscode.l10n.t('Choose a remote');
+		const branchPlaceholder = isBase ? vscode.l10n.t('Choose a base branch') : vscode.l10n.t('Choose a branch to merge');
+		const repositoryPlaceholder = isBase ? vscode.l10n.t('Choose a base repository') : vscode.l10n.t('Choose a repository to merge from');
+
+		let updateCounter = 0;
+		const updateItems = async (githubRepository: GitHubRepository, prefix: string | undefined) => {
+			const currentUpdate = ++updateCounter;
+			quickPick.busy = true;
+			const items = await branchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase, prefix);
+			if (currentUpdate === updateCounter) {
+				quickPick.items = items;
+				quickPick.busy = false;
+			}
+		};
+		const debounced = debounce(updateItems, 300);
+		let onDidChangeValueDisposable: vscode.Disposable | undefined;
+		const addValueChangeListener = () => {
+			if (githubRepository && !onDidChangeValueDisposable) {
+				onDidChangeValueDisposable = quickPick.onDidChangeValue(async value => {
+					return debounced(githubRepository!, value);
+				});
+			}
+		};
+		addValueChangeListener();
+
+		quickPick.placeholder = githubRepository ? branchPlaceholder : remotePlaceholder;
+		quickPick.show();
+		quickPick.busy = true;
+		if (githubRepository) {
+			// Show cached branches immediately if available, then refresh in the background
+			const cached = cachedBranchPicks(githubRepository, this._folderRepositoryManager, chooseDifferentRemote, isBase);
+			if (cached) {
+				quickPick.items = cached;
+				const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+				quickPick.activeItems = activeItem ? [activeItem] : [];
+			}
+		}
+		// Register event handlers before awaiting async operations to avoid missing early user interactions
+		const remoteAndBranch: Promise<{ remote: RemoteInfo, branch: string } | undefined> = new Promise((resolve) => {
+			quickPick.onDidAccept(async () => {
+				const selectedPick = quickPick.selectedItems[0] ?? quickPick.activeItems[0];
+				if (!selectedPick) {
+					return;
+				}
+				if (selectedPick.label === chooseDifferentRemote) {
+					quickPick.busy = true;
+					quickPick.items = await this.remotePicks(isBase);
+					quickPick.busy = false;
+					quickPick.placeholder = githubRepository ? repositoryPlaceholder : remotePlaceholder;
+				} else if ((selectedPick.branch === undefined) && selectedPick.remote) {
+					const selectedRemote = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo };
+					quickPick.busy = true;
+					githubRepository = this._folderRepositoryManager.findRepo(repo => repo.remote.owner === selectedRemote.remote.owner && repo.remote.repositoryName === selectedRemote.remote.repositoryName)!;
+					await updateItems(githubRepository, undefined);
+					addValueChangeListener();
+					quickPick.placeholder = branchPlaceholder;
+					quickPick.busy = false;
+				} else if (selectedPick.branch && selectedPick.remote) {
+					const selectedBranch = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo, branch: string };
+					resolve({ remote: selectedBranch.remote, branch: selectedBranch.branch });
+				}
+			});
+		});
+		const hidePromise = new Promise<void>((resolve) => quickPick.onDidHide(() => resolve()));
+		if (githubRepository) {
+			await updateItems(githubRepository, undefined);
+		} else {
+			quickPick.items = await this.remotePicks(isBase);
+		}
+		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+		quickPick.activeItems = activeItem ? [activeItem] : [];
+		quickPick.busy = false;
+		const result = await Promise.race([remoteAndBranch, hidePromise]);
+		if (!result || !githubRepository) {
+			quickPick.hide();
+			quickPick.dispose();
+			onDidChangeValueDisposable?.dispose();
+			return;
+		}
+
+		quickPick.busy = true;
+		try {
+			const chooseResult = await this.processRemoteAndBranchResult(githubRepository, result, isBase);
+			await this._replyMessage(message, chooseResult);
+		} catch (error) {
+			Logger.error(`Failed to change pull request branch: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+			await this._throwError(message, formatError(error));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
+			onDidChangeValueDisposable?.dispose();
+		}
+	}
+
+	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
+		return this.model.getCommitsAndPatches();
+	}
+
+	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
+	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
+		return CreatePullRequestViewProvider.withProgress(async () => {
+			try {
+				const templatePromise = this.getPullRequestTemplate(this.model.compareBranch, this.model.baseBranch); // Fetch in parallel
+				const { commitMessages, patches } = await this.getCommitsAndPatches();
+				const issues = await this.model.findIssueContext(commitMessages);
+				const template = await templatePromise;
+
+				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, template, compareBranch: this.model.compareBranch }, token);
+				if (provider) {
+					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
+					/* __GDPR__
+						"pr.generatedTitleAndDescription" : {
+							"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+						}
+					*/
+					this.telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title });
+				}
+				return result;
+			} catch (e) {
+				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProvider.ID);
+				return undefined;
+			}
+		});
+	}
+
+	private generatingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async generateTitleAndDescription(message: IRequestMessage<TitleAndDescriptionArgs>): Promise<void> {
+		if (this.generatingCancellationToken) {
+			this.generatingCancellationToken.cancel();
+		}
+		this.generatingCancellationToken = new vscode.CancellationTokenSource();
+
+
+		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token, message.args.useCopilot ? 'Copilot' : undefined),
+		new Promise<true>(resolve => this.generatingCancellationToken?.token.onCancellationRequested(() => resolve(true)))]);
+
+		this.generatingCancellationToken = undefined;
+
+		const generated: { title: string | undefined, description: string | undefined } = { title: undefined, description: undefined };
+		if (result !== true) {
+			generated.title = result?.title;
+			generated.description = result?.description;
+		}
+		return this._replyMessage(message, { title: generated?.title, description: generated?.description });
+	}
+
+	private async cancelGenerateTitleAndDescription(): Promise<void> {
+		if (this.generatingCancellationToken) {
+			this.generatingCancellationToken.cancel();
+		}
+	}
+
+	private async getPreReviewFromProvider(token: vscode.CancellationToken): Promise<PreReviewState | undefined> {
+		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
+		if (!preReviewer) {
+			return;
+		}
+		const { commitMessages, patches } = await this.getCommitsAndPatches();
+		const result = await preReviewer.provider.provideReviewerComments({ repositoryRoot: this._folderRepositoryManager.repository.rootUri.fsPath, commitMessages, patches }, token);
+		return (result && result.succeeded && result.files.length > 0) ? PreReviewState.ReviewedWithComments : PreReviewState.ReviewedWithoutComments;
+	}
+
+	public async review(): Promise<void> {
+		this._postMessage({ command: 'reviewing', params: { reviewing: true } });
+	}
+
+	private reviewingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async preReview(message: IRequestMessage<any>): Promise<void> {
+		return CreatePullRequestViewProvider.withProgress(async () => {
+			await commands.setContext('pr:preReviewing', true);
+
+			if (this.reviewingCancellationToken) {
+				this.reviewingCancellationToken.cancel();
+			}
+			this.reviewingCancellationToken = new vscode.CancellationTokenSource();
+
+			const result = await Promise.race([this.getPreReviewFromProvider(this.reviewingCancellationToken.token),
+			new Promise<void>(resolve => this.reviewingCancellationToken?.token.onCancellationRequested(() => resolve()))]);
+
+			this.reviewingCancellationToken = undefined;
+			await commands.setContext('pr:preReviewing', false);
+
+			return this._replyMessage(message, result);
+		});
+	}
+
+	private async cancelPreReview(): Promise<void> {
+		if (this.reviewingCancellationToken) {
+			this.reviewingCancellationToken.cancel();
+		}
+	}
+
+	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
+		let createdPushRemote: GitHubRemote | undefined;
+		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
+			if (!localRemote.pushUrl) {
+				return false;
+			}
+			const testRemote = new GitHubRemote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl), GitHubServerType.GitHubDotCom);
+			if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
+				createdPushRemote = testRemote;
+				return true;
+			}
+			return false;
+		});
+
+		if (pushRemote && createdPushRemote) {
+			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProvider.ID);
+			const actualPushRemote = await this._folderRepositoryManager.publishBranch(createdPushRemote, compareBranchName);
+			if (!actualPushRemote) {
+				return undefined;
+			}
+			return { compareUpstream: actualPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(actualPushRemote.remoteName)) };
+		}
+	}
+
+	/**
+	 * Pushes the commits of the compare branch to the remote it tracks. Without permission to push to that remote,
+	 * the user is offered to fork the repository, and the commits are pushed to the fork instead.
+	 * @returns The repository that the commits were pushed to when it isn't the one the branch tracks, such as a fork,
+	 * or undefined if the commits weren't pushed.
+	 */
+	private async pushCommits(remoteName: string, compareBranchName: string): Promise<{ headRemote?: GitHubRemote } | undefined> {
+		const trackedRemote = this._folderRepositoryManager.findRepo(byRemoteName(remoteName))?.remote;
+		const pushRemote = trackedRemote ? await this._folderRepositoryManager.getPushRemote(trackedRemote) : undefined;
+		if (!trackedRemote || !pushRemote) {
+			await this._folderRepositoryManager.repository.push(remoteName, compareBranchName);
+			return {};
+		}
+
+		const pushedTo = await this._folderRepositoryManager.publishBranch(pushRemote, compareBranchName);
+		if (!pushedTo) {
+			return undefined;
+		}
+		const isTrackedRepository = (compareIgnoreCase(pushedTo.owner, trackedRemote.owner) === 0) && (compareIgnoreCase(pushedTo.repositoryName, trackedRemote.repositoryName) === 0);
+		return { headRemote: isTrackedRepository ? undefined : pushedTo };
+	}
+
+	/**
+	 * The ahead count of a branch is relative to its upstream, but the branch is pushed to the remote branch with the same name.
+	 * When the upstream is a different branch (ex. the branch was created with `git switch -c feature origin/main`),
+	 * the unpushed commits are the ones that aren't on the remote branch with the same name.
+	 */
+	private async getUnpushedCommitCount(branchName: string, branch: Branch, upstream: UpstreamRef): Promise<number> {
+		if (upstream.name === branchName) {
+			return branch.ahead ?? 0;
+		}
+		const repository = this._folderRepositoryManager.repository;
+		const remoteBranchRef = `refs/remotes/${upstream.remote}/${branchName}`;
+		try {
+			await repository.fetch(upstream.remote, branchName);
+			const remoteBranch = await repository.getBranch(remoteBranchRef);
+			if (remoteBranch.commit === branch.commit) {
+				return 0;
+			}
+			return (await repository.log({ range: `${remoteBranchRef}..refs/heads/${branchName}` })).length;
+		} catch (e) {
+			// The branch hasn't been pushed yet, so all the commits that are ahead of the upstream are unpushed.
+			Logger.debug(`Unable to compare ${branchName} with ${remoteBranchRef}: ${formatError(e)}`, CreatePullRequestViewProvider.ID);
+			return branch.ahead ?? 0;
+		}
+	}
+
+	private checkGeneratedTitleAndDescription(title: string, description: string) {
+		if (!this.lastGeneratedTitleAndDescription) {
+			return;
+		}
+		const usedGeneratedTitle: boolean = !!this.lastGeneratedTitleAndDescription.title && ((this.lastGeneratedTitleAndDescription.title === title) || this.lastGeneratedTitleAndDescription.title?.includes(title) || title?.includes(this.lastGeneratedTitleAndDescription.title));
+		const usedGeneratedDescription: boolean = !!this.lastGeneratedTitleAndDescription.description && ((this.lastGeneratedTitleAndDescription.description === description) || this.lastGeneratedTitleAndDescription.description?.includes(description) || description?.includes(this.lastGeneratedTitleAndDescription.description));
+		/* __GDPR__
+			"pr.usedGeneratedTitleAndDescription" : {
+				"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"usedGeneratedTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"usedGeneratedDescription" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('pr.usedGeneratedTitleAndDescription', { providerTitle: this.lastGeneratedTitleAndDescription.providerTitle, usedGeneratedTitle: usedGeneratedTitle.toString(), usedGeneratedDescription: usedGeneratedDescription.toString() });
+	}
+
+	/**
+	 *
+	 * @returns true if the PR should be created immediately after
+	 */
+	private async checkForChanges(): Promise<boolean> {
+		if (await this.model.filesHaveChanges()) {
+			const apply = vscode.l10n.t('Commit');
+			const deleteChanges = vscode.l10n.t('Delete my changes');
+			const result = await vscode.window.showWarningMessage(vscode.l10n.t('You have made changes to the files in this pull request. Do you want to commit these changes to the pull request before creating it?'), { modal: true }, apply, deleteChanges);
+			if (result === apply) {
+				const commitMessage = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Commit message for your changes') });
+				if (commitMessage) {
+					return this.model.applyChanges(commitMessage);
+				}
+			} else if (result !== deleteChanges) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
+		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProvider.ID);
+
+		if (!(await this.checkForChanges())) {
+			Logger.debug('Not continuing past checking for file changes.', CreatePullRequestViewProvider.ID);
+			await this._replyMessage(message, {});
+			return;
+		}
+
+		// Save create method
+		const createMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } = { autoMerge: message.args.autoMerge, mergeMethod: message.args.autoMergeMethod, isDraft: message.args.draft };
+		this._folderRepositoryManager.context.workspaceState.update(PREVIOUS_CREATE_METHOD, createMethod);
+
+		CreatePullRequestViewProvider.withProgress(() => {
+			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
+				commands.setContext(contexts.CREATING, true);
+				let totalIncrement = 0;
+				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
+				let createdPR: PullRequestModel | undefined = undefined;
+				let stackAdditionFailed = false;
+				let stackAutoMergeMethod: MergeMethod | undefined;
+				// Auto-merge for a stacked pull request is enabled for the stack once the pull request is in it.
+				const detailsMessage = message.args.addToStack ? { ...message, args: { ...message.args, autoMerge: false } } : message;
+				try {
+					let stackCandidate: StackCandidate | undefined;
+					let stackParentWithAutoMerge: PullRequestModel | undefined;
+					if (message.args.addToStack) {
+						stackCandidate = await this.getStackCandidate(
+							{ owner: message.args.owner, repositoryName: message.args.repo }, message.args.base,
+							{ owner: message.args.compareOwner, repositoryName: message.args.compareRepo }, message.args.compareBranch);
+						if (!stackCandidate || stackCandidate.parentPullRequestNumber !== message.args.stackParentPullRequest
+							|| stackCandidate.stackNumber !== message.args.stackNumber) {
+							throw new Error(vscode.l10n.t('The selected base branch is no longer at the top of a pull request stack. Refresh and try again.'));
+						}
+						const baseRepo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(message.args.owner, message.args.repo);
+						const stackParent = await baseRepo?.getPullRequest(stackCandidate.parentPullRequestNumber, 'createPullRequest');
+						if (!stackParent) {
+							throw new Error(vscode.l10n.t('Unable to load pull request #{0}.', stackCandidate.parentPullRequestNumber));
+						}
+						if (message.args.autoMerge) {
+							// The new pull request is the top of the stack, so its auto-merge covers the parent too.
+							stackAutoMergeMethod = message.args.autoMergeMethod ?? 'merge';
+						} else {
+							const autoMergeChoice = await chooseStackAutoMerge([stackParent]);
+							if (!autoMergeChoice) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							stackAutoMergeMethod = autoMergeChoice.stackAutoMergeMethod;
+						}
+						stackParentWithAutoMerge = stackParent.autoMerge ? stackParent : undefined;
+					}
+					let compareOwner = message.args.compareOwner;
+					let compareRepositoryName = message.args.compareRepo;
+					const compareBranchName = message.args.compareBranch;
+					const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
+					let compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+
+					// Fetch upstream to get accurate ahead/behind count
+					if (compareBranch.upstream) {
+						await this._folderRepositoryManager.repository.fetch(compareBranch.upstream.remote, compareBranch.upstream.name);
+						// Re-fetch branch info after fetch to get accurate ahead count
+						compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+					}
+
+					// Check for unpushed commits when there's an upstream
+					const commitCount = compareBranch.upstream ? await this.getUnpushedCommitCount(compareBranchName, compareBranch, compareBranch.upstream) : 0;
+					if (compareBranch.upstream && commitCount > 0) {
+						const pushCommits = vscode.l10n.t('Push Commits');
+						const continueWithoutPushing = vscode.l10n.t('Continue Without Pushing');
+						const messageResult = await vscode.window.showInformationMessage(
+							vscode.l10n.t({
+								message: 'You have {0} unpushed commit(s) on \'{1}\'.\n\nDo you want to push them before creating the pull request?',
+								comment: ['{0} is the number of commits, {1} is the branch name'],
+								args: [commitCount, compareBranchName]
+							}),
+							{ modal: true },
+							pushCommits,
+							continueWithoutPushing
+						);
+						if (messageResult === pushCommits) {
+							progress.report({ message: vscode.l10n.t('Pushing commits'), increment: 10 });
+							totalIncrement += 10;
+							const pushResult = await this.pushCommits(compareBranch.upstream.remote, compareBranchName);
+							if (!pushResult) {
+								progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+								return;
+							}
+							if (pushResult.headRemote) {
+								// The commits were pushed to another repository than the one the branch tracks, such as a fork,
+								// which becomes the head of the pull request.
+								compareOwner = pushResult.headRemote.owner;
+								compareRepositoryName = pushResult.headRemote.repositoryName;
+								// Also select it in the view, so that retrying after a failed create doesn't use the
+								// original repository, which also has this branch, as the head.
+								if (compareIgnoreCase(compareRepositoryName, this.model.repositoryName) === 0) {
+									this.model.compareOwner = compareOwner;
+									// The model change only reaches the view after looking up existing and stacked pull requests,
+									// which a retry could beat.
+									await this._postMessage({ command: 'pr.initialize', params: { compareRemote: serializeRemoteInfo(pushResult.headRemote) } });
+								}
+							}
+						} else if (messageResult !== continueWithoutPushing) {
+							// User cancelled (clicked X or pressed Escape)
+							progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+							return;
+						}
+						// If continueWithoutPushing was selected, just continue with PR creation
+					}
+
+					let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
+						return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
+					}) : undefined;
+					let existingCompareUpstream = headRepo?.remote;
+
+					if (!existingCompareUpstream
+						|| (existingCompareUpstream.owner !== compareOwner)
+						|| (existingCompareUpstream.repositoryName !== compareRepositoryName)) {
+
+						// We assume this happens only when the compare branch is based on the current branch.
+						const alwaysPublish = vscode.l10n.t('Always Publish Branch');
+						const publish = vscode.l10n.t('Publish Branch');
+						const pushBranchSetting =
+							vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
+						const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
+							vscode.l10n.t('There is no remote branch on {0}/{1} for \'{2}\'.\n\nDo you want to publish it and then create the pull request?', compareOwner, compareRepositoryName, compareBranchName),
+							{ modal: true },
+							publish,
+							alwaysPublish)
+							: publish;
+						if (messageResult === alwaysPublish) {
+							await vscode.workspace
+								.getConfiguration(PR_SETTINGS_NAMESPACE)
+								.update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+						}
+						if ((messageResult === alwaysPublish) || (messageResult === publish)) {
+							progress.report({ message: vscode.l10n.t('Pushing branch'), increment: 10 });
+							totalIncrement += 10;
+
+							const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
+							if (pushResult) {
+								existingCompareUpstream = pushResult.compareUpstream;
+								headRepo = pushResult.repo;
+							} else {
+								this._throwError(message, vscode.l10n.t('The current repository does not have a push remote for {0}', compareGithubRemoteName));
+							}
+						}
+					}
+					if (!existingCompareUpstream) {
+						this._throwError(message, vscode.l10n.t('No remote branch on {0}/{1} for the merge branch.', compareOwner, compareRepositoryName));
+						progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
+						return;
+					}
+
+					if (!headRepo) {
+						throw new Error(vscode.l10n.t('Unable to find GitHub repository matching \'{0}\'. You can add \'{0}\' to the setting "githubPullRequests.remotes" to ensure \'{0}\' is found.', existingCompareUpstream.remoteName));
+					}
+
+					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
+					totalIncrement += 70 - totalIncrement;
+					const head = `${headRepo.remote.owner}:${compareBranchName}`;
+					this.checkGeneratedTitleAndDescription(message.args.title, message.args.body);
+					createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
+
+					// Create was cancelled
+					if (!createdPR) {
+						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
+					} else {
+						// Save the base branch to recently used branches after successful PR creation
+						this.saveRecentlyUsedBranch(message.args.owner, message.args.repo, message.args.base);
+						let postCreateError: unknown;
+						try {
+							await this.postCreate(detailsMessage, createdPR);
+						} catch (error) {
+							postCreateError = error;
+							Logger.error(`Failed to set pull request details: ${formatError(error)}`, CreatePullRequestViewProvider.ID);
+						}
+						if (stackCandidate) {
+							const candidate = stackCandidate;
+							const created = createdPR;
+							try {
+								await stackWithoutAutoMerge(stackParentWithAutoMerge ? [stackParentWithAutoMerge] : [],
+									() => created.githubRepository.addPullRequestToStack(candidate, created.number));
+							} catch (error) {
+								stackAdditionFailed = true;
+								throw error;
+							}
+							if (stackAutoMergeMethod) {
+								await enableAutoMergeForStack(createdPR, stackAutoMergeMethod, [candidate.parentPullRequestNumber, createdPR.number]);
+							}
+						}
+						if (postCreateError) {
+							throw postCreateError;
+						}
+					}
+				} catch (e) {
+					if (!createdPR) {
+						let errorMessage: string = e.message;
+						if (errorMessage.startsWith('GraphQL error: ')) {
+							errorMessage = errorMessage.substring('GraphQL error: '.length);
+						}
+						this._throwError(message, errorMessage);
+					} else {
+						if ((e as Error).message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
+							// This error can happen if the PR isn't fully created by the time we try to set properties on it. Try again.
+							await this.postCreate(detailsMessage, createdPR);
+						}
+						// All of these errors occur after the PR is created, so the error is not critical.
+						vscode.window.showErrorMessage(!stackAdditionFailed
+							? vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message)
+							: stackAutoMergeMethod
+								? vscode.l10n.t('Pull request #{0} was created but could not be added to its stack, so auto-merge was not enabled for it: {1}', createdPR.number, formatError(e))
+								: vscode.l10n.t('Pull request #{0} was created but could not be added to its stack: {1}', createdPR.number, formatError(e)));
+					}
+				} finally {
+					commands.setContext(contexts.CREATING, false);
+
+					let completeMessage: string;
+					if (createdPR) {
+						this._onDone.fire(createdPR);
+						completeMessage = vscode.l10n.t('Pull request created');
+					} else {
+						await this._replyMessage(message, {});
+						completeMessage = vscode.l10n.t('Unable to create pull request');
+					}
+					progress.report({ message: completeMessage, increment: 100 - totalIncrement });
+				}
+			});
+		});
+	}
+
+	private async changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
+		let compareBranch: Branch | undefined;
+		if (isBase) {
+			this.model.baseBranch = newBranch;
+		} else {
+			try {
+				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
+			}
+			if (compareBranch) {
+				await this.model.setCompareBranch(newBranch);
+			}
+		}
+
+		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
+		return this.getTitleAndDescription(compareBranch, this.model.baseBranch);
+	}
+
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		const result = await super._onDidReceiveMessage(message);
+		if (result !== this.MESSAGE_UNHANDLED) {
+			return;
+		}
+
+		switch (message.command) {
+			case 'pr.changeBaseRemoteAndBranch':
+				return this.changeRemoteAndBranch(message, true);
+
+			case 'pr.changeCompareRemoteAndBranch':
+				return this.changeRemoteAndBranch(message, false);
+
+			case 'pr.generateTitleAndDescription':
+				return this.generateTitleAndDescription(message);
+
+			case 'pr.cancelGenerateTitleAndDescription':
+				return this.cancelGenerateTitleAndDescription();
+
+			case 'pr.changeTemplate':
+				return this.changeTemplate(message);
+
+			case 'pr.preReview':
+				return this.preReview(message);
+
+			case 'pr.cancelPreReview':
+				return this.cancelPreReview();
+
+			default:
+				// Log error
+				vscode.window.showErrorMessage('Unsupported webview message');
+		}
+	}
+}

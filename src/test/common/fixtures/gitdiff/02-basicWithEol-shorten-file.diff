@@ -1,0 +1,14 @@
+diff --git a/02-basicWithEol b/02-basicWithEol-shorten-file
+index 807b9ea8..ae33b0f9 100644
+--- a/02-basicWithEol
++++ b/02-basicWithEol-shorten-file
+@@ -7,9 +7,3 @@ export function f(args_: string[], flags: any, child: any) {
+ 		child.stdout?.on('data', (data) => console.log(data.toString('utf8')));
+ 		child.stderr?.on('data', (data) => console.error(data.toString('utf8')));
+ 	}
+-	if (flags.verbose) {
+-		return new Promise((c) => child.once('exit', () => c(null)));
+-	}
+-	child.unref();
+-	return Promise.resolve();
+-}

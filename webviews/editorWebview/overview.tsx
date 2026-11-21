@@ -4,29 +4,266 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest } from '../../src/github/views';
+import { EventType, TimelineEvent } from '../../src/common/timelineEvent';
+import { CheckState, GithubItemStateEnum } from '../../src/github/interface';
+import { OverviewItemPreview, PullRequest } from '../../src/github/views';
 
-import { AddComment, CommentView } from '../components/comment';
-import { Header } from '../components/header';
-import { StatusChecksSection } from '../components/merge';
-import Sidebar from '../components/sidebar';
+import { REVEAL_TIMELINE_EVENT } from '../common/constants';
+import PullRequestContext from '../common/context';
+import emitter from '../common/events';
+import { AddComment, CommentPreview, CommentView } from '../components/comment';
+import { Header, HeaderPreview } from '../components/header';
+import { checkIcon, closeIcon, loadingIcon, warningIcon } from '../components/icon';
+import { getMergeReadiness, MergeReadiness, StatusChecksSection } from '../components/merge';
+import Sidebar, { CollapsibleSidebar, SidebarPreview } from '../components/sidebar';
+import { StackRecommendationBanner } from '../components/stackRecommendation';
+import { StickyHeader, useStickyHeader } from '../components/stickyHeader';
 import { Timeline } from '../components/timeline';
 
-export const Overview = (pr: PullRequest) => (
-	<>
-		<div id="title" className="title">
+const useMediaQuery = (query: string) => {
+	const [matches, setMatches] = React.useState(window.matchMedia(query).matches);
+
+	React.useEffect(() => {
+		const mediaQueryList = window.matchMedia(query);
+		const documentChangeHandler = () => setMatches(mediaQueryList.matches);
+
+		mediaQueryList.addEventListener('change', documentChangeHandler);
+
+		return () => {
+			mediaQueryList.removeEventListener('change', documentChangeHandler);
+		};
+	}, [query]);
+
+	return matches;
+};
+
+// Keep in sync with the single column media query in index.css
+export const singleColumnLayoutQuery = '(max-width: 1000px)';
+
+export const Overview = (pr: PullRequest) => {
+	const isSingleColumnLayout = useMediaQuery(singleColumnLayoutQuery);
+	const titleRef = React.useRef<HTMLDivElement>(null);
+	const isStuck = useStickyHeader(titleRef);
+	const showTabs = pr.overviewTabs === true || (pr.overviewTabs === 'agents' && pr.isAgentSessionsWorkspace);
+
+	return <>
+		<StickyHeader pr={pr} visible={isStuck} />
+		<StackRecommendationBanner pr={pr} title={titleRef} />
+		<div id="title" className="title" ref={titleRef}>
 			<div className="details">
 				<Header {...pr} />
 			</div>
 		</div>
-		<Sidebar {...pr} />
+		{showTabs ?
+			<OverviewTabs {...pr} />
+			:
+			<>
+				{isSingleColumnLayout ? <CollapsibleSidebar {...pr} /> : <Sidebar {...pr} />}
+				<Main pr={pr} showStatusChecks />
+			</>
+		}
+	</>;
+};
+
+const overviewTabs = [
+	{ id: 'timeline', label: 'Timeline' },
+	{ id: 'checks', label: 'Checks/Merge' },
+	{ id: 'metadata', label: 'Metadata' },
+] as const;
+
+type OverviewTabId = typeof overviewTabs[number]['id'];
+
+const hasFailedChecks = (pr: PullRequest) =>
+	pr.state === GithubItemStateEnum.Open && !!pr.status?.statuses.some(status => status.state === CheckState.Failure);
+
+// Draft comments are not posted yet, so they are not part of a review thread that can be resolved.
+const hasUnresolvedComments = (pr: PullRequest) =>
+	pr.state === GithubItemStateEnum.Open && pr.events.some(event => event.event === EventType.Reviewed
+		&& event.comments.some(comment => !!comment.threadId && !comment.isResolved && !comment.isDraft));
+
+interface SessionActionProps {
+	label: string;
+	run: () => Promise<unknown>;
+}
+
+/** Puts a prompt to act on what the selected tab shows in the input of the agent session. It is on the right of the tabs. */
+const SessionAction = ({ label, run, hidden }: SessionActionProps & { hidden: boolean }) => {
+	const [busy, setBusy] = React.useState(false);
+	const onClick = async () => {
+		setBusy(true);
+		try {
+			await run();
+		} finally {
+			setBusy(false);
+		}
+	};
+	return <div className="overview-session-action" hidden={hidden}>
+		<button type="button" title={label} disabled={busy} onClick={onClick}>
+			{busy ? <span className="loading-button">{loadingIcon}</span> : null}
+			{label}
+		</button>
+	</div>;
+};
+
+const mergeReadinessBadges: Record<MergeReadiness, { icon: JSX.Element; label: string }> = {
+	'ready': { icon: checkIcon, label: 'Ready to merge' },
+	'checks-failed': { icon: closeIcon, label: 'Cannot be merged, checks failed' },
+	'blocked': { icon: warningIcon, label: 'Cannot be merged yet' },
+};
+
+/** Counts the published review threads that are not resolved and still have comments in the timeline. */
+function countUnresolvedThreads(events: TimelineEvent[]): number {
+	const unresolved = new Set<string>();
+	for (const event of events) {
+		if (event.event === EventType.Reviewed && event.state !== 'PENDING') {
+			for (const { threadId } of event.comments) {
+				if (threadId && event.reviewThreads?.[threadId]?.isResolved === false) {
+					unresolved.add(threadId);
+				}
+			}
+		}
+	}
+	return unresolved.size;
+}
+
+const OverviewTabBadges = ({ id, pr }: { id: OverviewTabId; pr: PullRequest }) => {
+	if (id === 'timeline') {
+		const count = countUnresolvedThreads(pr.events);
+		if (!count) {
+			return null;
+		}
+		const label = `${count} unresolved conversation${count === 1 ? '' : 's'}`;
+		return <span className="overview-tab-count" role="img" aria-label={label} title={label}>{count}</span>;
+	}
+	if (id === 'checks') {
+		const readiness = getMergeReadiness(pr);
+		if (!readiness) {
+			return null;
+		}
+		const { icon, label } = mergeReadinessBadges[readiness];
+		return <span className={`overview-tab-badge ${readiness}`} role="img" aria-label={label} title={label}>{icon}</span>;
+	}
+	return null;
+};
+
+/**
+ * With the experimental setting on, the overview of pull requests is split into tabs that start with the timeline.
+ */
+const OverviewTabs = (pr: PullRequest) => {
+	const { fixChecksInSession, addressCommentsInSession } = React.useContext(PullRequestContext);
+	const [selected, setSelected] = React.useState<OverviewTabId>('timeline');
+	const tabs = React.useRef<HTMLButtonElement[]>([]);
+
+	React.useEffect(() => {
+		const revealTimeline = () => setSelected('timeline');
+		emitter.addListener(REVEAL_TIMELINE_EVENT, revealTimeline);
+		return () => {
+			emitter.removeListener(REVEAL_TIMELINE_EVENT, revealTimeline);
+		};
+	}, []);
+
+	React.useEffect(() => {
+		// VS Code scrolls to the target of a link within the page after the page handles the click, but cannot scroll to
+		// one in a hidden tab, such as the stack that the header's stack badge links to. Updating state outside of React's
+		// event handlers renders synchronously, so the tab is shown before VS Code scrolls.
+		const revealLinkTarget = (event: MouseEvent) => {
+			const href = event.target instanceof Element ? event.target.closest('a[href^="#"]')?.getAttribute('href') : undefined;
+			const panel = href ? document.getElementById(href.slice(1))?.closest<HTMLElement>('[role="tabpanel"]') : undefined;
+			const tab = panel?.hidden ? overviewTabs.find(({ id }) => panel.id === `overview-panel-${id}`) : undefined;
+			if (tab) {
+				setSelected(tab.id);
+			}
+		};
+		document.addEventListener('click', revealLinkTarget, true);
+		return () => document.removeEventListener('click', revealLinkTarget, true);
+	}, []);
+
+	const onKeyDown = (event: React.KeyboardEvent, index: number) => {
+		const targets: Record<string, number> = {
+			ArrowLeft: index - 1,
+			ArrowRight: index + 1,
+			Home: 0,
+			End: overviewTabs.length - 1,
+		};
+		const target = targets[event.key];
+		if (target === undefined) {
+			return;
+		}
+		event.preventDefault();
+		const next = (target + overviewTabs.length) % overviewTabs.length;
+		setSelected(overviewTabs[next].id);
+		tabs.current[next].focus();
+	};
+
+	// Hidden panels stay rendered so that they keep their state, such as an unfinished merge.
+	const panel = (id: OverviewTabId, content: JSX.Element) =>
+		<div role="tabpanel" id={`overview-panel-${id}`} aria-labelledby={`overview-tab-${id}`} hidden={selected !== id}>
+			{content}
+		</div>;
+
+	const sessionActions: Partial<Record<OverviewTabId, SessionActionProps>> = {
+		checks: hasFailedChecks(pr) ? { label: 'Fix Checks in Session', run: fixChecksInSession } : undefined,
+		timeline: hasUnresolvedComments(pr) ? { label: 'Address Comments in Session', run: addressCommentsInSession } : undefined,
+	};
+
+	return <div id="overview-tabs">
+		<div className="overview-tab-bar">
+			<div role="tablist" aria-label="Pull request overview" className="overview-tab-list">
+				{overviewTabs.map((tab, index) =>
+					<button
+						key={tab.id}
+						ref={element => { tabs.current[index] = element; }}
+						id={`overview-tab-${tab.id}`}
+						className="overview-tab"
+						type="button"
+						role="tab"
+						aria-selected={selected === tab.id}
+						aria-controls={`overview-panel-${tab.id}`}
+						tabIndex={selected === tab.id ? 0 : -1}
+						onClick={() => setSelected(tab.id)}
+						onKeyDown={event => onKeyDown(event, index)}
+					>
+						{tab.label}
+						<OverviewTabBadges id={tab.id} pr={pr} />
+					</button>
+				)}
+			</div>
+			{/* Like the panels, the actions of the other tabs stay rendered, so that one that is running stays disabled. */}
+			{overviewTabs.map(tab => {
+				const action = sessionActions[tab.id];
+				return action ? <SessionAction key={tab.id} {...action} hidden={selected !== tab.id} /> : null;
+			})}
+		</div>
+		{panel('timeline', <Main pr={pr} showStatusChecks={false} />)}
+		{panel('checks', <StatusChecksSection pr={pr} isSimple={false} />)}
+		{panel('metadata', <Sidebar {...pr} />)}
+	</div>;
+};
+
+export const OverviewPreview = (preview: OverviewItemPreview | PullRequest) => {
+	const isSingleColumnLayout = useMediaQuery(singleColumnLayoutQuery);
+	return <>
+		<div id="title" className="title">
+			<div className="details">
+				<HeaderPreview {...preview} />
+			</div>
+		</div>
+		<SidebarPreview isSingleColumnLayout={isSingleColumnLayout} isIssue={preview.isIssue === true} />
 		<div id="main">
 			<div id="description">
-				<CommentView isPRDescription comment={pr} />
+				<CommentPreview {...preview} />
 			</div>
-			<Timeline events={pr.events} />
-			<StatusChecksSection pr={pr} isSimple={false} />
-			<AddComment {...pr} />
 		</div>
-	</>
+	</>;
+};
+
+const Main = ({ pr, showStatusChecks }: { pr: PullRequest; showStatusChecks: boolean }) => (
+	<div id="main">
+		<div id="description">
+			<CommentView isPRDescription comment={pr} />
+		</div>
+		<Timeline events={pr.events} isIssue={pr.isIssue} />
+		{showStatusChecks ? <StatusChecksSection pr={pr} isSimple={false} /> : null}
+		<AddComment {...pr} />
+	</div>
 );

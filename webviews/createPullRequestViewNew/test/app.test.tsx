@@ -1,0 +1,373 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { default as assert } from 'assert';
+import * as React from 'react';
+import { unmountComponentAtNode } from 'react-dom';
+import { act, cleanup, fireEvent, render } from 'react-testing-library';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { StackCandidate } from '../../../common/views';
+import { CreatePRContextNew } from '../../common/createContextNew';
+import { MessageHandler, vscode } from '../../common/message';
+import { main, makeCreateMenuContext, StackOption } from '../app';
+
+describe('Create pull request stack', function () {
+	let sinon: SinonSandbox;
+	let previousState: ReturnType<typeof vscode.getState>;
+	const candidate: StackCandidate = { parentPullRequestNumber: 795, stackNumber: 12, size: 3, url: 'https://github.com/owner/repo/pull/795' };
+
+	beforeEach(function () {
+		sinon = createSandbox();
+		previousState = vscode.getState();
+		vscode.setState(undefined);
+	});
+
+	afterEach(function () {
+		cleanup();
+		const app = document.getElementById('app');
+		if (app) {
+			unmountComponentAtNode(app);
+			app.remove();
+		}
+		CreatePRContextNew.instance.onchange = null;
+		vscode.setState(previousState);
+		sinon.restore();
+	});
+
+	it('shows the stack option unchecked with the parent and stack size', function () {
+		const onChange = sinon.spy();
+		const out = render(<StackOption candidate={candidate} checked={false} disabled={false} onChange={onChange} />);
+
+		const checkbox = out.getByLabelText(/Add this pull request to a stack/) as HTMLInputElement;
+		assert.strictEqual(checkbox.checked, false);
+		assert(checkbox.parentElement?.classList.contains('checkbox-wrapper'));
+		assert.strictEqual(out.container.querySelector('.stack-option-description')?.textContent,
+			'This pull request will be stacked with #795 and 2 other pull requests.');
+		const link = out.getByText('#795') as HTMLAnchorElement;
+		assert.strictEqual(link.href, candidate.url);
+		link.addEventListener('click', event => event.preventDefault());
+		fireEvent.click(link);
+		assert(onChange.notCalled);
+		fireEvent.click(checkbox);
+		assert(onChange.calledOnceWithExactly(true));
+	});
+
+	it('offers to create a new stack when the base PR is not already stacked', function () {
+		const out = render(<StackOption candidate={{ parentPullRequestNumber: 795, size: 1, url: candidate.url }} checked={false} disabled={false} onChange={() => { }} />);
+
+		assert(out.getByLabelText(/Create a stack with this pull request/));
+		assert(out.getByText('#795'));
+		assert.strictEqual(out.queryByText(/other pull requests/), null);
+	});
+
+	it('explains that auto-merge also merges the pull requests below before it can be chosen from the menu', function () {
+		const description = (props: { checked: boolean; autoMergeOffered: boolean }) => render(
+			<StackOption candidate={candidate} disabled={false} onChange={() => { }} {...props} />,
+		).container.querySelector('.stack-option-description')?.textContent;
+
+		assert.match(description({ checked: true, autoMergeOffered: true }) ?? '', /\. Auto-merge for this pull request also merges the pull requests below it\.$/);
+		assert.doesNotMatch(description({ checked: false, autoMergeOffered: true }) ?? '', /Auto-merge/);
+		assert.doesNotMatch(description({ checked: true, autoMergeOffered: false }) ?? '', /Auto-merge/);
+	});
+
+	it('offers the merge queue of the stack base in the menu when adding to the stack', function () {
+		const context = new CreatePRContextNew();
+		const params = {
+			...context.createParams,
+			allowAutoMerge: true,
+			baseHasMergeQueue: false,
+			mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			stackCandidate: { ...candidate, baseHasMergeQueue: true },
+		};
+		const menu = (change: Partial<typeof params>) => JSON.parse(makeCreateMenuContext({ ...params, ...change }));
+
+		assert.strictEqual(menu({ addToStack: false })['github:createPrMenuSquash'], true);
+		assert.strictEqual(menu({ addToStack: false })['github:createPrMenuMergeWhenReady'], undefined);
+		assert.strictEqual(menu({ addToStack: true })['github:createPrMenuMergeWhenReady'], true);
+		assert.strictEqual(menu({ addToStack: true })['github:createPrMenuSquash'], undefined);
+		const unqueuedStack = { addToStack: true, baseHasMergeQueue: true, stackCandidate: { ...candidate, baseHasMergeQueue: false } };
+		assert.strictEqual(menu(unqueuedStack)['github:createPrMenuSquash'], true);
+		assert.strictEqual(menu(unqueuedStack)['github:createPrMenuMergeWhenReady'], undefined);
+	});
+
+	for (const { stackHasMergeQueue, label } of [
+		{ stackHasMergeQueue: false, label: 'Create + Auto-Squash' },
+		{ stackHasMergeQueue: true, label: 'Create + Merge When Ready' },
+	]) {
+		it(`keeps auto-merge selected when stacking a pull request onto a stack ${stackHasMergeQueue ? 'with' : 'without'} a merge queue`, function () {
+			const app = document.createElement('div');
+			app.id = 'app';
+			document.body.appendChild(app);
+			const context = CreatePRContextNew.instance;
+			context.updateState({
+				defaultBaseRemote: { owner: 'owner', repositoryName: 'repo' },
+				defaultBaseBranch: 'D3',
+				baseRemote: { owner: 'owner', repositoryName: 'repo' },
+				baseBranch: 'D3',
+				compareRemote: { owner: 'owner', repositoryName: 'repo' },
+				compareBranch: 'D4',
+				pendingTitle: 'Fourth change',
+				pendingDescription: '',
+				stackCandidate: { ...candidate, baseHasMergeQueue: stackHasMergeQueue },
+				allowAutoMerge: true,
+				autoMerge: true,
+				autoMergeMethod: 'squash',
+				mergeMethodsAvailability: { merge: true, squash: true, rebase: true },
+			}, true);
+			act(() => { main(); });
+			const checkbox = app.querySelector<HTMLInputElement>('.stack-option input');
+			assert(checkbox);
+
+			act(() => { fireEvent.click(checkbox); });
+
+			assert.strictEqual(checkbox.checked, true);
+			assert.strictEqual(app.querySelector('.group-actions .split-left')?.textContent, label);
+		});
+	}
+
+	it('submits a stack request with auto-merge', async function () {
+		const handler = new MessageHandler(null);
+		const postMessage = sinon.stub(handler, 'postMessage').resolves({});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			pendingTitle: 'Fourth change',
+			pendingDescription: '',
+			stackCandidate: candidate,
+			addToStack: true,
+			autoMerge: true,
+			autoMergeMethod: 'squash',
+		});
+
+		await context.submit();
+
+		assert(postMessage.calledOnce);
+		assert.strictEqual(postMessage.firstCall.args[0].args.addToStack, true);
+		assert.strictEqual(postMessage.firstCall.args[0].args.stackParentPullRequest, 795);
+		assert.strictEqual(postMessage.firstCall.args[0].args.stackNumber, 12);
+		assert.strictEqual(postMessage.firstCall.args[0].args.autoMerge, true);
+		assert.strictEqual(postMessage.firstCall.args[0].args.autoMergeMethod, 'squash');
+	});
+
+	it('clears a checked stack option when the base branch changes', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D2',
+			stackCandidate: { parentPullRequestNumber: 794, size: 1, url: 'https://github.com/owner/repo/pull/794' },
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			stackCandidate: candidate,
+			addToStack: true,
+		});
+
+		await context.changeBaseRemoteAndBranch(context.createParams.baseRemote, 'D3');
+
+		assert.strictEqual(context.createParams.baseBranch, 'D2');
+		assert.strictEqual(context.createParams.addToStack, false);
+		assert.strictEqual(context.createParams.stackCandidate?.parentPullRequestNumber, 794);
+	});
+
+	it('refreshes an unedited description after changing the compare branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'issue-43',
+			defaultDescription: 'Closes #43',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({ defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.changeMergeRemoteAndBranch();
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+	});
+
+	it('preserves an edited description after changing the compare branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'issue-43',
+			defaultDescription: 'Closes #43',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({ defaultDescription: 'Closes #42', pendingDescription: 'My description' });
+
+		await context.changeMergeRemoteAndBranch();
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'My description');
+	});
+
+	it('refreshes an unedited description after checking out another issue branch', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ compareBranch: 'issue-42', defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { compareBranch: 'issue-43', defaultDescription: 'Closes #43' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+	});
+
+	it('preserves an edited description after checking out another issue branch', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ compareBranch: 'issue-42', defaultDescription: 'Closes #42', pendingDescription: 'My description' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { compareBranch: 'issue-43', defaultDescription: 'Closes #43' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+		assert.strictEqual(context.createParams.pendingDescription, 'My description');
+	});
+
+	const shownSelection = {
+		baseRemote: { owner: 'owner', repositoryName: 'repo' },
+		compareRemote: { owner: 'owner', repositoryName: 'repo' },
+		baseBranch: 'main',
+		compareBranch: 'issue-42',
+	};
+	const defaultSelection = {
+		defaultBaseRemote: shownSelection.baseRemote,
+		defaultCompareRemote: shownSelection.compareRemote,
+		defaultBaseBranch: shownSelection.baseBranch,
+		defaultCompareBranch: shownSelection.compareBranch,
+	};
+
+	it('keeps the description of a restored selection when reinitialized with defaults for other branches', async function () {
+		const cases = [
+			{ compareBranch: 'issue-43' },
+			{ baseBranch: 'release' },
+			{ compareRemote: { owner: 'fork', repositoryName: 'repo' } },
+			{ baseRemote: { owner: 'upstream', repositoryName: 'repo' } },
+		];
+		for (const selection of cases) {
+			const context = new CreatePRContextNew();
+			context.updateState({ ...shownSelection, ...selection, defaultDescription: 'Closes #43', pendingDescription: 'Closes #43' });
+
+			await context.handleMessage({
+				command: 'pr.initialize',
+				params: { ...defaultSelection, defaultDescription: 'Closes #42' },
+			});
+
+			assert.strictEqual(context.createParams.defaultDescription, 'Closes #43');
+			assert.strictEqual(context.createParams.pendingDescription, 'Closes #43');
+		}
+	});
+
+	it('refreshes an unedited description when reinitialized with defaults for the shown branches', async function () {
+		const context = new CreatePRContextNew();
+		context.updateState({ ...shownSelection, defaultDescription: 'Closes #42', pendingDescription: 'Closes #42' });
+
+		await context.handleMessage({
+			command: 'pr.initialize',
+			params: { ...defaultSelection, defaultDescription: 'Fixes #42' },
+		});
+
+		assert.strictEqual(context.createParams.defaultDescription, 'Fixes #42');
+		assert.strictEqual(context.createParams.pendingDescription, 'Fixes #42');
+	});
+
+	it('clears stack selection only when branch, repository or stack membership changes', async function () {
+		const cases = [
+			{ baseBranch: 'D2' },
+			{ compareBranch: 'D5' },
+			{ baseRemote: { owner: 'other', repositoryName: 'repo' } },
+			{ compareRemote: { owner: 'owner', repositoryName: 'other' } },
+			{ stackCandidate: undefined },
+			{ stackCandidate: { ...candidate, stackNumber: 13 } },
+		];
+		for (const params of cases) {
+			const context = new CreatePRContextNew();
+			context.updateState({
+				baseRemote: { owner: 'owner', repositoryName: 'repo' },
+				compareRemote: { owner: 'owner', repositoryName: 'repo' },
+				baseBranch: 'D3',
+				compareBranch: 'D4',
+				stackCandidate: candidate,
+				addToStack: true,
+			});
+			await context.handleMessage({ command: 'pr.initialize', params });
+			assert.strictEqual(context.createParams.addToStack, false);
+		}
+
+		const context = new CreatePRContextNew();
+		context.updateState({ stackCandidate: candidate, addToStack: true });
+		await context.handleMessage({ command: 'pr.initialize', params: { pendingTitle: 'Fourth change' } });
+		assert.strictEqual(context.createParams.addToStack, true);
+		await context.handleMessage({ command: 'pr.initialize', params: { stackCandidate: { ...candidate, url: 'https://example.com/795' } } });
+		assert.strictEqual(context.createParams.addToStack, true);
+	});
+
+	it('keeps the selected branch and stack option when changing compare branches fails', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').rejects(new Error('Branch does not exist locally.'));
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			stackCandidate: candidate,
+			addToStack: true,
+		});
+
+		await context.changeMergeRemoteAndBranch(context.createParams.compareRemote, context.createParams.compareBranch);
+
+		assert.strictEqual(context.createParams.compareBranch, 'D4');
+		assert.strictEqual(context.createParams.addToStack, true);
+		assert.strictEqual(context.createParams.warning, 'Branch does not exist locally.');
+	});
+
+	it('clears a stale branch warning after a successful selection of the same base branch', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			stackCandidate: candidate,
+			warning: undefined,
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			baseRemote: { owner: 'owner', repositoryName: 'repo' },
+			baseBranch: 'D3',
+			stackCandidate: candidate,
+			warning: 'Unable to change the base branch.',
+		});
+
+		await context.changeBaseRemoteAndBranch(context.createParams.baseRemote, 'D3');
+
+		assert.strictEqual(context.createParams.warning, undefined);
+	});
+
+	it('replaces a stale compare-branch warning with the current server warning', async function () {
+		const handler = new MessageHandler(null);
+		sinon.stub(handler, 'postMessage').resolves({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			stackCandidate: candidate,
+			warning: 'A pull request already exists for this branch.',
+		});
+		const context = new CreatePRContextNew(null, handler);
+		context.updateState({
+			compareRemote: { owner: 'owner', repositoryName: 'repo' },
+			compareBranch: 'D4',
+			warning: 'Unable to change the merge branch.',
+		});
+
+		await context.changeMergeRemoteAndBranch(context.createParams.compareRemote, 'D4');
+
+		assert.strictEqual(context.createParams.warning, 'A pull request already exists for this branch.');
+	});
+});

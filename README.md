@@ -36,6 +36,29 @@ Check out https://www.youtube.com/watch?v=LdSwWxVzUpo for additional getting sta
 
 There are several settings that can be used to configure the extension.
 
+## GitHub Enterprise
+
+VS Code 1.141 or later is required. If you use Insiders, keep it updated to the latest build.
+
+Configure GHE.com and GitHub Enterprise Server instances using the built-in GitHub Authentication setting:
+
+```json
+{
+	"github-enterprise.uris": [
+		"https://company.ghe.com",
+		"https://github.example.com"
+	]
+}
+```
+
+The list order does not select a default instance. An explicitly configured list takes precedence over the deprecated `github-enterprise.uri` setting, including an empty list (`[]`), which disables Enterprise instances. If the list is not configured, the legacy setting still applies. Workspace and folder instance settings only apply in trusted workspaces.
+
+GitHub Pull Requests uses **one selected Enterprise account at a time**, alongside a separate GitHub.com account. When another instance is needed or no account is selected, use **Select Account** in the Pull Requests or Login view. This opens account preferences for this extension and GitHub Enterprise directly, or starts sign-in if you have no Enterprise accounts yet. You can also run **GitHub Pull Requests: Select GitHub Enterprise Account...** or use **Accounts > Manage Extension Account Preferences...**. To add another instance, edit `github-enterprise.uris` in Settings; ordinary sign-in does not replace your existing list.
+
+Removing an instance from the list does not delete its saved sign-ins. GitHub.com accounts do not need either Enterprise setting.
+
+## Remotes and queries
+
 As mentioned above, `githubPullRequests.remotes` is used to specify what remotes the extension should try to fetch pull requests from.
 
 To customize the pull request tree, you can use the `githubPullRequests.queries` setting. This setting is a list of labels and search queries which populate the categories of the tree. By default, these queries are "Waiting For My Review", "Assigned To Me", and "Created By Me". An example of adding a "Mentioned Me" category is to change the setting to the following:

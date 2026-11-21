@@ -4,42 +4,743 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { createSandbox, SinonSandbox } from 'sinon';
+import { Octokit } from '@octokit/rest';
+import { createSandbox, SinonSandbox, SinonStub } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { GitApiImpl } from '../../api/api1';
+import { IGit, Repository } from '../../api/api';
+import { GitApiImpl, RefType } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { Uri } from 'vscode';
-import { GitHubServerType } from '../../common/authentication';
+import { commands, env, EventEmitter, QuickPickItem, Uri, window, workspace } from 'vscode';
+import { AuthProvider, GitHubServerType } from '../../common/authentication';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequestReviewCommon';
+import { IRequestMessage } from '../../common/webview';
+import { PullRequestMergeability } from '../../github/interface';
+import { PullRequest } from '../../github/views';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { UserBuilder } from '../builders/rest/userBuilder';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: FolderRepositoryManager;
 	let telemetry: MockTelemetry;
+	let mockThemeWatcher: MockThemeWatcher;
+	let repository: MockRepository;
+	let git: GitApiImpl;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		const repository = new MockRepository();
+		mockThemeWatcher = new MockThemeWatcher();
+		repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
+		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		git = new GitApiImpl(repositoriesManager);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, git, credentialStore, new CreatePullRequestHelper(), mockThemeWatcher);
 	});
 
 	afterEach(function () {
 		sinon.restore();
+	});
+
+	describe('overview resolution', function () {
+		const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+
+		beforeEach(function () {
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('fetches the PR concurrently with cold repository metadata', async function () {
+			let resolveMetadata: (value: typeof metadata) => void;
+			const pendingMetadata = new Promise<typeof metadata>(resolve => resolveMetadata = resolve);
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').returns(pendingMetadata);
+			const getPullRequest = sinon.stub(GitHubRepository.prototype, 'getPullRequest').callsFake(async function (this: GitHubRepository) {
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), this);
+				return new PullRequestModel(manager.credentialStore, telemetry, this, this.remote, item);
+			});
+			const updates = sinon.stub(PullRequestModel.prototype, 'getLastUpdateTime').resolves(new Date());
+			const opening = manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview');
+			try {
+				await new Promise(resolve => setImmediate(resolve));
+				sinon.assert.calledOnce(getMetadata);
+				sinon.assert.calledOnce(getPullRequest);
+				sinon.assert.calledWithExactly(getPullRequest, 1347, 'FolderRepositoryManager.resolvePullRequest', false, false, 'overview');
+			} finally {
+				resolveMetadata!(metadata);
+			}
+			const pr = await opening;
+			assert.strictEqual(pr?.number, 1347);
+			sinon.assert.notCalled(updates);
+		});
+
+		it('shares repository creation between concurrent preview and full loads', async function () {
+			const [previewRepository, fullRepository] = await Promise.all([
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+				manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false),
+			]);
+
+			assert.ok(previewRepository);
+			assert.strictEqual(previewRepository, fullRepository);
+			assert.deepStrictEqual(manager.gitHubRepositories, [previewRepository]);
+		});
+
+		it('still rejects and remembers inaccessible repositories', async function () {
+			const getMetadata = sinon.stub(GitHubRepository.prototype, 'getMetadata').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(GitHubRepository.prototype, 'getPullRequest').resolves(undefined);
+
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+			sinon.assert.calledOnce(getMetadata);
+		});
+
+		for (const [name, error] of [
+			['network timeout', new Error('Temporary network timeout')],
+			['server error', Object.assign(new Error('Service unavailable'), { status: 503 })],
+			['rate limit', Object.assign(new Error('Rate limited'), { status: 429 })],
+			['SAML authorization', Object.assign(new Error('Resource protected by organization SAML enforcement.'), { status: 404 })],
+		] as const) {
+			it(`retries metadata after a ${name} failure without removing the repository`, async function () {
+				const repo = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+				assert.ok(repo);
+				const item = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).build(), repo);
+				const pr = new PullRequestModel(manager.credentialStore, telemetry, repo, repo.remote, item);
+				sinon.stub(repo, 'getPullRequest').resolves(pr);
+				const getMetadata = sinon.stub(repo, 'getMetadata');
+				getMetadata.onFirstCall().rejects(error);
+				getMetadata.onSecondCall().resolves(metadata);
+
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), undefined);
+				assert.deepStrictEqual(manager.gitHubRepositories, [repo]);
+				assert.strictEqual(await manager.resolvePullRequest('owner', 'repo', 1347, false, 'overview'), pr);
+				sinon.assert.calledTwice(getMetadata);
+			});
+		}
+	});
+
+	describe('openWorktreeRepository', function () {
+		it('opens temporary worktrees through the provider for the selected repository', async function () {
+			const events = new EventEmitter<Repository>();
+			const worktree = new MockRepository();
+			const openWorktreeRepository = sinon.stub().resolves(worktree);
+			const unrelated = new MockRepository();
+			unrelated.rootUri = Uri.file('/unrelated');
+			const unrelatedOpen = sinon.stub().resolves(unrelated);
+			git.registerGitProvider({
+				repositories: [unrelated],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository: unrelatedOpen,
+			});
+			const provider: IGit = {
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+				openWorktreeRepository,
+			};
+			git.registerGitProvider(provider);
+			const uri = Uri.file('/tmp/pr-stack-worktree');
+
+			assert.strictEqual(await manager.openWorktreeRepository(uri), worktree);
+			assert(openWorktreeRepository.calledOnceWithExactly(uri));
+			assert(unrelatedOpen.notCalled);
+			events.dispose();
+		});
+
+		it('reports a provider that cannot open temporary worktrees', async function () {
+			const events = new EventEmitter<Repository>();
+			git.registerGitProvider({
+				repositories: [repository],
+				onDidOpenRepository: events.event,
+				onDidCloseRepository: events.event,
+			});
+			await assert.rejects(manager.openWorktreeRepository(Uri.file('/tmp/pr-stack-worktree')),
+				/The Git provider cannot open a temporary worktree/);
+			events.dispose();
+		});
+	});
+
+	describe('updateRepositories', function () {
+		it('offers to reauthenticate after a SAML authorization failure', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/repo');
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			const showSamlMessageAndAuth = sinon.stub(manager.credentialStore, 'showSamlMessageAndAuth').resolves({ canceled: false });
+			const showErrorMessage = sinon.stub(window, 'showErrorMessage').resolves({ title: 'Reauthenticate' });
+			const metadata = { ...new RepositoryBuilder().build(), currentUser: new UserBuilder().build() };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').resolves(metadata);
+			let resolveRemoteCalls = 0;
+			sinon.stub(GitHubRepository.prototype, 'resolveRemote').callsFake(async () => ++resolveRemoteCalls === 3);
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(showSamlMessageAndAuth.calledTwice, true);
+			assert.strictEqual(showErrorMessage.calledOnce, true);
+			assert.deepStrictEqual(showErrorMessage.firstCall.args[2], { title: 'Reauthenticate' });
+			assert.strictEqual(manager.gitHubRepositories.length, 1);
+		});
+
+		it('skips a repository after a 404 without affecting healthy repositories', async function () {
+			const inaccessibleUrl = 'https://github.com/owner/missing';
+			const inaccessibleRemote = new GitHubRemote('origin', inaccessibleUrl, new Protocol(inaccessibleUrl), GitHubServerType.GitHubDotCom);
+			const inaccessibleRepository = new GitHubRepository(1, inaccessibleRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const inaccessibleMetadata = sinon.stub(inaccessibleRepository as any, 'getMetadataForRepo').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			const healthyUrl = 'https://github.com/owner/healthy';
+			const healthyRemote = new GitHubRemote('upstream', healthyUrl, new Protocol(healthyUrl), GitHubServerType.GitHubDotCom);
+			const healthyRepository = new GitHubRepository(2, healthyRemote, repository.rootUri, manager.credentialStore, telemetry, true);
+			const healthyMetadata = sinon.stub(healthyRepository as any, 'getMetadataForRepo').resolves({ clone_url: healthyUrl } as never);
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			sinon.stub(manager as any, 'getActiveRemotes').resolves([inaccessibleRemote, healthyRemote] as never);
+			sinon.stub(manager as any, 'createAndAddGitHubRepository').callsFake(async (remote: Remote) => remote.remoteName === 'origin' ? inaccessibleRepository : healthyRepository);
+			sinon.stub(manager as any, 'checkIfMissingUpstream').resolves(false as never);
+			sinon.stub(manager as any, 'associateLocalBranchesWithPRsOnFirstActivation').resolves();
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+			await manager.updateRepositories();
+
+			assert.deepStrictEqual(manager.gitHubRepositories, [healthyRepository]);
+			assert.strictEqual(inaccessibleMetadata.calledOnce, true);
+			assert.strictEqual(healthyMetadata.calledOnce, true);
+			assert.strictEqual((manager as any)._sessionIgnoredRemoteNames.has('origin'), true);
+			assert.strictEqual((manager as any)._inaccessibleRepos.has('owner/missing'), true);
+			assert.strictEqual((inaccessibleRepository as any)._isDisposed, true);
+			await assert.rejects(
+				manager.createGitHubRepository(inaccessibleRemote, manager.credentialStore),
+				/Repository owner\/missing is not accessible\./,
+			);
+		});
+
+		it('clears account-specific repository state on auth change', function () {
+			const internal = manager as unknown as {
+				_sessionIgnoredRemoteNames: Set<string>;
+				_inaccessibleRepos: Set<string>;
+				_repositoryPageInformation: Map<string, unknown>;
+				_gitBlameCache: Record<string, string>;
+				_mentionableUsers?: Record<string, unknown>;
+				_assignableUsers?: Record<string, unknown>;
+				_teamReviewers?: Record<string, unknown>;
+				_accountCacheToken: object;
+			};
+			internal._sessionIgnoredRemoteNames.add('origin');
+			internal._inaccessibleRepos.add('owner/repo');
+			internal._repositoryPageInformation.set('query', {});
+			internal._gitBlameCache.file = 'user';
+			internal._mentionableUsers = { origin: [] };
+			internal._assignableUsers = { origin: [] };
+			internal._teamReviewers = { origin: [] };
+			const oldAccountCacheToken = internal._accountCacheToken;
+
+			manager.clearForAuthChange();
+
+			assert.strictEqual(internal._sessionIgnoredRemoteNames.size, 0);
+			assert.strictEqual(internal._inaccessibleRepos.size, 0);
+			assert.strictEqual(internal._repositoryPageInformation.size, 0);
+			assert.deepStrictEqual(internal._gitBlameCache, {});
+			assert.strictEqual(internal._mentionableUsers, undefined);
+			assert.strictEqual(internal._assignableUsers, undefined);
+			assert.strictEqual(internal._teamReviewers, undefined);
+			assert.notStrictEqual(internal._accountCacheToken, oldAccountCacheToken);
+		});
+
+		it('does not publish user data into a replacement account cache', async function () {
+			let resolveUsers: (users: []) => void;
+			const users = new Promise<[]>(resolve => resolveUsers = resolve);
+			const internal = manager as unknown as {
+				_githubRepositories: { remote: { remoteName: string }, getAssignableUsers(): Promise<[]> }[];
+				_assignableUsers?: Record<string, unknown>;
+			};
+			internal._githubRepositories = [{
+				remote: { remoteName: 'origin' },
+				getAssignableUsers: () => users,
+			}];
+
+			const pendingUsers = manager.getAssignableUsers(true);
+			manager.clearForAuthChange();
+			resolveUsers!([]);
+
+			assert.deepStrictEqual(await pendingUsers, {});
+			assert.strictEqual(internal._assignableUsers, undefined);
+		});
+
+		it('scopes persisted user data to the authentication provider and account', function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const getAccountId = sinon.stub(manager.credentialStore, 'getAccountId');
+			const internal = manager as unknown as {
+				getAccountCacheLocation(userKind: string, repo: GitHubRepository): Uri | undefined;
+			};
+			getAccountId.returns('first-account');
+			const firstAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+			getAccountId.returns('second-account');
+			const secondAccountLocation = internal.getAccountCacheLocation('assignableUsers', githubRepository);
+
+			assert.notStrictEqual(firstAccountLocation?.toString(), secondAccountLocation?.toString());
+			assert.ok(firstAccountLocation?.toString().includes('github'));
+			assert.ok(firstAccountLocation?.toString().includes('first-account'));
+		});
+
+		it('separates persisted enterprise user caches by session deployment even for the same account ID', function () {
+			const firstUrl = 'https://host-a.example/owner/repo';
+			const secondUrl = 'https://host-b.example:8443/deployment/owner/repo';
+			const firstRepo = new GitHubRepository(1, new GitHubRemote('origin', firstUrl, new Protocol(firstUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			const secondRepo = new GitHubRepository(2, new GitHubRemote('origin', secondUrl, new Protocol(secondUrl), GitHubServerType.Enterprise), repository.rootUri, manager.credentialStore, telemetry, true);
+			sinon.stub(manager.credentialStore, 'getAccountId').returns('same-account');
+			sinon.stub(LoggingOctokit.prototype, 'call').resolves({
+				data: { login: 'user', node_id: 'user', html_url: firstUrl, avatar_url: '', type: 'User' },
+			});
+			const getHub = sinon.stub(manager.credentialStore, 'getHub');
+			const hubFor = (deployment: string) => manager.credentialStore['createHub']({
+				id: 'session',
+				account: { id: 'same-account', label: 'account' },
+				accessToken: 'test-token',
+				scopes: [],
+				authorizationServer: Uri.parse(`${deployment}/login/oauth`),
+			}, AuthProvider.githubEnterprise);
+			getHub.returns(hubFor('https://host-a.example'));
+			const firstCache = manager['getAccountCacheLocation']('assignableUsers', firstRepo);
+			getHub.returns(hubFor('https://host-b.example:8443/deployment'));
+			const secondCache = manager['getAccountCacheLocation']('assignableUsers', secondRepo);
+
+			assert.ok(firstCache);
+			assert.ok(secondCache);
+			assert.notStrictEqual(firstCache.toString(), secondCache.toString());
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', firstRepo), undefined);
+			getHub.returns(undefined);
+			assert.strictEqual(manager['getAccountCacheLocation']('assignableUsers', secondRepo), undefined);
+			firstRepo.dispose();
+			secondRepo.dispose();
+		});
+	});
+
+	describe('account preferences for inaccessible repositories', function () {
+		let request: SinonStub;
+		let preferences: SinonStub;
+
+		beforeEach(function () {
+			const octokit = new LoggingOctokit(new Octokit(), new RateLogger(telemetry, false));
+			sinon.stub(GitHubRepository.prototype, 'ensure').callsFake(async function (this: GitHubRepository) {
+				return this;
+			});
+			sinon.stub(GitHubRepository.prototype, 'hub').get(() => ({ octokit }));
+			request = sinon.stub(LoggingOctokit.prototype, 'call').rejects(Object.assign(new Error('Not Found'), { status: 404 }));
+			sinon.stub(manager.credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(manager.credentialStore, 'isAnyAuthenticated').returns(true);
+			// Leave the prompt open to ensure callers do not wait for it.
+			preferences = sinon.stub(manager.credentialStore, 'showAccountPreferencesForInaccessibleRepository').returns(new Promise<void>(() => { }));
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('offers them when a workspace remote returns 404', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(manager.gitHubRepositories.length, 0);
+			assert.deepStrictEqual(preferences.args, [[AuthProvider.github, 'owner/missing']]);
+		});
+
+		it('does not offer them when the owner-wide pull request template repository is missing', async function () {
+			assert.strictEqual(await manager.getPullRequestTemplateBody('owner'), undefined);
+
+			assert.deepStrictEqual(request.firstCall.args[1], { owner: 'owner', repo: '.github' });
+			assert.strictEqual(preferences.called, false);
+		});
+
+		it('does not offer them when the folder closes while its remotes are resolving', async function () {
+			await repository.addRemote('origin', 'https://github.com/owner/missing');
+			sinon.stub(manager, 'getAssignableUsers').resolves({});
+			request.callsFake(async () => {
+				manager.dispose();
+				throw Object.assign(new Error('Not Found'), { status: 404 });
+			});
+
+			await manager.updateRepositories();
+
+			assert.strictEqual(request.calledOnce, true);
+			assert.strictEqual(preferences.called, false);
+		});
+	});
+
+	describe('getLocalPullRequests', function () {
+		it('reads one fresh config snapshot across branch chunks', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry, true);
+			(manager as any)._githubRepositories = [githubRepository];
+			for (let i = 0; i < 102; i++) {
+				await repository.createBranch(`branch-${i}`, false);
+			}
+			await repository.setConfig('branch.branch-0.github-pr-owner-number', 'owner#repo#5');
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#7');
+			const first = { localBranchName: undefined } as PullRequestModel;
+			const last = { localBranchName: undefined } as PullRequestModel;
+			const updated = { localBranchName: undefined } as PullRequestModel;
+			const models = new Map([[5, first], [7, last], [11, updated]]);
+			sinon.stub(githubRepository, 'getPullRequest').callsFake(async (number: number) => models.get(number));
+			const getConfigs = sinon.spy(repository, 'getConfigs');
+
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, last]);
+			assert.strictEqual(getConfigs.calledOnce, true);
+			assert.strictEqual(first.localBranchName, 'branch-0');
+			assert.strictEqual(last.localBranchName, 'branch-101');
+
+			await repository.setConfig('branch.branch-101.github-pr-owner-number', 'owner#repo#11');
+			assert.deepStrictEqual(await manager.getLocalPullRequests(), [first, updated]);
+			assert.strictEqual(getConfigs.calledTwice, true);
+			assert.strictEqual(updated.localBranchName, 'branch-101');
+		});
+	});
+
+	describe('getPullRequestDefaults', function () {
+		it('uses the configured GitHub remote when HEAD tracks a non-GitHub remote', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			await repository.addRemote('origin', 'https://example.com/owner/repo.git');
+			await repository.addRemote('github', url);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/origin/main');
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([remote]);
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				...new RepositoryBuilder().build(),
+				owner: new UserBuilder().login('owner').build(),
+				name: 'repo',
+				default_branch: 'main',
+			});
+
+			assert.deepStrictEqual(await manager.getPullRequestDefaults(), {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
+		});
+
+		it('uses a GitHub remote when the branch tracks a local sibling branch', async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			(manager as any)._githubRepositories = [githubRepository];
+			sinon.stub(githubRepository, 'getMetadata').resolves({
+				owner: { login: 'owner' },
+				name: 'repo',
+				default_branch: 'main',
+			} as any);
+
+			const defaults = await manager.getPullRequestDefaults({
+				type: RefType.Head,
+				name: 'feature-b',
+				upstream: {
+					remote: '.',
+					name: 'feature-a',
+				},
+			});
+
+			assert.deepStrictEqual(defaults, {
+				owner: 'owner',
+				repo: 'repo',
+				base: 'main',
+			});
+		});
+	});
+
+	describe('getMatchingPullRequestMetadataFromGitHub', function () {
+		// Like `gh pr checkout` of a fork pull request: the branch has no upstream, only a `branch.<name>.remote` URL.
+		const forkUrl = 'git@github.com:contributor/repo.git';
+		let pullRequest: PullRequestModel;
+
+		beforeEach(async function () {
+			await repository.addRemote('origin', 'git@github.com:owner/repo.git');
+			await repository.createBranch('feature', true, 'head-sha');
+			const baseRepository = await manager.createGitHubRepositoryFromOwnerName('owner', 'repo', false);
+			assert.ok(baseRepository);
+			pullRequest = new PullRequestModel(manager.credentialStore, telemetry, baseRepository, baseRepository.remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1347).head(h => h.ref('feature')).build(), baseRepository));
+			const baseMetadata = new RepositoryBuilder().name('repo').owner(o => o.login('owner')).build();
+			const forkMetadata = { ...new RepositoryBuilder().name('repo').owner(o => o.login('contributor')).fork(true).build(), parent: baseMetadata };
+			sinon.stub(GitHubRepository.prototype, 'getMetadata').callsFake(async function (this: GitHubRepository) {
+				return this.remote.owner === 'contributor' ? forkMetadata : baseMetadata;
+			});
+			sinon.stub(GitHubRepository.prototype, 'getPullRequestForBranch').callsFake(async function (this: GitHubRepository, branch: string, headOwner: string) {
+				return (this === baseRepository && branch === 'feature' && headOwner === 'contributor') ? pullRequest : undefined;
+			});
+		});
+
+		afterEach(function () {
+			for (const repo of manager.gitHubRepositories) {
+				repo.dispose();
+			}
+			manager.dispose();
+			if (manager.context instanceof MockExtensionContext) {
+				manager.context.dispose();
+			}
+		});
+
+		it('tracks the head branch of the pull request matching a branch whose remote is a URL', async function () {
+			repository.expectFetch('contributor', 'feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(await repository.getBranch('feature'), undefined, forkUrl, 'feature');
+
+			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
+			assert.deepStrictEqual(repository.state.HEAD?.upstream, { remote: 'contributor', name: 'feature' });
+		});
+
+		it('still matches the pull request when fetching its head branch fails', async function () {
+			const fetch = sinon.stub(repository, 'fetch').rejects(Object.assign(new Error('Failed to execute git'), {
+				stderr: 'git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.',
+			}));
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(await repository.getBranch('feature'), undefined, forkUrl, 'feature');
+
+			assert.deepStrictEqual(metadata, { owner: 'owner', repositoryName: 'repo', prNumber: 1347, model: pullRequest });
+			assert.deepStrictEqual(fetch.args, [[{ remote: 'contributor', ref: 'feature' }]]);
+			assert.strictEqual(repository.state.HEAD?.upstream, undefined);
+		});
+	});
+
+	describe('getOrigin', function () {
+		let githubRepository: GitHubRepository;
+		let upstreamRemote: GitHubRemote;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/owner/repo.git';
+			const remote = new GitHubRemote('github', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(githubRepository);
+			upstreamRemote = new GitHubRemote('upstream', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			await repository.createBranch('main', true);
+			await repository.setBranchUpstream('main', 'refs/remotes/upstream/main');
+		});
+
+		it('prefers the branch GitHub upstream over another configured remote', async function () {
+			const upstreamRepository = new GitHubRepository(2, upstreamRemote, repository.rootUri, manager.credentialStore, telemetry);
+			manager.gitHubRepositories.push(upstreamRepository);
+
+			assert.strictEqual(await manager.getOrigin(), upstreamRepository);
+		});
+
+		it('still discovers a GitHub upstream not listed in the remotes setting', async function () {
+			sinon.stub(manager, 'getAllGitHubRemotes').resolves([githubRepository.remote, upstreamRemote]);
+
+			const origin = await manager.getOrigin();
+
+			assert.deepStrictEqual(origin.remote, upstreamRemote);
+			assert.ok(manager.gitHubRepositories.includes(origin));
+		});
+	});
+
+	describe('createPullRequest', function () {
+		it('only offers to push once when there are still no commits after pushing', async function () {
+			const url = 'https://github.com/owner/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = await manager.createGitHubRepository(remote, manager.credentialStore);
+			const create = sinon.stub(githubRepository, 'createPullRequest').rejects(new Error('Validation Failed: No commits between main and owner:feature'));
+			// The branch is ahead of the branch it tracks, but its commits have already been pushed to `origin/feature`.
+			sinon.stub(repository.state, 'HEAD').value({ type: RefType.Head, name: 'feature', upstream: { remote: 'origin', name: 'main' }, ahead: 1, behind: 0 });
+			const showInformationMessage: SinonStub = sinon.stub(window, 'showInformationMessage');
+			showInformationMessage.resolves('Push Commits');
+			repository.expectPush();
+
+			try {
+				await assert.rejects(
+					manager.createPullRequest({ owner: 'owner', repo: 'repo', title: 'Feature', head: 'owner:feature', base: 'main' }),
+					/No commits between main and owner:feature/,
+				);
+			} finally {
+				githubRepository.dispose();
+			}
+
+			assert(showInformationMessage.calledOnce);
+			assert(create.calledTwice);
+		});
+	});
+
+	describe('pull request lookup for branches tracking another branch', function () {
+		let githubRepository: MockGitHubRepository;
+		let closedPullRequest: PullRequestModel;
+		let openPullRequest: PullRequestModel;
+		let getPullRequestForBranch: SinonStub;
+
+		beforeEach(async function () {
+			const url = 'https://github.com/octocat/reponame';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			githubRepository = new MockGitHubRepository(remote, manager.credentialStore, telemetry, sinon);
+			manager['_githubRepositories'] = [githubRepository];
+			const createPullRequest = (number: number, state: 'open' | 'closed') => new PullRequestModel(
+				manager.credentialStore,
+				telemetry,
+				githubRepository,
+				remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(number).state(state).head(head => head.ref('dev')).build(), githubRepository),
+			);
+			closedPullRequest = createPullRequest(1, 'closed');
+			openPullRequest = createPullRequest(2, 'open');
+			getPullRequestForBranch = sinon.stub(githubRepository, 'getPullRequestForBranch').resolves(closedPullRequest);
+
+			// Like `git checkout -b my-feature origin/dev` or `git worktree add -b my-feature <path> origin/dev`
+			await repository.createBranch('my-feature', false);
+			await repository.setBranchUpstream('my-feature', 'refs/remotes/origin/dev');
+			await repository.createBranch('feature', false);
+			await repository.setBranchUpstream('feature', 'refs/remotes/origin/feature');
+		});
+
+		afterEach(function () {
+			closedPullRequest.dispose();
+			openPullRequest.dispose();
+			githubRepository.dispose();
+		});
+
+		function checkOut(mainWorktreeBranch: string, ...linkedWorktreeBranches: string[]) {
+			repository.setWorktrees([
+				{ name: 'root', path: '/root', ref: `refs/heads/${mainWorktreeBranch}`, main: true, detached: false },
+				...linkedWorktreeBranches.map(branchName => ({ name: branchName, path: `/root.worktrees/${branchName}`, ref: `refs/heads/${branchName}`, main: false, detached: false })),
+			]);
+		}
+
+		it('does not look up a pull request by the upstream of a worktree branch tracking another branch', async function () {
+			checkOut('main', 'my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.strictEqual(getPullRequestForBranch.called, false);
+		});
+
+		it('does not match a closed pull request to a main worktree branch tracking another branch', async function () {
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches an open pull request to a main worktree branch tracking another branch', async function () {
+			getPullRequestForBranch.resolves(openPullRequest);
+			checkOut('my-feature');
+			const branch = await repository.getBranch('my-feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, openPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('looks up a pull request by the upstream of a worktree branch tracking its own name', async function () {
+			checkOut('main', 'feature');
+			const branch = await repository.getBranch('feature');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'feature');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+		});
+
+		async function createPullRequestBranch() {
+			// Like fork pull requests checked out as `pr/<author>/<number>`
+			await repository.createBranch('pr/octocat/1', false);
+			await repository.setBranchUpstream('pr/octocat/1', 'refs/remotes/origin/dev');
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, closedPullRequest, 'pr/octocat/1');
+			return repository.getBranch('pr/octocat/1');
+		}
+
+		it('matches a closed pull request to a main worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('matches a closed pull request to a worktree branch checked out for a pull request', async function () {
+			const branch = await createPullRequestBranch();
+			checkOut('main', 'pr/octocat/1');
+
+			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
+
+			assert.strictEqual(metadata?.model, closedPullRequest);
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
+		});
+
+		it('only associates worktree branches tracking their own name on first activation', async function () {
+			checkOut('main', 'my-feature', 'feature');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('does not associate a closed pull request with a main worktree branch tracking another branch on first activation', async function () {
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			assert.ok(getPullRequestForBranch.calledWithExactly('dev', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+			]);
+		});
+
+		it('associates an open pull request with a main worktree branch tracking another branch on first activation', async function () {
+			getPullRequestForBranch.withArgs('dev', 'octocat').resolves(openPullRequest);
+			checkOut('main');
+
+			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
+
+			const configs = (await repository.getConfigs()).sort((a, b) => a.key.localeCompare(b.key));
+			assert.deepStrictEqual(configs, [
+				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
+				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
+			]);
+		});
 	});
 
 	describe('activePullRequest', function () {
@@ -53,13 +754,441 @@ describe('PullRequestManager', function () {
 			const protocol = new Protocol(url);
 			const remote = new GitHubRemote('origin', url, protocol, GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry);
+			const repository = new GitHubRepository(1, remote, rootUri, manager.credentialStore, telemetry);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
 
 			manager.activePullRequest = pr;
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
+		});
+	});
+
+	describe('tryMergeBaseIntoHead', function () {
+		it('updates a conflict-free pull request that is not checked out using GraphQL', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'isHeadUpToDateWithBase').resolves(false);
+			const updateBranchWithGraphQL = sinon.stub(pr, 'updateBranchWithGraphQL').resolves(true);
+			const updateBranch = sinon.stub(pr, 'updateBranch').resolves(true);
+
+			const result = await manager.tryMergeBaseIntoHead(pr, true);
+
+			assert.strictEqual(result, true);
+			assert.strictEqual(updateBranchWithGraphQL.calledOnce, true);
+			assert.strictEqual(updateBranch.notCalled, true);
+		});
+	});
+
+	describe('updateBranch', function () {
+		it('reports that the branch is up to date after a successful update', async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const repository = new GitHubRepository(1, remote, Uri.file('C:\\users\\test\\repo'), manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			sinon.stub(manager, 'tryMergeBaseIntoHead').resolves(true);
+			sinon.stub(pr, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			let reply: Partial<PullRequest> | undefined;
+			const context: ReviewContext = {
+				item: pr,
+				folderRepositoryManager: manager,
+				existingReviewers: [],
+				postMessage: sinon.stub().resolves(),
+				replyMessage: (_message, response) => reply = response,
+				throwError: sinon.stub(),
+				getTimeline: sinon.stub().resolves([]),
+			};
+			const message: IRequestMessage<string> = { req: '1', command: 'pr.update-branch', args: '' };
+
+			await PullRequestReviewCommon.updateBranch(context, message, sinon.stub().resolves());
+
+			assert.strictEqual(reply?.canUpdateBranch, false);
+			assert.strictEqual(reply?.mergeable, PullRequestMergeability.Mergeable);
+		});
+	});
+
+	describe('deleteBranches', function () {
+		const noopProgress = { report: () => { } };
+
+		it('removes leftover branch config after deleting a branch', async function () {
+			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
+			await repository.setConfig('branch.feature.remote', 'origin');
+			await repository.setConfig('branch.feature.merge', 'refs/heads/feature');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			repository.preserveConfigOnNextBranchDelete = true;
+
+			await repository.createBranch('feature.preview', false, 'commit-hash');
+			await repository.createBranch('feature.preview.local', false, 'commit-hash');
+			await repository.setConfig('branch.feature.preview.local.remote', 'origin');
+			const createBranch = sinon.spy(repository, 'createBranch');
+			const getConfigs = sinon.spy(repository, 'getConfigs');
+			const nonExistant = new Set<string>();
+			await (manager as any).deleteBranches([{ label: 'feature' }, { label: 'feature.preview' }], nonExistant, noopProgress, 2, 0, []);
+
+			assert.strictEqual(getConfigs.callCount, 2);
+			assert.deepStrictEqual(createBranch.args.map(([name]) => name), ['feature']);
+			assert.deepStrictEqual(await repository.getConfigs(), [{ key: 'branch.feature.preview.local.remote', value: 'origin' }]);
+			assert.strictEqual(nonExistant.has('feature'), false);
+		});
+
+		it('clears associations even when refreshing leftover config fails', async function () {
+			await repository.createBranch('feature', false, 'commit-hash');
+			await repository.setConfig('branch.feature.github-pr-base-branch', 'owner#repo#main');
+			await repository.setConfig('branch.feature.vscode-merge-base', 'origin/main');
+			await repository.setConfig('branch.feature.github-pr-owner-number', 'owner#repo#1');
+			await repository.setConfig('branch.other.github-pr-owner-number', 'owner#repo#2');
+			repository.preserveConfigOnNextBranchDelete = true;
+			sinon.stub(repository, 'createBranch').rejects(new Error('Cannot recreate branch'));
+			const error = new Error('Cannot read config');
+			sinon.stub(repository, 'getConfigs').callThrough().onSecondCall().rejects(error);
+
+			await assert.rejects(
+				(manager as any).deleteBranches([{ label: 'feature' }], new Set<string>(), noopProgress, 1, 0, []),
+				error,
+			);
+
+			assert.deepStrictEqual(await repository.getConfigs(), [
+				{ key: 'branch.other.github-pr-owner-number', value: 'owner#repo#2' },
+			]);
+		});
+
+		it('removes leftover branch config for a branch that no longer exists', async function () {
+			// The branch ref is already gone, but stale [branch "gone"] config remains.
+			await repository.setConfig('branch.gone.remote', 'origin');
+			await repository.setConfig('branch.gone.merge', 'refs/heads/gone');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+			await repository.setConfig('branch.gone.github-pr-owner-number', 'owner#repo#2');
+
+			const nonExistant = new Set<string>();
+			await (manager as any).deleteBranches([{ label: 'gone' }], nonExistant, noopProgress, 1, 0, []);
+
+			const configs = await repository.getConfigs();
+			assert.strictEqual(configs.filter(c => c.key.startsWith('branch.gone.')).length, 0);
+			assert.strictEqual(nonExistant.has('gone'), true);
+		});
+	});
+
+	describe('deleteBranch', function () {
+		let pr: PullRequestModel;
+		let showQuickPick: SinonStub;
+		let showWarningMessage: SinonStub;
+		let deleteRemoteBranch: SinonStub;
+		let getBranchInfo: SinonStub;
+
+		type DeletionItem = QuickPickItem & { type: string };
+
+		function shownItems(): readonly DeletionItem[] {
+			return showQuickPick.firstCall.args[0];
+		}
+
+		function shownTypes(): string[] {
+			return shownItems().map(item => item.type);
+		}
+
+		function pick(...types: string[]) {
+			showQuickPick.callsFake(async (items: readonly DeletionItem[]) => items.filter(item => types.includes(item.type)));
+		}
+
+		function pickDefaults() {
+			showQuickPick.callsFake(async (items: readonly DeletionItem[]) => items.filter(item => item.picked));
+		}
+
+		beforeEach(async function () {
+			const url = 'https://github.com/aaa/bbb.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const githubRepository = new GitHubRepository(1, remote, repository.rootUri, manager.credentialStore, telemetry);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().head(head => head.ref('feature')).build(), githubRepository);
+			pr = new PullRequestModel(manager.credentialStore, telemetry, githubRepository, remote, prItem);
+			await repository.createBranch('local-feature', false);
+			getBranchInfo = sinon.stub(manager, 'getBranchNameForPullRequest').resolves({
+				branch: 'local-feature',
+				createdForPullRequest: false,
+			});
+			sinon.stub(manager, 'getPullRequestRepositoryDefaultBranch').resolves('main');
+			sinon.stub(manager, 'findRepo').returns(githubRepository);
+			sinon.stub(env, 'remoteName').value(undefined);
+			sinon.stub(workspace, 'workspaceFolders').value([]);
+			showQuickPick = sinon.stub(window, 'showQuickPick').resolves(undefined);
+			showWarningMessage = sinon.stub(window, 'showWarningMessage').resolves(undefined);
+			deleteRemoteBranch = sinon.stub(manager, 'deleteBranch').resolves();
+			sinon.stub(repository, 'fetch').resolves();
+		});
+
+		it('shows the cleanup options in a multi-select quick pick, and cancels without deleting', async function () {
+			const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			sinon.assert.calledOnce(showQuickPick);
+			assert.deepStrictEqual(showQuickPick.firstCall.args[1], { canPickMany: true, ignoreFocusOut: true });
+			assert.deepStrictEqual(shownItems(), [
+				{ label: 'Delete remote branch origin/feature', description: 'https://github.com/octocat/reponame', type: 'remoteHead', picked: true },
+				{ label: 'Delete local branch local-feature', type: 'local', picked: true },
+			]);
+			sinon.assert.notCalled(showWarningMessage);
+			sinon.assert.notCalled(deleteRemoteBranch);
+			sinon.assert.notCalled(deleteLocalBranch);
+		});
+
+		it('selects options by default based on the default deletion method settings', async function () {
+			getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: false });
+			sinon.stub(manager, 'getWorktreeForBranch').returns(Uri.file('/worktrees/local-feature'));
+			const settings = new Map([
+				['defaultDeletionMethod.selectLocalBranch', false],
+				['defaultDeletionMethod.selectRemote', false],
+				['defaultDeletionMethod.selectWorktree', true],
+			]);
+			const configuration = { ...workspace.getConfiguration('githubPullRequests') };
+			const get = configuration.get;
+			sinon.stub(configuration, 'get').callsFake((section: string, defaultValue: unknown) => settings.has(section) ? settings.get(section) : get(section, defaultValue));
+			sinon.stub(workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(shownItems().map(item => [item.type, !!item.picked]), [
+				['remoteHead', true],
+				['local', false],
+				['remote', false],
+				['worktree', true],
+			]);
+		});
+
+		for (const selectedTypes of [
+			['remoteHead'],
+			['local'],
+			['local', 'remoteHead'],
+		]) {
+			it(`executes only the selected actions: ${selectedTypes.join(', ')}`, async function () {
+				pick(...selectedTypes);
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.strictEqual(result.isReply, false);
+				assert.strictEqual(result.message.command, 'pr.deleteBranch');
+				assert.deepStrictEqual(result.message.branchTypes.sort(), selectedTypes);
+				assert.strictEqual(deleteRemoteBranch.calledOnce, selectedTypes.includes('remoteHead'));
+				assert.strictEqual(deleteLocalBranch.calledOnce, selectedTypes.includes('local'));
+				if (deleteLocalBranch.calledOnce) {
+					sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				}
+			});
+		}
+
+		it('offers only local deletion when the remote branch has been deleted', async function () {
+			pr.isRemoteHeadDeleted = true;
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(shownTypes(), ['local']);
+		});
+
+		describe('after merge', function () {
+			let getMetadata: SinonStub;
+
+			beforeEach(function () {
+				getMetadata = sinon.stub(pr.githubRepository, 'getMetadata').resolves({ delete_branch_on_merge: true } as any);
+				const configuration = { ...workspace.getConfiguration('githubPullRequests') };
+				sinon.stub(configuration, 'get').callThrough().withArgs('deleteBranchAfterMerge', false).returns(false);
+				sinon.stub(workspace, 'getConfiguration').callThrough().withArgs('githubPullRequests').returns(configuration);
+			});
+
+			it('only deletes the local branch when GitHub deletes the remote branch', async function () {
+				pickDefaults();
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(shownTypes(), ['local']);
+				assert.deepStrictEqual(result, { command: 'pr.deleteBranch', branchTypes: ['local'] });
+				sinon.assert.calledWithExactly(deleteLocalBranch, 'local-feature', true);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('does not prompt when only the automatically deleted remote branch remains', async function () {
+				getBranchInfo.resolves(undefined);
+
+				const result = await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.strictEqual(result, undefined);
+				sinon.assert.notCalled(showQuickPick);
+				sinon.assert.notCalled(showWarningMessage);
+				sinon.assert.notCalled(deleteRemoteBranch);
+			});
+
+			it('still offers remote branch deletion for a fork', async function () {
+				pr.head!.repositoryCloneUrl = new Protocol('https://github.com/contributor/fork');
+				getBranchInfo.resolves(undefined);
+
+				await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+				assert.deepStrictEqual(shownItems(), [
+					{ label: 'Delete remote branch origin/feature', description: 'https://github.com/contributor/fork', type: 'remoteHead', picked: true },
+				]);
+			});
+
+			it('preserves manual remote branch cleanup when automatic deletion is enabled', async function () {
+				await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(shownTypes(), ['remoteHead', 'local']);
+			});
+
+			for (const deleteBranchOnMerge of [false, undefined]) {
+				it(`does not add a post-merge prompt when delete_branch_on_merge is ${deleteBranchOnMerge}`, async function () {
+					getMetadata.resolves({ delete_branch_on_merge: deleteBranchOnMerge });
+
+					await PullRequestReviewCommon.handleBranchDeletionAfterMerge(manager, pr);
+
+					sinon.assert.notCalled(showQuickPick);
+					sinon.assert.notCalled(deleteRemoteBranch);
+				});
+			}
+		});
+
+		it('treats a local branch that no longer exists as deleted', async function () {
+			await repository.deleteBranch('local-feature', true);
+			pick('local');
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result.message.branchTypes, ['local']);
+		});
+
+		it('rethrows other local branch deletion errors', async function () {
+			const error = new Error('Unable to delete local branch');
+			sinon.stub(repository, 'deleteBranch').rejects(error);
+			pick('local');
+
+			await assert.rejects(PullRequestReviewCommon.deleteBranch(manager, pr), error);
+		});
+
+		it('offers only remote branch deletion when there is no local branch', async function () {
+			getBranchInfo.resolves(undefined);
+			pickDefaults();
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(shownTypes(), ['remoteHead']);
+			assert.deepStrictEqual(result.message.branchTypes, ['remoteHead']);
+		});
+
+		it('does not offer deletion of the default remote branch', async function () {
+			assert.ok(pr.head);
+			pr.head.ref = 'main';
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(shownTypes(), ['local']);
+		});
+
+		it('warns without showing a quick pick when there are no actions', async function () {
+			pr.isRemoteHeadDeleted = true;
+			getBranchInfo.resolves(undefined);
+
+			const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(result, { isReply: true, message: { cancelled: true } });
+			sinon.assert.notCalled(showQuickPick);
+			sinon.assert.calledOnce(showWarningMessage);
+			assert.strictEqual(showWarningMessage.firstCall.args.length, 1);
+			sinon.assert.notCalled(deleteRemoteBranch);
+		});
+
+		for (const selectedTypes of [
+			['remote'],
+			['worktree'],
+			['local', 'remote', 'remoteHead', 'worktree'],
+		]) {
+			it(`supports unused remote and worktree cleanup: ${selectedTypes.join(', ')}`, async function () {
+				getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: false });
+				const worktreePath = Uri.file('/worktrees/local-feature');
+				sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+				const removeWorktree = sinon.stub(manager, 'removeWorktree').resolves();
+				const removeRemote = sinon.stub(repository, 'removeRemote').resolves();
+				const deleteLocalBranch = sinon.spy(repository, 'deleteBranch');
+				pick(...selectedTypes);
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(shownItems().map(item => [item.type, item.label]), [
+					['remoteHead', 'Delete remote branch origin/feature'],
+					['local', 'Delete local branch local-feature'],
+					['remote', 'Delete remote fork, which is no longer used by any other branch'],
+					['worktree', `Remove worktree ${worktreePath.fsPath}`],
+				]);
+				assert.deepStrictEqual(result.message.branchTypes.sort(), selectedTypes);
+				assert.strictEqual(removeRemote.calledOnce, selectedTypes.includes('remote'));
+				assert.strictEqual(removeWorktree.calledOnce, selectedTypes.includes('worktree'));
+				if (removeWorktree.calledOnce) {
+					sinon.assert.calledWithExactly(removeWorktree, worktreePath.fsPath);
+				}
+				if (selectedTypes.includes('worktree') && selectedTypes.includes('local')) {
+					sinon.assert.callOrder(removeWorktree, deleteLocalBranch);
+				}
+			});
+		}
+
+		it('does not offer removal of an in-use remote or a worktree in the workspace', async function () {
+			getBranchInfo.resolves({ branch: 'local-feature', remote: 'fork', createdForPullRequest: true, remoteInUse: true });
+			const worktreePath = Uri.file('/worktrees/local-feature');
+			sinon.stub(manager, 'getWorktreeForBranch').returns(worktreePath);
+			sinon.stub(workspace, 'workspaceFolders').value([{ uri: worktreePath, name: 'local-feature', index: 0 }]);
+
+			await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+			assert.deepStrictEqual(shownTypes(), ['remoteHead', 'local']);
+		});
+
+		for (const selectedTypes of [
+			['suspend'],
+			['local', 'remoteHead'],
+		]) {
+			it(`offers Codespace suspension alongside deletion: ${selectedTypes.join(', ')}`, async function () {
+				sinon.stub(env, 'remoteName').value('codespaces');
+				const executeCommand = sinon.stub(commands, 'executeCommand').resolves();
+				pick(...selectedTypes);
+
+				const result = await PullRequestReviewCommon.deleteBranch(manager, pr);
+
+				assert.deepStrictEqual(shownItems().find(item => item.type === 'suspend'), { label: 'Suspend Codespace', type: 'suspend' });
+				assert.deepStrictEqual(result.message.branchTypes.sort(), selectedTypes);
+				assert.strictEqual(executeCommand.calledOnce, selectedTypes.includes('suspend'));
+				if (executeCommand.calledOnce) {
+					sinon.assert.calledWithExactly(executeCommand, 'github.codespaces.disconnectSuspend');
+				}
+			});
+		}
+	});
+
+	describe('deleteRemotes', function () {
+		it('continues deleting remotes after one fails', async function () {
+			await repository.addRemote('locked', 'https://github.com/owner/locked');
+			await repository.addRemote('deletable', 'https://github.com/owner/deletable');
+			const removeRemote = repository.removeRemote.bind(repository);
+			sinon.stub(repository, 'removeRemote').callsFake(async name => {
+				if (name === 'locked') {
+					throw new Error('Repository is locked');
+				}
+				await removeRemote(name);
+			});
+
+			const failures = await (manager as any).deleteRemotes([{ label: 'locked' }, { label: 'deletable' }]);
+
+			assert.strictEqual(failures.length, 1);
+			assert.strictEqual(failures[0].label, 'locked');
+			assert.deepStrictEqual(repository.state.remotes.map(remote => remote.name), ['locked']);
 		});
 	});
 });
@@ -83,6 +1212,294 @@ describe('titleAndBodyFrom', function () {
 
 	it('returns only title when body contains only whitespace', async function () {
 		const message = Promise.resolve('title\n\n');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '');
+	});
+
+	it('unwraps wrapped lines in body', async function () {
+		const message = Promise.resolve('title\n\nThis is a long line that has been wrapped at 72 characters\nto fit the conventional commit message format.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a long line that has been wrapped at 72 characters to fit the conventional commit message format.');
+	});
+
+	it('preserves blank lines as paragraph breaks', async function () {
+		const message = Promise.resolve('title\n\nFirst paragraph that is wrapped\nacross multiple lines.\n\nSecond paragraph that is also wrapped\nacross multiple lines.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'First paragraph that is wrapped across multiple lines.\n\nSecond paragraph that is also wrapped across multiple lines.');
+	});
+
+	it('preserves list items', async function () {
+		const message = Promise.resolve('title\n\n- First item\n- Second item\n- Third item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '- First item\n- Second item\n- Third item');
+	});
+
+	it('preserves numbered list items', async function () {
+		const message = Promise.resolve('title\n\n1. First item\n2. Second item\n3. Third item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1. First item\n2. Second item\n3. Third item');
+	});
+
+	it('preserves indented lines', async function () {
+		const message = Promise.resolve('title\n\nNormal paragraph.\n\n    Indented code block\n    More code');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Normal paragraph.\n\n    Indented code block\n    More code');
+	});
+
+	it('unwraps but preserves asterisk list items', async function () {
+		const message = Promise.resolve('title\n\n* First item\n* Second item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '* First item\n* Second item');
+	});
+
+	it('handles mixed content with wrapped paragraphs and lists', async function () {
+		const message = Promise.resolve('title\n\nThis is a paragraph that has been wrapped\nat 72 characters.\n\n- Item 1\n- Item 2\n\nAnother wrapped paragraph\nthat continues here.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a paragraph that has been wrapped at 72 characters.\n\n- Item 1\n- Item 2\n\nAnother wrapped paragraph that continues here.');
+	});
+
+	it('preserves lines with special characters at the start', async function () {
+		const message = Promise.resolve('title\n\n> Quote line 1\n> Quote line 2');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '> Quote line 1\n> Quote line 2');
+	});
+
+	it('handles wrapped lines with punctuation', async function () {
+		const message = Promise.resolve('title\n\nThis is a sentence.\nThis is another sentence on a new line.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is a sentence. This is another sentence on a new line.');
+	});
+
+	it('preserves fenced code blocks', async function () {
+		const message = Promise.resolve('title\n\nSome text before.\n\n```\ncode line 1\ncode line 2\n```\n\nSome text after.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some text before.\n\n```\ncode line 1\ncode line 2\n```\n\nSome text after.');
+	});
+
+	it('preserves fenced code blocks with language', async function () {
+		const message = Promise.resolve('title\n\nSome text.\n\n```javascript\nconst x = 1;\nconst y = 2;\n```\n\nMore text.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some text.\n\n```javascript\nconst x = 1;\nconst y = 2;\n```\n\nMore text.');
+	});
+
+	it('preserves nested list items with proper indentation', async function () {
+		const message = Promise.resolve('title\n\n- Item 1\n  - Nested item 1.1\n  - Nested item 1.2\n- Item 2');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '- Item 1\n  - Nested item 1.1\n  - Nested item 1.2\n- Item 2');
+	});
+
+	it('unwraps list item continuations', async function () {
+		const message = Promise.resolve('title\n\n- This is a list item that is long\n  and continues on the next line\n- Second item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '- This is a list item that is long and continues on the next line\n- Second item');
+	});
+
+	it('preserves indented code blocks but not list continuations', async function () {
+		const message = Promise.resolve('title\n\nRegular paragraph.\n\n    This is code\n    More code\n\nAnother paragraph.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Regular paragraph.\n\n    This is code\n    More code\n\nAnother paragraph.');
+	});
+
+	it('unwraps regular text and list item continuations', async function () {
+		const message = Promise.resolve('title\n\nThis is wrapped text\nthat should be joined.\n\n- List item with\n  continuation\n- Another item');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'This is wrapped text that should be joined.\n\n- List item with continuation\n- Another item');
+	});
+
+	it('handles complex nested lists with wrapped paragraphs', async function () {
+		const message = Promise.resolve('title\n\nWrapped paragraph\nacross lines.\n\n- Item 1\n  - Nested item\n    More nested content\n- Item 2\n\nAnother wrapped paragraph\nhere.');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Wrapped paragraph across lines.\n\n- Item 1\n  - Nested item More nested content\n- Item 2\n\nAnother wrapped paragraph here.');
+	});
+
+	it('handles nested lists', async function () {
+		const message = Promise.resolve('title\n\n* This is a list item with two lines\n  that have a line break between them\n  * This is a nested list item that also has\n    two lines that should have been merged');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '* This is a list item with two lines that have a line break between them\n  * This is a nested list item that also has two lines that should have been merged');
+	});
+
+	it('handles basic numeric list continuation', async function () {
+		const message = Promise.resolve('title\n\n1.  Basic numeric list\n    continuation.\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Basic numeric list continuation. Third line');
+	});
+
+	it('handles additional spaces OK for continuation', async function () {
+		const message = Promise.resolve('title\n\n2.  Additional spaces are\n    OK for a continuation (unless it\'s 4 spaces which would be a code block).\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '2.  Additional spaces are OK for a continuation (unless it\'s 4 spaces which would be a code block). Third line');
+	});
+
+	it('handles asterisk list with extra spaces', async function () {
+		const message = Promise.resolve('title\n\n*   Additional spaces are\n    OK for a continuation (unless it\'s 4 spaces which would be a code block).\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Additional spaces are OK for a continuation (unless it\'s 4 spaces which would be a code block). Third line');
+	});
+
+	it('handles multi-digit numbers (10.)', async function () {
+		const message = Promise.resolve('title\n\n10.  Multi-digit numbers should also\n     work for a continuation.\n     Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '10.  Multi-digit numbers should also work for a continuation. Third line');
+	});
+
+	it('handles multi-paragraph list - numbered', async function () {
+		const message = Promise.resolve('title\n\n11.  Multi-paragraph lists are also supported.\n\n     Second paragraph in the same list item.\n     Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '11.  Multi-paragraph lists are also supported.\n\n     Second paragraph in the same list item. Third line');
+	});
+
+	it('handles multi-paragraph list - asterisk', async function () {
+		const message = Promise.resolve('title\n\n*   Multi-paragraph lists are also supported.\n\n    Second paragraph in the same list item.\n    Third line');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Multi-paragraph lists are also supported.\n\n    Second paragraph in the same list item. Third line');
+	});
+
+	it('handles item with code block - numbered', async function () {
+		const message = Promise.resolve('title\n\n1.  Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+	});
+
+	it('handles item with code block - asterisk', async function () {
+		const message = Promise.resolve('title\n\n*   Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Item with code:\n\n    ```\n    code line\n    code line\n    ```');
+	});
+
+	it('handles fewer spaces OK - numbered (1 space)', async function () {
+		const message = Promise.resolve('title\n\n1.  Fewer spaces are also OK\n for a list continuation (as long as there\'s at least one space)');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  Fewer spaces are also OK for a list continuation (as long as there\'s at least one space)');
+	});
+
+	it('handles fewer spaces OK - asterisk (1 space)', async function () {
+		const message = Promise.resolve('title\n\n*   Fewer spaces are also OK\n for a list continuation (as long as there\'s at least one space)');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Fewer spaces are also OK for a list continuation (as long as there\'s at least one space)');
+	});
+
+	it('handles nested numbered lists', async function () {
+		const message = Promise.resolve('title\n\n1.  First level item\n    continuation of first level\n    1.  Nested numbered item\n        with continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '1.  First level item continuation of first level\n    1.  Nested numbered item with continuation');
+	});
+
+	it('handles nested multi-digit numbered lists', async function () {
+		const message = Promise.resolve('title\n\n10.  First level item with\n     multi-line content\n     10.  Nested with multi-digit\n          number and continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '10.  First level item with multi-line content\n     10.  Nested with multi-digit number and continuation');
+	});
+
+	it('handles nested multi-paragraph lists', async function () {
+		const message = Promise.resolve('title\n\n*   Outer item\n\n    Second paragraph of outer\n    with continuation\n    *   Inner item\n\n        Second paragraph of inner\n        with continuation');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '*   Outer item\n\n    Second paragraph of outer with continuation\n    *   Inner item\n\n        Second paragraph of inner with continuation');
+	});
+
+	it('handles first list item needs to be unwrapped', async function () {
+		const message = Promise.resolve('This is a test\n\n- A fslilenfilnf flen felslnf lsefl fnels  Leknef\nLkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'This is a test');
+		assert.strictEqual(result?.body, '- A fslilenfilnf flen felslnf lsefl fnels  Leknef Lkdfnle  lfkenSlefn Lnkef LefnLienf LIfnels\n- B\n- C');
+	});
+
+	it('strips Co-authored-by trailer lines from body', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips multiple Co-authored-by trailer lines', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nCo-authored-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('strips Co-authored-by case-insensitively', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nco-authored-by: Alice <alice@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.');
+	});
+
+	it('preserves other trailers when stripping Co-authored-by', async function () {
+		const message = Promise.resolve('title\n\nSome description.\n\nSigned-off-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>');
+
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'Some description.\n\nSigned-off-by: Alice <alice@example.com>');
+	});
+
+	it('returns empty body when only Co-authored-by trailers are present', async function () {
+		const message = Promise.resolve('title\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>');
 
 		const result = await titleAndBodyFrom(message);
 		assert.strictEqual(result?.title, 'title');

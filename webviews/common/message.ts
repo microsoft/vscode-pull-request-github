@@ -11,21 +11,22 @@ interface IRequestMessage<T> {
 
 interface IReplyMessage {
 	seq: string;
-	err: any;
+	err: string;
+	// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 	res: any;
 }
 
+// eslint-disable-next-line rulesdir/no-any-except-union-method-signature
 declare let acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
 
 export class MessageHandler {
 	private _commandHandler: ((message: any) => void) | null;
 	private lastSentReq: number;
-	private pendingReplies: any;
+	private readonly _pendingReplies = new Map<string, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>();
 	constructor(commandHandler: any) {
 		this._commandHandler = commandHandler;
 		this.lastSentReq = 0;
-		this.pendingReplies = Object.create(null);
 		window.addEventListener('message', this.handleMessage.bind(this) as (this: Window, ev: MessageEvent<any>) => any);
 	}
 
@@ -36,14 +37,16 @@ export class MessageHandler {
 	public async postMessage(message: any): Promise<any> {
 		const req = String(++this.lastSentReq);
 		return new Promise<any>((resolve, reject) => {
-			this.pendingReplies[req] = {
-				resolve: resolve,
-				reject: reject,
-			};
-			message = Object.assign(message, {
-				req: req,
-			});
-			vscode.postMessage(message as IRequestMessage<any>);
+			this._pendingReplies.set(req, { resolve, reject });
+			try {
+				message = Object.assign(message, {
+					req: req,
+				});
+				vscode.postMessage(message as IRequestMessage<any>);
+			} catch (error) {
+				this._pendingReplies.delete(req);
+				reject(error);
+			}
 		});
 	}
 
@@ -52,15 +55,16 @@ export class MessageHandler {
 		const message: IReplyMessage = event.data; // The json data that the extension sent
 		if (message.seq) {
 			// this is a reply
-			const pendingReply = this.pendingReplies[message.seq];
+			const pendingReply = this._pendingReplies.get(message.seq);
 			if (pendingReply) {
+				this._pendingReplies.delete(message.seq);
 				if (message.err) {
 					pendingReply.reject(message.err);
 				} else {
 					pendingReply.resolve(message.res);
 				}
-				return;
 			}
+			return;
 		}
 
 		if (this._commandHandler) {

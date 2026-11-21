@@ -10,7 +10,7 @@ body {
 textarea {
 	min-height: 80px;
 	max-height: 500px;
-	border-radius: 2px;
+	border-radius: 4px;
 }
 
 .form-actions {
@@ -38,10 +38,93 @@ textarea {
 	padding: 16px 0;
 }
 
+#status-checks .stack-merge {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	flex-wrap: nowrap;
+	gap: 8px;
+	width: 100%;
+	max-width: 260px;
+	margin: 0 auto;
+	padding: 0;
+	background: transparent;
+}
+
+#status-checks .stack-merge > button {
+	width: 100%;
+}
+
+/* Fills the row beside the icon button. */
+#status-checks .stack-merge-buttons > button:not(.icon-button) {
+	flex: 1;
+}
+
+#status-checks .stack-merge .stack-merge-method select {
+	flex: 1;
+	min-width: 0;
+}
+
+#status-checks .stack-merge p {
+	margin: 0;
+}
+
 .comment-form {
 	padding-bottom: 16px;
 }
 
+.textarea-wrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	border-radius: 4px;
+	margin-bottom: 4px;
+	overflow: hidden;
+	resize: vertical;
+}
+
+.textarea-wrapper:focus-within {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.textarea-wrapper textarea {
+	flex: 1;
+	width: 100%;
+	box-sizing: border-box;
+	border: none;
+	background: transparent;
+	border-radius: 0;
+	outline: none;
+	margin: 0;
+	resize: none;
+}
+
+.textarea-wrapper .comment-upload-button {
+	align-self: flex-start;
+	margin: 2px 0 4px 4px;
+	border: none;
+	background: none;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+}
+
+.textarea-wrapper .comment-upload-button:hover:not(:disabled) {
+	cursor: pointer;
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.textarea-wrapper .comment-upload-button:disabled {
+	opacity: 0.5;
+}
 .status-section {
 	padding-bottom: 16px;
 }
@@ -75,7 +158,17 @@ form,
 	width: 100%;
 }
 
-.button-container button {
+.button-container>button {
+	width: 100%;
+}
+
+.button-container:has(> .dropdown-container) {
+	display: flex;
+	min-width: 0;
+}
+
+.dropdown-container {
+	flex-grow: 1;
 	width: 100%;
 }
 
@@ -100,15 +193,10 @@ form button {
 	fill: var(--vscode-button-foreground);
 }
 
-button:focus,
-input[type='submit']:focus {
-	outline-offset: -1px;
-}
 
 .select-control button,
 .branch-status-container button,
 input[type='submit'] {
-	min-height: 31px;
 	white-space: normal;
 }
 
@@ -174,44 +262,30 @@ button .icon svg {
 	padding-top: 1px;
 }
 
+#status-checks .button-container {
+	padding-top: 16px;
+}
+
 .comment-button {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+	position: relative;
+	align-items: center;
+}
+
+.attestation-checkbox-row {
+	margin-top: 6px;
+	margin-right: auto;
+	margin-left: auto;
+	margin-bottom: 12px;
+	width: fit-content;
+}
+
+.dropdown-container {
+	justify-content: center;
 }
 
 button.split-left {
-	border-radius: 2px 0 0 2px;
-	flex-grow: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-}
-
-
-.split {
-	width: 1px; height: 100%;
-	background-color: var(--vscode-button-background);
-	opacity: 0.5;
-}
-
-button.split-right {
-	border-radius: 0 2px 2px 0;
-	cursor: pointer;
-	width: 24px; height: 28px;
-	position: relative;
-}
-
-button.split-right:disabled {
-	cursor: default;
-}
-
-button.split-right .icon {
-	pointer-events: none;
-	position: absolute;
-	top: 6px; right: 4px;
-}
-
-button.split-right .icon svg path {
-	fill: unset;
+	display: block;
 }

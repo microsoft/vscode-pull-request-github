@@ -7,12 +7,13 @@ import * as vscode from 'vscode';
 
 export class ProgressHelper {
 	private _progress: Promise<void> = Promise.resolve();
-	private _endProgress: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private readonly _endProgress = new vscode.EventEmitter<void>();
 
 	get progress(): Promise<void> {
 		return this._progress;
 	}
-	startProgress() {
+
+	private startProgress(): void {
 		this.endProgress();
 		this._progress = new Promise(resolve => {
 			const disposable = this._endProgress.event(() => {
@@ -22,7 +23,16 @@ export class ProgressHelper {
 		});
 	}
 
-	endProgress() {
+	private endProgress(): void {
 		this._endProgress.fire();
+	}
+
+	async run(task: () => Promise<void>): Promise<void> {
+		this.startProgress();
+		try {
+			await task();
+		} finally {
+			this.endProgress();
+		}
 	}
 }

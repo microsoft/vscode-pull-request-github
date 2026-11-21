@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
@@ -12,7 +17,9 @@ type UserUnion =
 	| OctokitCommon.PullsListResponseItemHeadRepoOwner
 	| OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
 
-export const UserBuilder = createBuilderClass<Required<UserUnion>>()({
+type NonNullUser = NonNullable<UserUnion>;
+
+export const UserBuilder = createBuilderClass<NonNullUser>()({
 	id: { default: 0 },
 	node_id: { default: 'node0' },
 	login: { default: 'octocat' },
@@ -32,6 +39,9 @@ export const UserBuilder = createBuilderClass<Required<UserUnion>>()({
 	type: { default: 'User' },
 	site_admin: { default: false },
 	starred_at: { default: '' },
+	email: { default: 'email' },
+	name: { default: 'Name' },
+	user_view_type: { default: 'User' }
 });
 
 export type UserBuilder = InstanceType<typeof UserBuilder>;

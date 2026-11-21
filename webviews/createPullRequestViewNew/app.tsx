@@ -5,17 +5,77 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { compareIgnoreCase } from '../../src/common/utils';
-import { isTeam, MergeMethod } from '../../src/github/interface';
+import { RemoteInfo } from '../../common/types';
+import { CreateParamsNew, StackCandidate } from '../../common/views';
+import { isITeam, MergeMethod } from '../../src/github/interface';
+import { ChangeTemplateReply } from '../../src/github/views';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
+import { accountIcon, feedbackIcon, gitCompareIcon, layersIcon, milestoneIcon, notebookTemplate, prMergeIcon, projectIcon, settingsIcon, sparkleIcon, stopCircleIcon, tagIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
+
+interface CreateMenuContext {
+	'preventDefaultContextMenuItems': true;
+	'github:createPrMenu': true;
+	'github:createPrMenuDraft': true;
+	'github:createPrMenuMergeWhenReady'?: true;
+	'github:createPrMenuMerge'?: true;
+	'github:createPrMenuSquash'?: true;
+	'github:createPrMenuRebase'?: true;
+}
+
+export const StackOption = ({ candidate, checked, disabled, autoMergeOffered, onChange }: { candidate: StackCandidate; checked: boolean; disabled: boolean; autoMergeOffered?: boolean; onChange: (checked: boolean) => void }) => (
+	<div className='stack-option'>
+		<span className='checkbox-wrapper'>
+			<input id='stack-pr-checkbox' type='checkbox' checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
+		</span>
+		<div className='stack-option-content'>
+			<label htmlFor='stack-pr-checkbox' className='stack-option-title'>
+				{layersIcon}
+				<span>{candidate.stackNumber === undefined ? 'Create a stack with this pull request' : 'Add this pull request to a stack'}</span>
+			</label>
+			<span className='stack-option-description'>
+				This pull request will be stacked with <a href={candidate.url}>#{candidate.parentPullRequestNumber}</a>
+				{candidate.size > 1 ? ` and ${candidate.size - 1} other pull request${candidate.size === 2 ? '' : 's'}` : ''}.
+				{/* Shown before auto-merge is chosen, since choosing it from the menu creates the pull request right away. */}
+				{checked && autoMergeOffered ? ' Auto-merge for this pull request also merges the pull requests below it.' : ''}
+			</span>
+		</div>
+	</div>
+);
+
+/** A stacked pull request is merged into the stack's base, so it is that branch's merge queue that it is added to. */
+export function hasMergeQueue(params: CreateParamsNew): boolean {
+	return params.addToStack && params.stackCandidate?.baseHasMergeQueue !== undefined
+		? params.stackCandidate.baseHasMergeQueue
+		: params.baseHasMergeQueue;
+}
+
+export function makeCreateMenuContext(createParams: CreateParamsNew): string {
+	const createMenuContexts: CreateMenuContext = {
+		'preventDefaultContextMenuItems': true,
+		'github:createPrMenu': true,
+		'github:createPrMenuDraft': true
+	};
+	if (hasMergeQueue(createParams)) {
+		createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
+	} else {
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.merge) {
+			createMenuContexts['github:createPrMenuMerge'] = true;
+		}
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.squash) {
+			createMenuContexts['github:createPrMenuSquash'] = true;
+		}
+		if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability?.rebase) {
+			createMenuContexts['github:createPrMenuRebase'] = true;
+		}
+	}
+	return JSON.stringify(createMenuContexts);
+}
 
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0, disabled }:
 	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined, disabled: boolean }) => {
@@ -25,7 +85,7 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, i
 
 	return <ErrorBoundary>
 		<div className='flex'>
-			<button title={disabled ? '' : title} aria-label={title} disabled={disabled} onClick={() => {
+			<button className='input-box' title={disabled ? '' : title} aria-label={title} disabled={disabled} onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
 				{defaultsLabel}
@@ -59,7 +119,7 @@ export function main() {
 						label = 'Create';
 					}
 
-					return {value, label};
+					return { value, label };
 				}
 
 				const titleInput = useRef<HTMLInputElement>() as React.MutableRefObject<HTMLInputElement>;
@@ -89,27 +149,18 @@ export function main() {
 					setBusy(false);
 				}
 
-				let isCreateable: boolean = true;
-				if (ctx.createParams.baseRemote && ctx.createParams.compareRemote && ctx.createParams.baseBranch && ctx.createParams.compareBranch
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.owner, ctx.createParams.compareRemote?.owner) === 0
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.repositoryName, ctx.createParams.compareRemote?.repositoryName) === 0
-					&& compareIgnoreCase(ctx.createParams.baseBranch, ctx.createParams.compareBranch) === 0) {
-
-					isCreateable = false;
-				}
-
 				const onKeyDown = useCallback((isTitle: boolean, e) => {
-						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-							e.preventDefault();
-							create();
-						} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-							if (isTitle) {
-								ctx.popTitle();
-							} else {
-								ctx.popDescription();
-							}
+					if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+						e.preventDefault();
+						create();
+					} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+						if (isTitle) {
+							ctx.popTitle();
+						} else {
+							ctx.popDescription();
 						}
-					},
+					}
+				},
 					[create],
 				);
 
@@ -143,29 +194,6 @@ export function main() {
 					return create();
 				};
 
-				function makeCreateMenuContext(createParams: CreateParamsNew) {
-					const createMenuContexts = {
-						'preventDefaultContextMenuItems': true,
-						'github:createPrMenu': true,
-						'github:createPrMenuDraft': true
-					};
-					if (createParams.baseHasMergeQueue) {
-						createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
-					} else {
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['merge']) {
-							createMenuContexts['github:createPrMenuMerge'] = true;
-						}
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['squash']) {
-							createMenuContexts['github:createPrMenuSquash'] = true;
-						}
-						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['rebase']) {
-							createMenuContexts['github:createPrMenuRebase'] = true;
-						}
-					}
-					const stringified = JSON.stringify(createMenuContexts);
-					return stringified;
-				}
-
 				if (params.creating) {
 					create();
 				}
@@ -181,11 +209,23 @@ export function main() {
 					}
 				}
 
+				function openDescriptionSettings(_event: React.MouseEvent | React.KeyboardEvent): void {
+					ctx.postMessage({ command: 'pr.openDescriptionSettings' });
+				}
+
 				async function generateTitle(useCopilot?: boolean) {
 					setGeneratingTitle(true);
 					await ctx.generateTitle(!!useCopilot);
 					setGeneratingTitle(false);
 				}
+
+				async function changeTemplate() {
+					const result: ChangeTemplateReply = await ctx.postMessage({ command: 'pr.changeTemplate' });
+					if (result && result.description) {
+						ctx.updateState({ pendingDescription: result.description });
+					}
+				}
+
 
 				if (!ctx.initialized) {
 					ctx.initialize();
@@ -200,29 +240,35 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{gitCompareIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
 								defaultBranch={params.baseBranch}
 								remoteCount={params.remoteCount}
 								isBase={true}
-								disabled={!ctx.initialized || isBusy} />
+								disabled={!ctx.initialized || isBusy || !ctx.createParams.canModifyBranches} />
 						</div>
+
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} Merge</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
 							</div>
-							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
-								defaultRemote={params.compareRemote}
-								defaultBranch={params.compareBranch}
-								remoteCount={params.remoteCount}
-								isBase={false}
-								disabled={!ctx.initialized || isBusy} />
+							{ctx.createParams.canModifyBranches ?
+								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
+									defaultRemote={params.compareRemote}
+									defaultBranch={params.compareBranch}
+									remoteCount={params.remoteCount}
+									isBase={false}
+									disabled={!ctx.initialized || isBusy} />
+								: params.associatedExistingPullRequest ?
+									<a className='pr-link' onClick={() => ctx.openAssociatedPullRequest()}>#{params.associatedExistingPullRequest}</a>
+									: null}
 						</div>
 					</div>
 
+					<label htmlFor='title' className='input-title'>Title</label>
 					<div className='group-title'>
 						<input
 							id='title'
@@ -234,17 +280,16 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
-							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={(e) => onKeyDown(true, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}>
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
-								<a title='Cancel' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={ctx.cancelGenerateTitle} tabIndex={0}>{stopIcon}</a>
+								<a title='Cancel' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={ctx.cancelGenerateTitle} tabIndex={0}>{stopCircleIcon}</a>
 								: <a title={ctx.createParams.generateTitleAndDescriptionTitle} className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => generateTitle()} tabIndex={0}>{sparkleIcon}</a> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
@@ -252,7 +297,7 @@ export function main() {
 					<div className='group-additions'>
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
-								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
+								<span title='Assignees' aria-hidden='true'>{accountIcon}</span>
 								<ul aria-label='Assignees' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
@@ -261,7 +306,7 @@ export function main() {
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
 												<Avatar for={assignee} link={false} />
-												{assignee.login}
+												{assignee.specialDisplayName ?? assignee.login}
 											</span>
 										</li>)}
 								</ul>
@@ -270,7 +315,7 @@ export function main() {
 
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
-								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
+								<span title='Reviewers' aria-hidden='true'>{feedbackIcon}</span>
 								<ul aria-label='Reviewers' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
@@ -279,7 +324,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isTeam(reviewer) ? reviewer.slug : reviewer.login}
+												{isITeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>
@@ -288,7 +333,7 @@ export function main() {
 
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
-								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
+								<span title='Labels' aria-hidden='true'>{tagIcon}</span>
 								<ul aria-label='Labels' tabIndex={0} role='button'
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
@@ -296,7 +341,7 @@ export function main() {
 									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 								</ul>
 							</div>
-						: null}
+							: null}
 
 						{params.milestone ?
 							<div className='milestone'>
@@ -311,24 +356,56 @@ export function main() {
 								</ul>
 							</div>
 							: null}
+
+						{params.projects && (params.projects.length > 0) ?
+							<div className='projects'>
+								<span title='Projects' aria-hidden='true'>{projectIcon}</span>
+								<ul aria-label='Project' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
+								>
+									{params.projects.map((project, index) =>
+										<li>
+											<span key={project.id}>{index > 0 ? <span className='sep'>&#8226;</span> : null}{project.title}</span>
+										</li>)}
+								</ul>
+							</div>
+							: null}
 					</div>
 
+					<div className='description-title'>
+						<label htmlFor='description' className='input-title'>Description</label>
+						<div className='description-actions'>
+							{ctx.createParams.usingTemplate ?
+								<a title='Change template' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => changeTemplate()} tabIndex={0}>{notebookTemplate}</a> : null}
+							<a role='button' title='Open pull request description settings' aria-label='Open pull request description settings' className='icon-button' onClick={openDescriptionSettings} tabIndex={0}>{settingsIcon}</a>
+						</div>
+					</div>
 					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
-							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}></textarea>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}></textarea>
 					</div>
+
+					{params.stackCandidate ? <StackOption candidate={params.stackCandidate} checked={!!params.addToStack}
+						autoMergeOffered={hasMergeQueue(params) || !!params.allowAutoMerge}
+						disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.initialized || !ctx.isCreatable}
+						onChange={checked => ctx.updateState({ addToStack: checked })} /> : null}
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
 						<ErrorBoundary>
 							{params.createError}
+						</ErrorBoundary>
+					</div>
+					<div className={(!!params.warning && !params.creating && !isBusy) ? 'wrapper validation-warning' : 'hidden'} aria-live='assertive'>
+						<ErrorBoundary>
+							{params.warning}
 						</ErrorBoundary>
 					</div>
 
@@ -339,10 +416,11 @@ export function main() {
 
 						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
 							defaultAction={onCreateButton}
-							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
-							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
+							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, hasMergeQueue(ctx.createParams)).label}
+							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, hasMergeQueue(ctx.createParams)).value}
 							optionsTitle='Create with Option'
-							disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized}
+							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
+							spreadable={true}
 						/>
 
 					</div>
@@ -353,7 +431,9 @@ export function main() {
 	);
 }
 
-export function Root({ children }) {
+interface RootProps { children: (params: CreateParamsNew) => JSX.Element }
+
+export function Root({ children }: RootProps): JSX.Element {
 	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
@@ -361,5 +441,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return children(pr);
+	return <>{children(pr)}</>;
 }

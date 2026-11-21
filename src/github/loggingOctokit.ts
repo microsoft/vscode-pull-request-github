@@ -7,9 +7,14 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloQueryResult, FetchResult, MutationOptions, NormalizedCacheObject, OperationVariables, QueryOptions } from 'apollo-boost';
 import { bulkhead, BulkheadPolicy } from 'cockatiel';
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { ITelemetry } from '../common/telemetry';
 import { RateLimit } from './graphql';
+import { IRawFileChange } from './interface';
+import { restPaginate } from './utils';
+import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
+import { GitHubRemote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { isObject } from '../common/utils';
 
 interface RestResponse {
 	headers: {
@@ -18,14 +23,124 @@ interface RestResponse {
 	}
 }
 
+interface RateLimitResult {
+	data: {
+		rateLimit: RateLimit | undefined
+	} | undefined;
+}
+
+export enum GraphQLErrorType {
+	Unprocessable = 'UNPROCESSABLE',
+}
+
+export interface GraphQLError {
+	extensions?: {
+		code: string;
+		typeName?: string;
+		fieldName?: string;
+	};
+	type?: GraphQLErrorType;
+	message?: string;
+}
+
+/**
+ * Detects whether an error from a REST (Octokit) or GraphQL (Apollo) call
+ * indicates that the GitHub authentication token is no longer valid. This
+ * happens when the token has been revoked or has expired and surfaces as
+ * either a 401 status, a "Bad credentials" message (REST), or a
+ * "401 Unauthorized" network error (GraphQL).
+ */
+export function isAuthError(e: unknown): boolean {
+	if (!isObject(e)) {
+		return false;
+	}
+	if (e.status === 401) {
+		return true;
+	}
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode === 401) {
+		return true;
+	}
+	if (typeof e.message === 'string') {
+		if (e.message.includes('Bad credentials')) {
+			return true;
+		}
+		if (e.message.includes('401 Unauthorized')) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export function getErrorCode(e: unknown): string | undefined {
+	if (!isObject(e)) {
+		return undefined;
+	}
+
+	if (e.status !== undefined) {
+		return String(e.status);
+	}
+
+	const networkError = e.networkError;
+	if (isObject(networkError) && networkError.statusCode !== undefined) {
+		return String(networkError.statusCode);
+	}
+
+	const graphQLErrors = e.graphQLErrors;
+	if (Array.isArray(graphQLErrors) && graphQLErrors.length > 0) {
+		const firstGraphQLError = graphQLErrors[0] as GraphQLError | undefined;
+		if (firstGraphQLError) {
+			if (firstGraphQLError.extensions?.code !== undefined) {
+				return String(firstGraphQLError.extensions.code);
+			}
+			if (firstGraphQLError.type !== undefined) {
+				return String(firstGraphQLError.type);
+			}
+		}
+	}
+
+	if (e.code !== undefined) {
+		return String(e.code);
+	}
+
+	if (typeof e.name === 'string' && e.name) {
+		const message = typeof e.message === 'string' ? e.message : '';
+		if (e.name !== 'Error') {
+			return message ? `${e.name}: ${message}` : e.name;
+		}
+		if (message) {
+			return message;
+		}
+	}
+
+	return undefined;
+}
+
 export class RateLogger {
 	private bulkhead: BulkheadPolicy = bulkhead(140);
 	private static ID = 'RateLimit';
 	private hasLoggedLowRateLimit: boolean = false;
+	private readonly _isInsiders: boolean;
 
-	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) { }
+	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean, private readonly authErrorHandler?: (e: unknown) => void) {
+		this._isInsiders = vscode.env.appName.toLowerCase().includes('insider');
+	}
 
-	public logAndLimit(info: string | undefined, apiRequest: () => Promise<any>): Promise<any> | undefined {
+	private static sanitizeOperationName(info: string): string {
+		// REST URLs like /repos/{owner}/{repo}/pulls get redacted because they look
+		// like file paths. Convert slashes to dots to avoid redaction.
+		return info.replace(/\/+/g, '.').replace(/^\.+|\.+$/g, '');
+	}
+
+	public logAndLimit<T extends Promise<any>>(info: string | undefined, apiRequest: () => T): T | undefined {
+		if (this._isInsiders && info) {
+			/* __GDPR__
+				"pr.apiCall" : {
+					"operation" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.apiCall', { operation: RateLogger.sanitizeOperationName(info) });
+		}
 		if (this.bulkhead.executionSlots === 0) {
 			Logger.error('API call count has exceeded 140 concurrent calls.', RateLogger.ID);
 			// We have hit more than 140 concurrent API requests.
@@ -49,11 +164,11 @@ export class RateLogger {
 			Logger.debug(log, RateLogger.ID);
 		}
 
-		return this.bulkhead.execute(() => apiRequest());
+		return this.bulkhead.execute<T>(() => apiRequest()) as T;
 	}
 
-	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
-		let rateLimitInfo;
+	public async logRateLimit(info: string | undefined, result: Promise<RateLimitResult | undefined>, isRest: boolean = false) {
+		let rateLimitInfo: { limit: number, remaining: number, cost: number } | undefined;
 		try {
 			const resolvedResult = await result;
 			rateLimitInfo = resolvedResult?.data?.rateLimit;
@@ -65,11 +180,11 @@ export class RateLogger {
 		if ((rateLimitInfo?.limit ?? 5000) < 5000) {
 			if (!isSearch) {
 				Logger.appendLine(`Unexpectedly low rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
-			} else if (rateLimitInfo.limit < 30) {
+			} else if ((rateLimitInfo?.limit ?? 30) < 30) {
 				Logger.appendLine(`Unexpectedly low SEARCH rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
 			}
 		}
-		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, ${info}`;
+		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, cost: ${rateLimitInfo?.cost}, ${info}`;
 		if (((rateLimitInfo?.remaining ?? 1000) < 1000) && !isSearch) {
 			if (!this.hasLoggedLowRateLimit) {
 				/* __GDPR__
@@ -82,6 +197,33 @@ export class RateLogger {
 		} else {
 			Logger.debug(remaining, RateLogger.ID);
 		}
+	}
+
+	public logApiError(info: string | undefined, apiResult: Promise<unknown>): void {
+		apiResult.catch(e => {
+			const properties: { operation: string; errorCode?: string } = {
+				operation: RateLogger.sanitizeOperationName(info ?? 'unknown'),
+			};
+			const errorCode = getErrorCode(e);
+			if (errorCode) {
+				properties.errorCode = errorCode;
+			}
+			/* __GDPR__
+				"pr.apiCallFailed" : {
+					"operation": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"errorCode": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('pr.apiCallFailed', properties);
+
+			if (this.authErrorHandler && isAuthError(e)) {
+				try {
+					this.authErrorHandler(e);
+				} catch {
+					// Ignore errors from the auth error handler so they don't propagate.
+				}
+			}
+		});
 	}
 
 	public async logRestRateLimit(info: string | undefined, restResponse: Promise<RestResponse>) {
@@ -103,7 +245,7 @@ export class RateLogger {
 }
 
 export class LoggingApolloClient {
-	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { };
+	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { }
 
 	query<T = any, TVariables = OperationVariables>(options: QueryOptions<TVariables>): Promise<ApolloQueryResult<T>> {
 		const logInfo = (options.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -111,31 +253,78 @@ export class LoggingApolloClient {
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit(logInfo, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
 
 	mutate<T = any, TVariables = OperationVariables>(options: MutationOptions<T, TVariables>): Promise<FetchResult<T>> {
-		const logInfo = options.context;
+		const logInfo = String(options.context);
 		const result = this._rateLogger.logAndLimit(logInfo, () => this._graphql.mutate(options));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit(logInfo, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as Promise<RateLimitResult>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
 }
 
 export class LoggingOctokit {
-	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { };
+	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { }
 
-	async call<T, U>(api: (T) => Promise<U>, args: T): Promise<U> {
+	call<T extends (...args: any[]) => Promise<any>>(api: T, ...args: Parameters<T>): ReturnType<T> {
 		const logInfo = (api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url;
-		const result = this._rateLogger.logAndLimit(logInfo, () => api(args));
+		const result = this._rateLogger.logAndLimit<ReturnType<T>>(logInfo, ((() => api(...args)) as () => ReturnType<T>));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
 		this._rateLogger.logRestRateLimit(logInfo, result as Promise<unknown> as Promise<RestResponse>);
+		this._rateLogger.logApiError(logInfo, result);
 		return result;
 	}
+}
+
+export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
+	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}`, logId);
+	let files: IRawFileChange[] | undefined;
+	let mergeBaseSha: string | undefined;
+
+	const listFiles = async (perPage?: number) => {
+		return restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
+			owner: base.repositoryCloneUrl.owner,
+			pull_number: prNumber,
+			repo: remote.repositoryName,
+		}, perPage);
+	};
+
+	try {
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+			head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
+		});
+		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
+
+		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+			// compareCommits will return a maximum of 100 changed files
+			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
+			Logger.appendLine(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed in #${prNumber}`, logId);
+			files = await listFiles();
+		} else {
+			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
+			files = data.files ? data.files as IRawFileChange[] : [];
+		}
+		mergeBaseSha = data.merge_base_commit.sha;
+	} catch (e) {
+		if (e.message === 'Server Error') {
+			// Happens when github times out. Let's try to get a few at a time.
+			files = await listFiles(3);
+			mergeBaseSha = base.sha;
+		} else {
+			throw e;
+		}
+	}
+	return { mergeBaseSha, files };
 }

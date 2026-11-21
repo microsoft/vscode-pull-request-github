@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { SinonSandbox, SinonStub, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { mockTreeViewWorkbench } from '../mocks/mockTreeViewWorkbench';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { ReviewCommentController } from '../../view/reviewCommentController';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -18,25 +19,29 @@ import { toReviewUri } from '../../common/uri';
 import * as vscode from 'vscode';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
-import { GitHubRemote, Remote } from '../../common/remote';
-import { GHPRCommentThread } from '../../github/prComment';
+import { GitHubRemote } from '../../common/remote';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
-import { DiffSide, SubjectType } from '../../common/comment';
+import { DiffSide, IComment, SubjectType } from '../../common/comment';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { ReviewModel } from '../../view/reviewModel';
-import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+import { AccountType } from '../../github/interface';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
+import { asPromise } from '../../common/utils';
+import { PrsTreeModel } from '../../view/prsTreeModel';
+import { PullRequestCommentController } from '../../view/pullRequestCommentController';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -45,6 +50,21 @@ const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerTyp
 class TestReviewCommentController extends ReviewCommentController {
 	public workspaceFileChangeCommentThreads() {
 		return this._workspaceFileChangeCommentThreads;
+	}
+	public obsoleteFileChangeCommentThreads() {
+		return this._obsoleteFileChangeCommentThreads;
+	}
+	public reviewSchemeFileChangeCommentThreads() {
+		return this._reviewSchemeFileChangeCommentThreads;
+	}
+	public seedWorkspaceThreads(path: string, threads: GHPRCommentThread[]) {
+		this._workspaceFileChangeCommentThreads[path] = threads;
+	}
+	public seedObsoleteThreads(path: string, threads: GHPRCommentThread[]) {
+		this._obsoleteFileChangeCommentThreads[path] = threads;
+	}
+	public callFindMatchingThread(thread: import('../../common/comment').IReviewThread) {
+		return (this as any)._findMatchingThread(thread);
 	}
 }
 
@@ -59,29 +79,38 @@ describe('ReviewCommentController', function () {
 	let githubRepo: MockGitHubRepository;
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
+	let gitApiImpl: GitApiImpl;
+	let mockThemeWatcher: MockThemeWatcher;
+	let context: MockExtensionContext;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		mockTreeViewWorkbench(sinon);
+		sinon.stub(ReviewManager.prototype, 'updateState').resolves();
+		mockThemeWatcher = new MockThemeWatcher();
 
 		telemetry = new MockTelemetry();
-		const context = new MockExtensionContext();
+		context = new MockExtensionContext();
 		credentialStore = new CredentialStore(telemetry, context);
 
 		repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		await repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
+		gitApiImpl = new GitApiImpl(reposManager);
+		const prsTreeModel = new PrsTreeModel(telemetry, reposManager, context);
+		provider = new PullRequestsTreeDataProvider(prsTreeModel, telemetry, context, reposManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
-		Resource.initialize(context);
-		const gitApiImpl = new GitApiImpl();
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);
 		reposManager.insertFolderManager(manager);
-		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, reposManager);
+		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
 		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
+		context.subscriptions.push(provider, tree, activePrViewCoordinator, createPrHelper, prsTreeModel);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
+			const repo = new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon);
+			context.subscriptions.push(repo);
+			return Promise.resolve(repo);
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
@@ -95,11 +124,19 @@ describe('ReviewCommentController', function () {
 			remote,
 			convertRESTPullRequestToRawPullRequest(pr, githubRepo),
 		);
+		context.subscriptions.push(activePullRequest, githubRepo);
 
 		manager.activePullRequest = activePullRequest;
 	});
 
-	afterEach(function () {
+	afterEach(async function () {
+		const cleared = manager.activePullRequest ? asPromise(manager.onDidChangeActivePullRequest) : undefined;
+		reviewManager.dispose();
+		await cleared;
+		context.dispose();
+		reposManager.removeRepo(repository);
+		reposManager.dispose();
+		credentialStore.dispose();
 		sinon.restore();
 	});
 
@@ -144,7 +181,7 @@ describe('ReviewCommentController', function () {
 		return new GitFileChangeNode(
 			provider,
 			manager,
-			activePullRequest,
+			activePullRequest as any as PullRequestModel & IResolvedPullRequestModel,
 			gitFileChangeModel
 		);
 	}
@@ -157,55 +194,93 @@ describe('ReviewCommentController', function () {
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
-			state: vscode.CommentThreadState.Unresolved,
+			state: { resolved: vscode.CommentThreadState.Unresolved, applicability: 0 },
 			canReply: false,
+			reveal: () => Promise.resolve(),
+			hide: () => Promise.resolve(),
 			dispose: () => { },
 		};
 	}
 
-	describe('initializes workspace thread data', async function () {
+	it('uses unique comment controller IDs for pull requests in different repositories', function () {
+		const reviewModel = new ReviewModel();
+		const firstController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
+		const otherRemote = new GitHubRemote('test', 'https://github.com/github/other.git', new Protocol('https://github.com/github/other.git'), GitHubServerType.GitHubDotCom);
+		const otherGitHubRepo = new MockGitHubRepository(otherRemote, credentialStore, telemetry, sinon);
+		const otherPullRequest = new PullRequestModel(
+			credentialStore,
+			telemetry,
+			otherGitHubRepo,
+			otherRemote,
+			convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), otherGitHubRepo),
+		);
+		manager.activePullRequest = otherPullRequest;
+		const secondController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
+		context.subscriptions.push(firstController, secondController, otherPullRequest, otherGitHubRepo);
+
+		assert.strictEqual(firstController.commentController.id, `${ReviewCommentController.PREFIX}-${remote.owner}-${remote.repositoryName}-${activePullRequest.number}`);
+		assert.strictEqual(secondController.commentController.id, `${ReviewCommentController.PREFIX}-${otherRemote.owner}-${otherRemote.repositoryName}-${otherPullRequest.number}`);
+		assert.notStrictEqual(firstController.commentController.id, secondController.commentController.id);
+	});
+
+	it('initializes workspace thread data', async function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 		const reviewModel = new ReviewModel();
 		reviewModel.localFileChanges = localFileChanges;
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel);
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl, telemetry);
+		context.subscriptions.push(reviewCommentController, ...localFileChanges);
 
+		let completeDiff!: (diff: string) => void;
+		const diff = new Promise<string>(resolve => completeDiff = resolve);
+		let markDiffRequested!: () => void;
+		const diffRequested = new Promise<void>(resolve => markDiffRequested = resolve);
+		sinon.stub(repository, 'diffWithHEAD').callsFake(() => {
+			markDiffRequested();
+			return diff;
+		});
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
-		sinon.stub(activePullRequest, 'getReviewThreads').returns(
-			Promise.resolve([
-				{
-					id: '1',
-					isResolved: false,
-					viewerCanResolve: false,
-					viewerCanUnresolve: false,
-					path: fileName,
-					diffSide: DiffSide.RIGHT,
-					startLine: 372,
-					endLine: 372,
-					originalStartLine: 372,
-					originalEndLine: 372,
-					isOutdated: false,
-					comments: [
-						{
-							id: 1,
-							url: '',
-							diffHunk: '',
-							body: '',
-							createdAt: '',
-							htmlUrl: '',
-							graphNodeId: '',
+		sinon.stub(activePullRequest, 'reviewThreadsCache').get(() => [
+			{
+				id: '1',
+				isResolved: false,
+				viewerCanResolve: false,
+				viewerCanUnresolve: false,
+				path: fileName,
+				diffSide: DiffSide.RIGHT,
+				startLine: 372,
+				endLine: 372,
+				originalStartLine: 372,
+				originalEndLine: 372,
+				isOutdated: false,
+				comments: [
+					{
+						id: 1,
+						url: '',
+						diffHunk: '',
+						body: '',
+						createdAt: '',
+						htmlUrl: '',
+						graphNodeId: '',
+						isOutdated: false,
+						user: {
+							login: 'rmacfarlane',
+							url: 'https://github.com/rmacfarlane',
+							id: '123',
+							accountType: AccountType.User
 						}
-					],
-					subjectType: SubjectType.LINE
-				},
-			]),
-		);
+					}
+				],
+				subjectType: SubjectType.LINE
+			},
+		]);
 
 		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 			login: 'rmacfarlane',
 			url: 'https://github.com/rmacfarlane',
-			id: '123'
+			id: '123',
+			accountType: AccountType.User
 		}));
 
 		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
@@ -214,7 +289,16 @@ describe('ReviewCommentController', function () {
 			index: 0,
 		});
 
-		await reviewCommentController.initialize();
+		let initialized = false;
+		const initialization = reviewCommentController.initialize().then(() => initialized = true);
+		try {
+			await diffRequested;
+			await new Promise<void>(resolve => setImmediate(resolve));
+			assert.strictEqual(initialized, false, 'Initialization must wait for comment threads to be created');
+		} finally {
+			completeDiff('');
+			await initialization;
+		}
 		const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
 		assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
 		assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
@@ -234,7 +318,10 @@ describe('ReviewCommentController', function () {
 				manager,
 				repository,
 				reviewModel,
+				gitApiImpl,
+				telemetry
 			);
+			context.subscriptions.push(reviewCommentController, ...localFileChanges);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
 			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
@@ -244,7 +331,8 @@ describe('ReviewCommentController', function () {
 			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
 				url: 'https://github.com/rmacfarlane',
-				id: '123'
+				id: '123',
+				accountType: AccountType.User
 			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
@@ -314,14 +402,197 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
+			const newReviewThreadPromise = asPromise(activePullRequest.onDidChangeReviewThreads);
 			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
-
+			await newReviewThreadPromise;
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
 
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 1);
+		});
+	});
+
+	function testCommentAndResolve(createController: () => ReviewCommentController | PullRequestCommentController) {
+		let controller: ReviewCommentController | PullRequestCommentController;
+		let thread: GHPRCommentThread;
+		let comment: IComment;
+		let pendingReview: SinonStub;
+		let submitReview: SinonStub;
+		let resolveThread: SinonStub;
+		let showError: SinonStub;
+
+		function assertEditableReply(text: string) {
+			const reply = thread.comments[1];
+			assert.ok(reply instanceof TemporaryComment);
+			const body = reply.body;
+			assert.ok(body instanceof vscode.MarkdownString);
+			assert.strictEqual(body.value, text);
+			assert.strictEqual(reply.mode, vscode.CommentMode.Editing);
+		}
+
+		beforeEach(function () {
+			controller = createController();
+			context.subscriptions.push(controller);
+			thread = createGHPRCommentThread('thread-1', vscode.Uri.joinPath(repository.rootUri, 'file.ts'));
+			const user = { login: 'reviewer', url: 'https://github.com/reviewer', id: '123', accountType: AccountType.User };
+			comment = {
+				id: 1,
+				graphNodeId: 'comment-1',
+				body: 'Original comment',
+				createdAt: '',
+				htmlUrl: '',
+				url: 'https://github.com/owner/repo/pull/1#discussion_r1',
+				diffHunk: '',
+				user,
+			};
+			thread.comments = [new GHPRComment(context, comment, thread)];
+			sinon.stub(manager, 'getCurrentUser').resolves(user);
+			pendingReview = sinon.stub(activePullRequest, 'getPendingReviewId').resolves(undefined);
+			submitReview = sinon.stub(activePullRequest, 'submitReview').resolves(undefined);
+			resolveThread = sinon.stub(activePullRequest, 'resolveReviewThread').resolves();
+			showError = sinon.stub(vscode.window, 'showErrorMessage').resolves();
+		});
+
+		it('posts the reply and submits it before resolving without a pending review', async function () {
+			const reply = sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.calledOnce(reply);
+			sinon.assert.calledWithExactly(reply, 'Fixed this', 'comment-1', true);
+			sinon.assert.callOrder(reply, submitReview, resolveThread);
+			sinon.assert.calledOnce(resolveThread);
+			sinon.assert.calledWithExactly(resolveThread, 'thread-1');
+		});
+
+		it('keeps the reply in an existing pending review before resolving', async function () {
+			sinon.stub(activePullRequest, 'hasPendingReview').get(() => true);
+			pendingReview.resolves('review-1');
+			const reply = sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.calledOnce(reply);
+			sinon.assert.calledWithExactly(reply, 'Fixed this', 'comment-1', false);
+			sinon.assert.notCalled(submitReview);
+			sinon.assert.callOrder(reply, resolveThread);
+		});
+
+		it('does not resolve when posting the reply fails and keeps it editable', async function () {
+			sinon.stub(activePullRequest, 'createCommentReply').rejects(new Error('Reply failed'));
+
+			await controller.resolveReviewThread(thread, 'Keep this reply');
+
+			sinon.assert.notCalled(resolveThread);
+			sinon.assert.notCalled(submitReview);
+			assertEditableReply('Keep this reply');
+		});
+
+		it('does not resolve when the reply cannot be created because the pull request has no upstream branch', async function () {
+			sinon.stub(activePullRequest, 'hasPendingReview').get(() => true);
+			pendingReview.resolves('review-1');
+			activePullRequest.head = null;
+			const showWarning = sinon.stub(vscode.window, 'showWarningMessage').resolves();
+
+			await controller.resolveReviewThread(thread, 'Keep this reply');
+
+			sinon.assert.calledOnce(showWarning);
+			sinon.assert.notCalled(showError);
+			sinon.assert.notCalled(submitReview);
+			sinon.assert.notCalled(resolveThread);
+			assertEditableReply('Keep this reply');
+		});
+
+		it('does not resolve when submitting the review fails', async function () {
+			sinon.stub(activePullRequest, 'createCommentReply').resolves(comment);
+			submitReview.rejects(new Error('Submit failed'));
+
+			await controller.resolveReviewThread(thread, 'Fixed this');
+
+			sinon.assert.notCalled(resolveThread);
+		});
+
+		it('still resolves without creating a reply when no text is provided', async function () {
+			const reply = sinon.stub(activePullRequest, 'createCommentReply');
+
+			await controller.resolveReviewThread(thread);
+
+			sinon.assert.notCalled(reply);
+			sinon.assert.notCalled(pendingReview);
+			sinon.assert.calledOnce(resolveThread);
+			sinon.assert.calledWithExactly(resolveThread, 'thread-1');
+		});
+	}
+
+	describe('comment and resolve in a checked out pull request', function () {
+		testCommentAndResolve(() => new ReviewCommentController(reviewManager, manager, repository, new ReviewModel(), gitApiImpl, telemetry));
+	});
+
+	describe('comment and resolve in a browsed pull request', function () {
+		testCommentAndResolve(() => {
+			const commentController = vscode.comments.createCommentController('test-comment-and-resolve', 'Test');
+			context.subscriptions.push(commentController);
+			return new PullRequestCommentController(activePullRequest, manager, commentController, telemetry);
+		});
+	});
+
+	describe('_findMatchingThread', function () {
+		it('returns the moved thread when an existing workspace thread becomes outdated', function () {
+			const fileName = 'data/products.json';
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			const reviewModel = new ReviewModel();
+			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				reviewModel,
+				gitApiImpl,
+				telemetry,
+			);
+			context.subscriptions.push(reviewCommentController);
+
+			const threadA = createGHPRCommentThread('thread-A', uri);
+			const threadB = createGHPRCommentThread('thread-B', uri);
+			const existingObsolete = createGHPRCommentThread('thread-C', uri);
+
+			reviewCommentController.seedWorkspaceThreads(fileName, [threadA, threadB]);
+			reviewCommentController.seedObsoleteThreads(fileName, [existingObsolete]);
+
+			const reviewThread: import('../../common/comment').IReviewThread = {
+				id: 'thread-B',
+				isResolved: false,
+				viewerCanResolve: false,
+				viewerCanUnresolve: false,
+				path: fileName,
+				diffSide: DiffSide.RIGHT,
+				startLine: 1,
+				endLine: 1,
+				originalStartLine: 1,
+				originalEndLine: 1,
+				isOutdated: true,
+				comments: [],
+				subjectType: SubjectType.LINE,
+			};
+
+			const result = reviewCommentController.callFindMatchingThread(reviewThread);
+
+			// The matching thread should be the moved thread, not `undefined` or the wrong one.
+			assert.strictEqual(result.threadMap, reviewCommentController.obsoleteFileChangeCommentThreads());
+			assert.ok(result.index > -1, 'index should point to the moved thread');
+			assert.strictEqual(result.threadMap[fileName][result.index], threadB);
+
+			// Workspace map no longer contains the moved thread.
+			const workspace = reviewCommentController.workspaceFileChangeCommentThreads();
+			assert.strictEqual(workspace[fileName].length, 1);
+			assert.strictEqual(workspace[fileName][0], threadA);
+
+			// Obsolete map now contains the moved thread appended after the pre-existing one.
+			const obsolete = reviewCommentController.obsoleteFileChangeCommentThreads();
+			assert.strictEqual(obsolete[fileName].length, 2);
+			assert.strictEqual(obsolete[fileName][0], existingObsolete);
+			assert.strictEqual(obsolete[fileName][1], threadB);
 		});
 	});
 });

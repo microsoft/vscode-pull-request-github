@@ -6,14 +6,43 @@
 
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
-import { RemoteInfo } from '../../common/views';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
+import { IAccount, ILabel, IMilestone, IProject, isISuggestedReviewer, isITeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IssueModel } from './issueModel';
+import { DisplayLabel } from './views';
+import { RemoteInfo } from '../../common/types';
+import { Ref } from '../api/api';
+import { COPILOT_ACCOUNTS } from '../common/comment';
+import { COPILOT_REVIEWER, COPILOT_REVIEWER_ACCOUNT, COPILOT_SWE_AGENT } from '../common/copilot';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, IProjectItem, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import { RECENTLY_USED_BRANCHES, RecentlyUsedBranchesState } from '../extensionState';
+
+export async function chooseItem<T>(
+	itemsToChooseFrom: T[],
+	propertyGetter: (itemValue: T) => { label: string; description?: string; },
+	options?: vscode.QuickPickOptions,
+): Promise<T | undefined> {
+	if (itemsToChooseFrom.length === 0) {
+		return undefined;
+	}
+	if (itemsToChooseFrom.length === 1) {
+		return itemsToChooseFrom[0];
+	}
+	interface Item extends vscode.QuickPickItem {
+		itemValue: T;
+	}
+	const items: Item[] = itemsToChooseFrom.map(currentItem => {
+		return {
+			...propertyGetter(currentItem),
+			itemValue: currentItem,
+		};
+	});
+	return (await vscode.window.showQuickPick(items, options))?.itemValue;
+}
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
@@ -32,7 +61,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		const user = filteredUsers[i];
 
 		let detail: string | undefined;
-		if (isSuggestedReviewer(user)) {
+		if (isISuggestedReviewer(user)) {
 			detail = user.isAuthor && user.isCommenter
 				? vscode.l10n.t('Recently edited and reviewed changes to these files')
 				: user.isAuthor
@@ -43,7 +72,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		}
 
 		alreadyAssignedItems.push({
-			label: isTeam(user) ? `${user.org}/${user.slug}` : (user as IAccount).login,
+			label: isITeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
 			description: user.name,
 			user,
 			picked,
@@ -52,9 +81,9 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		});
 	}
 	return alreadyAssignedItems;
-};
+}
 
-export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
+export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: IssueModel, assignYourself?: boolean):
 	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {
 
 	const [allAssignableUsers, participantsAndViewer] = await Promise.all([
@@ -71,7 +100,7 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 	// e.g. author, existing and already added reviewers
 	const skipList: Set<string> = new Set();
 
-	const assigneePromises: Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]>[] = [];
+	const assigneePromises: Promise<(vscode.QuickPickItem & { user?: IAccount })[]>[] = [];
 
 	// Start with all currently assigned so they show at the top
 	if (alreadyAssigned.length) {
@@ -108,11 +137,19 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 		});
 	}
 
+	if (assignYourself) {
+		const currentUser = viewer ?? await folderRepositoryManager.getCurrentUser(gitHubRepository);
+		if (assignees.length !== 0) {
+			assignees.unshift({ kind: vscode.QuickPickItemKind.Separator, label: vscode.l10n.t('Users') });
+		}
+		assignees.unshift({ label: vscode.l10n.t('Assign yourself'), user: currentUser });
+	}
+
 	return assignees;
 }
 
 function userThemeIcon(user: IAccount | ITeam) {
-	return (isTeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
+	return (isITeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
 }
 
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
@@ -126,8 +163,20 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const allTeamReviewers = isInOrganization ? await folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-	if (allAssignableUsers[remoteName]) {
-		assignableUsers.push(...allAssignableUsers[remoteName]);
+
+	// Remove the swe agent as it can't do reviews, but add the reviewer instead
+	const originalAssignableUsers = allAssignableUsers[remoteName] ?? [];
+	let hasCopilotSweAgent: boolean = false;
+	const assignableUsersForRemote = originalAssignableUsers.filter(user => {
+		if (user.login === COPILOT_SWE_AGENT) {
+			hasCopilotSweAgent = true;
+			return false;
+		}
+		return true;
+	});
+
+	if (assignableUsersForRemote) {
+		assignableUsers.push(...assignableUsersForRemote);
 	}
 
 	// used to track logins that shouldn't be added to pick list
@@ -141,6 +190,11 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	// Start with all existing reviewers so they show at the top
 	if (existingReviewers.length) {
 		reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, existingReviewers.map(reviewer => reviewer.reviewer), true));
+	}
+
+	// If we removed the coding agent, add the Copilot reviewer instead
+	if (hasCopilotSweAgent && !existingReviewers.find(user => (user.reviewer as IAccount).login === COPILOT_REVIEWER)) {
+		assignableUsers.push(COPILOT_REVIEWER_ACCOUNT);
 	}
 
 	// Suggested reviewers
@@ -206,12 +260,11 @@ function isProjectQuickPickItem(x: vscode.QuickPickItem | ProjectQuickPickItem):
 	return !!(x as ProjectQuickPickItem).id && !!(x as ProjectQuickPickItem).project;
 }
 
-export async function getProjectFromQuickPick(folderRepoManager: FolderRepositoryManager, githubRepository: GitHubRepository, remoteName: string, isInOrganization: boolean, currentProjects: IProjectItem[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
+export async function getProjectFromQuickPick(folderRepoManager: FolderRepositoryManager, githubRepository: GitHubRepository, currentProjects: IProject[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
 	try {
 		let selectedItems: vscode.QuickPickItem[] = [];
 		async function getProjectOptions(): Promise<(ProjectQuickPickItem | vscode.QuickPickItem)[]> {
-			const [repoProjects, orgProjects] = (await Promise.all([githubRepository.getProjects(), (isInOrganization ? folderRepoManager.getOrgProjects() : undefined)]));
-			const projects = [...(repoProjects ?? []), ...(orgProjects ? orgProjects[remoteName] : [])];
+			const projects = await folderRepoManager.getAllProjects(githubRepository);
 			if (!projects || !projects.length) {
 				return [
 					{
@@ -222,12 +275,12 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 
 			const projectItems: (ProjectQuickPickItem | vscode.QuickPickItem)[] = projects.map(result => {
 				const item = {
-					iconPath: new vscode.ThemeIcon('project'),
+					iconPath: new vscode.ThemeIcon('github-project'),
 					label: result.title,
 					id: result.id,
 					project: result
 				};
-				if (currentProjects && currentProjects.find(project => project.project.id === result.id)) {
+				if (currentProjects && currentProjects.find(project => project.id === result.id)) {
 					selectedItems.push(item);
 				}
 				return item;
@@ -238,9 +291,14 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.busy = true;
 		quickPick.canSelectMany = true;
-		quickPick.title = vscode.l10n.t('Set Project');
+		quickPick.title = vscode.l10n.t('Set projects');
+		quickPick.ignoreFocusOut = true;
 		quickPick.show();
 		quickPick.items = await getProjectOptions();
+		quickPick.ignoreFocusOut = false;
+		if (quickPick.items.length === 1) {
+			quickPick.canSelectMany = false;
+		}
 		quickPick.selectedItems = selectedItems;
 		quickPick.busy = false;
 
@@ -271,7 +329,18 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 		};
 		let selectedItem: vscode.QuickPickItem | undefined;
 		async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
-			const milestones = await githubRepository.getMilestones();
+			const milestones = (await githubRepository.getMilestones())?.sort((a, b) => {
+				// Milestones with a date should be first, and sorted by due date
+				if (a.dueOn && b.dueOn) {
+					return new Date(a.dueOn).getTime() - new Date(b.dueOn).getTime();
+				} else if (a.dueOn) {
+					return -1;
+				} else if (b.dueOn) {
+					return 1;
+				} else {
+					return a.title.localeCompare(b.title);
+				}
+			});
 			if (!milestones || !milestones.length) {
 				return [
 					{
@@ -339,12 +408,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 						await callback(milestone);
 					}
 				} catch (e) {
-					if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone already exists and might be closed'));
-					}
-					else {
-						vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
-					}
+					vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
 				}
 			});
 		});
@@ -371,19 +435,136 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 export async function getLabelOptions(
 	folderRepoManager: FolderRepositoryManager,
 	labels: ILabel[],
-	base: RemoteInfo
-): Promise<{ newLabels: ILabel[], labelPicks: vscode.QuickPickItem[] }> {
-	const newLabels = await folderRepoManager.getLabels(undefined, { owner: base.owner, repo: base.repositoryName });
+	baseOwner: string,
+	repositoryName: string
+): Promise<{ newLabels: DisplayLabel[], labelPicks: (vscode.QuickPickItem & { name: string })[] }> {
+	await ensureEmojis(folderRepoManager.context);
+	const newLabels = (await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName })).map(label => ({ ...label, displayName: emojify(label.name) }));
 
 	const labelPicks = newLabels.map(label => {
 		return {
-			label: label.name,
-			description: label.description,
+			label: label.displayName,
+			name: label.name,
+			description: label.description ?? undefined,
 			picked: labels.some(existingLabel => existingLabel.name === label.name),
 			iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
 				</svg>`, 'utf8'))
 		};
+	}).sort((a, b) => {
+		// Sort so that already picked labels are at the top
+		if (a.picked === b.picked) {
+			return a.label.localeCompare(b.label);
+		}
+		return a.picked ? -1 : 1;
 	});
 	return { newLabels, labelPicks };
+}
+
+export async function pickEmail(githubRepository: GitHubRepository, current: string): Promise<string | undefined> {
+	async function getEmails(): Promise<(vscode.QuickPickItem)[]> {
+		const emails = await githubRepository.getAuthenticatedUserEmails();
+		return emails.map(email => {
+			return {
+				label: email,
+				picked: email.toLowerCase() === current.toLowerCase()
+			};
+		});
+	}
+
+	const result = await vscode.window.showQuickPick(getEmails(), { canPickMany: false, title: vscode.l10n.t('Choose an email') });
+	return result ? result.label : undefined;
+}
+
+function getRecentlyUsedBranches(folderRepoManager: FolderRepositoryManager, owner: string, repositoryName: string): string[] {
+	const repoKey = `${owner}/${repositoryName}`;
+	const state = folderRepoManager.context.workspaceState.get<RecentlyUsedBranchesState>(RECENTLY_USED_BRANCHES, { branches: {} });
+	return state.branches[repoKey] || [];
+}
+
+function buildBranchPickItems(branchNames: string[], githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] {
+	// Get recently used branches for base branches only
+	let recentBranches: string[] = [];
+	let otherBranches: string[] = branchNames;
+	if (isBase) {
+		const recentlyUsed = getRecentlyUsedBranches(folderRepoManager, githubRepository.remote.owner, githubRepository.remote.repositoryName);
+		// Include all recently used branches, even if they're not in the current branch list
+		// This allows showing branches that weren't fetched due to timeout
+		recentBranches = recentlyUsed;
+		// Remove recently used branches from the main list (if they exist there)
+		otherBranches = branchNames.filter(name => !recentBranches.includes(name));
+	}
+
+	const branchPicks: (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] = [];
+
+	// Add recently used branches section
+	if (recentBranches.length > 0) {
+		branchPicks.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: vscode.l10n.t('Recently Used')
+		});
+		recentBranches.forEach(branchName => {
+			branchPicks.push({
+				iconPath: new vscode.ThemeIcon('git-branch'),
+				label: branchName,
+				remote: {
+					owner: githubRepository.remote.owner,
+					repositoryName: githubRepository.remote.repositoryName
+				},
+				branch: branchName
+			});
+		});
+	}
+
+	// Add all other branches section
+	if (otherBranches.length > 0) {
+		branchPicks.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: recentBranches.length > 0 ? vscode.l10n.t('All Branches') : `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
+		});
+		otherBranches.forEach(branchName => {
+			branchPicks.push({
+				iconPath: new vscode.ThemeIcon('git-branch'),
+				label: branchName,
+				remote: {
+					owner: githubRepository.remote.owner,
+					repositoryName: githubRepository.remote.repositoryName
+				},
+				branch: branchName
+			});
+		});
+	}
+
+	if (changeRepoMessage) {
+		branchPicks.unshift({
+			iconPath: new vscode.ThemeIcon('repo'),
+			label: changeRepoMessage
+		});
+	}
+	return branchPicks;
+}
+
+export function cachedBranchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean): (vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[] | undefined {
+	if (!isBase) {
+		return undefined;
+	}
+	const cached = githubRepository.getCachedBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName);
+	if (!cached) {
+		return undefined;
+	}
+	return buildBranchPickItems(cached, githubRepository, folderRepoManager, changeRepoMessage, isBase);
+}
+
+export async function branchPicks(githubRepository: GitHubRepository, folderRepoManager: FolderRepositoryManager, changeRepoMessage: string | undefined, isBase: boolean, prefix: string | undefined): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+	let branches: (string | Ref)[];
+	if (isBase) {
+		// For the base, we only want to show branches from GitHub.
+		branches = await githubRepository.listBranches(githubRepository.remote.owner, githubRepository.remote.repositoryName, prefix);
+	} else {
+		// For the compare, we only want to show local branches.
+		branches = (await folderRepoManager.repository.getBranches({ remote: false })).filter(branch => branch.name);
+	}
+
+	const branchNames = branches.map(branch => typeof branch === 'string' ? branch : branch.name!);
+	return buildBranchPickItems(branchNames, githubRepository, folderRepoManager, changeRepoMessage, isBase);
 }

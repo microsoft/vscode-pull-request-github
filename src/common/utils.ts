@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
+import { combinedDisposable } from './lifecycle';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
@@ -65,19 +66,6 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	});
 }
 
-export function dispose<T extends Disposable>(disposables: T[]): T[] {
-	disposables.forEach(d => d.dispose());
-	return [];
-}
-
-export function toDisposable(d: () => void): Disposable {
-	return { dispose: d };
-}
-
-export function combinedDisposable(disposables: Disposable[]): Disposable {
-	return toDisposable(() => dispose(disposables));
-}
-
 export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
 		const result = combinedDisposable(events.map(event => event(i => listener.call(thisArgs, i))));
@@ -110,23 +98,27 @@ export function onceEvent<T>(event: Event<T>): Event<T> {
 	};
 }
 
+export function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
+
 function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string): boolean {
+export function isDescendant(parent: string, descendant: string, caseInsensitive: boolean = false, separator: string = sep): boolean {
+	// Windows is case insensitive
+	if (isWindowsPath(parent) || caseInsensitive) {
+		parent = parent.toLowerCase();
+		descendant = descendant.toLowerCase();
+	}
+
 	if (parent === descendant) {
 		return true;
 	}
 
-	if (parent.charAt(parent.length - 1) !== sep) {
-		parent += sep;
-	}
-
-	// Windows is case insensitive
-	if (isWindowsPath(parent)) {
-		parent = parent.toLowerCase();
-		descendant = descendant.toLowerCase();
+	if (parent.charAt(parent.length - 1) !== separator) {
+		parent += separator;
 	}
 
 	return descendant.startsWith(parent);
@@ -147,18 +139,18 @@ export class UnreachableCaseError extends Error {
 }
 
 interface HookError extends Error {
-	errors: any;
+	errors: (string | { message: string })[];
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(e as any).errors;
+	return !!(e as Partial<HookError>).errors;
 }
 
-function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
-			if (!error.field || !error.value || !error.code) {
+			if (!error.field || !error.value || !error.status) {
 				areFieldErrors = false;
 				break;
 			}
@@ -189,14 +181,14 @@ export function formatError(e: HookError | any): string {
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
 		furtherInfo = e.errors
 			.map(error => {
-				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.status})`;
 			})
 			.join(', ');
 	} else if (e.message.startsWith('Validation Failed:')) {
 		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
-			.map((error: any) => {
+			.map((error) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
@@ -210,10 +202,6 @@ export function formatError(e: HookError | any): string {
 	}
 
 	return errorMessage;
-}
-
-export interface PromiseAdapter<T, U> {
-	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 // Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
@@ -380,6 +368,10 @@ function contrastColor(rgbColor: { r: number, g: number, b: number }) {
 
 export interface Predicate<T> {
 	(input: T): boolean;
+}
+
+export interface AsyncPredicate<T> {
+	(input: T): Promise<boolean>;
 }
 
 export const enum CharCode {
@@ -996,4 +988,216 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	const data = await Promise.all(promises);
 	let offset = 0;
 	return str.replace(regex, () => data[offset++]);
+}
+
+export async function arrayFindIndexAsync<T>(arr: T[], predicate: (value: T, index: number, array: T[]) => Promise<boolean>): Promise<number> {
+	for (let i = 0; i < arr.length; i++) {
+		// Evaluate predicate sequentially to allow early exit on first match
+		if (await predicate(arr[i], i, arr)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
+	const batches = Math.ceil(items.length / batchSize);
+
+	for (let i = 0; i < batches; i++) {
+		const batch = items.slice(i * batchSize, (i + 1) * batchSize);
+		await Promise.all(batch.map(processFn));
+	}
+}
+
+export function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function escapeHtmlAttr(value: string): string {
+	const escapedCharacters: Record<string, string> = {
+		'&': '&amp;',
+		'"': '&quot;',
+		'\'': '&#39;',
+		'<': '&lt;',
+		'>': '&gt;',
+	};
+
+	return value.replace(/[&"'<>]/g, (char) => escapedCharacters[char]);
+}
+
+export function truncate(value: string, maxLength: number, suffix = '...'): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	return `${value.substr(0, maxLength)}${suffix}`;
+}
+
+/**
+ * Metadata extracted from code reference link data attributes.
+ * This interface defines the contract between the extension (which creates the attributes)
+ * and the webview (which reads them).
+ */
+export interface CodeReferenceLinkMetadata {
+	localFile: string;
+	startLine: number;
+	endLine: number;
+	linkType: 'blob' | 'diff';
+	href: string;
+}
+
+/**
+ * Extracts code reference link metadata from an anchor element's data attributes.
+ * Returns null if any required attributes are missing.
+ */
+export function extractCodeReferenceLinkMetadata(anchor: Element): CodeReferenceLinkMetadata | null {
+	const localFile = anchor.getAttribute('data-local-file');
+	const startLine = anchor.getAttribute('data-start-line');
+	const endLine = anchor.getAttribute('data-end-line');
+	const linkType = anchor.getAttribute('data-link-type');
+	const href = anchor.getAttribute('href');
+
+	if (!localFile || !startLine || !endLine || !linkType || !href) {
+		return null;
+	}
+
+	return {
+		localFile,
+		startLine: parseInt(startLine),
+		endLine: parseInt(endLine),
+		linkType: linkType as 'blob' | 'diff',
+		href
+	};
+}
+
+/**
+ * Process GitHub blob permalinks in HTML and add data attributes for local file handling.
+ * Finds blob permalinks (e.g., /blob/[sha]/file.ts#L10), checks if files exist locally,
+ * and adds data attributes to enable clicking to open local files.
+ * Supports links from any repository owner to work across forks.
+ *
+ * @param bodyHTML - The HTML content to process
+ * @param repoName - GitHub repository name
+ * @param authority - Git protocol URL authority (e.g., 'github.com')
+ * @param fileExistsCheck - Async function that checks if a file exists locally given its relative path
+ * @returns Promise resolving to processed HTML
+ */
+export async function processPermalinks(
+	bodyHTML: string,
+	repoName: string,
+	authority: string,
+	fileExistsCheck: (filePath: string) => Promise<boolean>
+): Promise<string> {
+	try {
+		const escapedRepoName = escapeRegExp(repoName);
+		const escapedAuthority = escapeRegExp(authority);
+
+		// Process blob permalinks (exclude already processed links)
+		// Allow any owner to support links across forks
+		const blobPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/[^\/]+\/${escapedRepoName}\/blob\/[0-9a-f]{40}\/(?<filePath>[^"#]+)#L(?<startLine>\\d+)(?:-L(?<endLine>\\d+))?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, blobPattern, async (
+			fullMatch: string,
+			attributes: string,
+			filePath: string,
+			startLine: string,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Check if file exists locally
+				const exists = await fileExistsCheck(filePath);
+				if (exists) {
+					// File exists - add data attributes for local handling and "(view on GitHub)" suffix
+					const endLineValue = endLine || startLine;
+					const escapedFilePath = escapeHtmlAttr(filePath);
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${escapedFilePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+				}
+			} catch (error) {
+				// File doesn't exist or check failed - keep original link
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		// Return original HTML if processing fails
+		return bodyHTML;
+	}
+}
+
+/**
+ * Process GitHub diff permalinks in HTML and add data attributes for local file handling.
+ * Finds diff permalinks (e.g., /pull/123/files#diff-[hash]R10), maps hashes to filenames,
+ * and adds data attributes to enable clicking to open diff views.
+ *
+ * @param bodyHTML - The HTML content to process
+ * @param repoOwner - GitHub repository owner
+ * @param repoName - GitHub repository name
+ * @param authority - Git protocol URL authority (e.g., 'github.com')
+ * @param hashMap - Map of diff hashes to file paths
+ * @param prNumber - Pull request number
+ * @returns Promise resolving to processed HTML
+ */
+export async function processDiffLinks(
+	bodyHTML: string,
+	repoOwner: string,
+	repoName: string,
+	authority: string,
+	hashMap: Record<string, string> | (() => Promise<Record<string, string>>),
+	prNumber: number
+): Promise<string> {
+	try {
+		const escapedRepoName = escapeRegExp(repoName);
+		const escapedRepoOwner = escapeRegExp(repoOwner);
+		const escapedAuthority = escapeRegExp(authority);
+		let hashMapPromise: Promise<Record<string, string>> | undefined;
+		const getHashMap = () => {
+			if (typeof hashMap !== 'function') {
+				return Promise.resolve(hashMap);
+			}
+			hashMapPromise ??= hashMap();
+			return hashMapPromise;
+		};
+
+		const diffPattern = new RegExp(
+			`<a\\s+(?![^>]*data-permalink-processed)([^>]*?href="https?:\/\/${escapedAuthority}\/${escapedRepoOwner}\/${escapedRepoName}\/pull\/${prNumber}\/(?:files|changes)#diff-(?<diffHash>[a-f0-9]{64})(?:R(?<startLine>\\d+)(?:-R(?<endLine>\\d+))?)?"[^>]*?)>(?<linkText>[^<]*?)<\/a>`,
+			'g'
+		);
+
+		return await stringReplaceAsync(bodyHTML, diffPattern, async (
+			fullMatch: string,
+			attributes: string,
+			diffHash: string,
+			startLine: string | undefined,
+			endLine: string | undefined,
+			linkText: string
+		) => {
+			try {
+				// Extract the original URL from attributes
+				const hrefMatch = attributes.match(/href="([^"]+)"/);
+				const originalUrl = hrefMatch ? hrefMatch[1] : '';
+
+				// Look up filename from hash
+				const fileName = (await getHashMap())[diffHash];
+				if (fileName) {
+					// Hash found - add data attributes for diff handling and "(view on GitHub)" suffix
+					const startLineValue = startLine || '1';
+					const endLineValue = endLine || startLineValue;
+					const escapedFileName = escapeHtmlAttr(fileName);
+					return `<a data-permalink-processed="true" ${attributes} data-local-file="${escapedFileName}" data-start-line="${startLineValue}" data-end-line="${endLineValue}" data-link-type="diff">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
+				}
+			} catch (error) {
+				// Failed to process - keep original link
+			}
+			return fullMatch;
+		});
+	} catch (error) {
+		// Return original HTML if processing fails
+		return bodyHTML;
+	}
 }

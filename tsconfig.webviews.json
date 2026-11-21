@@ -1,6 +1,19 @@
 {
-	"extends": "./tsconfig.browser.json",
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"jsx": "react",
+		"lib": [
+			"dom",
+			"dom.iterable",
+			"es2019"
+		],
 		"tsBuildInfoFile": "tsconfig.webviews.tsbuildinfo"
-	}
+	},
+	"include": [
+		"src/@types",
+		"src/common",
+		"src/github",
+		"src/test/webviews",
+		"webviews"
+	]
 }

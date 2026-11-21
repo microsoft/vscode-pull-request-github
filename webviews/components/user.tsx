@@ -4,31 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 import { Icon } from './icon';
+import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 
 const InnerAvatar = ({ for: author }: { for: Partial<IAccount> }) => (
 	<>
-		{author.avatarUrl ? (
-			<img className="avatar" src={author.avatarUrl} alt="" role="presentation" />
+		{author.avatarUrl && author.avatarUrl.includes('githubusercontent.com') ? (
+			<img className="avatar" src={author.avatarUrl} alt="" role="presentation" aria-hidden="true"/>
 		) : (
 			<Icon className="avatar-icon" src={require('../../resources/icons/dark/github.svg')} />
 		)}
 	</>
 );
 
-export const Avatar = ({ for: author, link = true }: { for: Partial<IAccount>, link?: boolean }) => {
+export const Avatar = ({ for: author, link = true, substituteIcon }: { for: Partial<IAccount>, link?: boolean, substituteIcon?: JSX.Element }) => {
 	if (link) {
-		return <a className="avatar-link" href={author.url} title={author.url}>
-			<InnerAvatar for={author} />
+		return <a className="avatar-link" href={author.url} title={author.url} aria-hidden="true">
+			{substituteIcon ?? <InnerAvatar for={author} />}
 		</a>;
 	} else {
-		return <InnerAvatar for={author} />;
+		return substituteIcon ?? <InnerAvatar for={author} />;
 	}
 };
 
 export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IActor | ITeam; text?: string }) => (
-	<a className="author-link" href={author.url} title={author.url}>
+	<a className="author-link" href={author.url} aria-label={text} title={author.url} >
 		{text}
 	</a>
 );

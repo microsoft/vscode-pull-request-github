@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { chevronIcon } from './icon';
+import { chevronDownIcon } from './icon';
 
 const enum KEYCODES {
 	esc = 27,
@@ -83,22 +83,23 @@ export const Dropdown = ({ options, defaultOption, disabled, submitAction, chang
 		}
 	};
 
-	const expandButtonClass = Object.entries(options).length === 1 ? 'hidden' : areOptionsVisible ? 'open' : '';
+	const hasMultipleOptions = Object.entries(options).length > 1;
+	const expandButtonClass = !hasMultipleOptions ? 'hidden' : areOptionsVisible ? 'open' : '';
 
 	return (
 		<div className="select-container" onKeyDown={onKeyDown}>
 			<div className="select-control">
 				<Confirm
 					dropdownId={dropdownId}
-					className={Object.keys(options).length > 1 ? 'select-left' : ''}
+					className={hasMultipleOptions ? 'select-left' : ''}
 					options={options}
 					selected={selectedMethod}
 					submitAction={submitAction}
 					disabled={!!disabled}
 				/>
-				<div className='split'></div>
+				{hasMultipleOptions ? <div className={`split${disabled ? ' disabled' : ''}`}><div className={`separator${disabled ? ' disabled' : ''}`}></div></div> : null}
 				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
-					{chevronIcon}
+					{chevronDownIcon}
 				</button>
 			</div>
 			<div className={areOptionsVisible ? 'options-select' : 'hidden'}>

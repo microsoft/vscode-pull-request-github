@@ -4,10 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
+import { RemoteInfo } from '../../common/types';
+import { CancelCreatePullRequestNew, ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, ScrollPosition, StackCandidate, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { compareIgnoreCase } from '../../src/common/utils';
+import { PreReviewState } from '../../src/github/views';
 
 const defaultCreateParams: CreateParamsNew = {
+	canModifyBranches: true,
 	defaultBaseRemote: undefined,
 	defaultBaseBranch: undefined,
 	defaultCompareRemote: undefined,
@@ -27,8 +31,35 @@ const defaultCreateParams: CreateParamsNew = {
 	creating: false,
 	generateTitleAndDescriptionTitle: undefined,
 	initializeWithGeneratedTitleAndDescription: false,
-	baseHasMergeQueue: false
+	baseHasMergeQueue: false,
+	addToStack: false,
+	preReviewState: PreReviewState.None,
+	preReviewer: undefined,
+	reviewing: false,
+	usingTemplate: false
 };
+
+function remoteChanged(next: RemoteInfo | undefined, current: RemoteInfo | undefined): boolean {
+	return next !== undefined && (next.owner !== current?.owner || next.repositoryName !== current?.repositoryName);
+}
+
+// Defaults are computed for the default branches, which can differ from a selection restored from webview state.
+function showsDefaultSelection(next: Partial<CreateParamsNew>, current: CreateParamsNew): boolean {
+	const compareBranch = next.compareBranch ?? current.compareBranch ?? next.defaultCompareBranch;
+	const baseBranch = next.baseBranch ?? current.baseBranch ?? next.defaultBaseBranch;
+	return (next.defaultCompareBranch === undefined || next.defaultCompareBranch === compareBranch)
+		&& (next.defaultBaseBranch === undefined || next.defaultBaseBranch === baseBranch)
+		&& !remoteChanged(next.defaultCompareRemote, next.compareRemote ?? current.compareRemote ?? next.defaultCompareRemote)
+		&& !remoteChanged(next.defaultBaseRemote, next.baseRemote ?? current.baseRemote ?? next.defaultBaseRemote);
+}
+
+function stackCandidateChanged(next: Partial<CreateParamsNew>, current: StackCandidate | undefined): boolean {
+	if (!Object.prototype.hasOwnProperty.call(next, 'stackCandidate')) {
+		return false;
+	}
+	return next.stackCandidate?.parentPullRequestNumber !== current?.parentPullRequestNumber
+		|| next.stackCandidate?.stackNumber !== current?.stackNumber;
+}
 
 export class CreatePRContextNew {
 	public createParams: CreateParamsNew;
@@ -45,7 +76,25 @@ export class CreatePRContextNew {
 		}
 	}
 
+	get isCreatable(): boolean {
+		if (!this.createParams.canModifyBranches) {
+			return true;
+		}
+		if (this.createParams.baseRemote && this.createParams.compareRemote && this.createParams.baseBranch && this.createParams.compareBranch
+			&& compareIgnoreCase(this.createParams.baseRemote?.owner, this.createParams.compareRemote?.owner) === 0
+			&& compareIgnoreCase(this.createParams.baseRemote?.repositoryName, this.createParams.compareRemote?.repositoryName) === 0
+			&& compareIgnoreCase(this.createParams.baseBranch, this.createParams.compareBranch) === 0) {
+
+			return false;
+		}
+		return true;
+	}
+
 	get initialized(): boolean {
+		if (!this.createParams.canModifyBranches) {
+			return true;
+		}
+
 		if (this.createParams.defaultBaseRemote !== undefined
 			|| this.createParams.defaultBaseBranch !== undefined
 			|| this.createParams.defaultCompareRemote !== undefined
@@ -66,11 +115,32 @@ export class CreatePRContextNew {
 		}
 	};
 
-	public cancelCreate = (): Promise<void> => {
-		const args = this.copyParams();
-		vscode.setState(defaultCreateParams);
-		return this.postMessage({ command: 'pr.cancelCreate', args });
+	public cancelCreate = async (): Promise<void> => {
+		const args: CancelCreatePullRequestNew = {
+			...this.copyParams(),
+			hasUnsavedChanges: this.hasUnsavedChanges()
+		};
+		const result = await this.postMessage({ command: 'pr.cancelCreate', args }) as { cancelled?: boolean } | undefined;
+		// Only clear persisted state if the extension explicitly confirmed the
+		// cancellation. Otherwise (e.g. the user declined the confirmation
+		// dialog, or the message did not get a response) preserve the user's
+		// in-progress title/description.
+		if (result?.cancelled === true) {
+			vscode.setState(defaultCreateParams);
+		}
 	};
+
+	private hasUnsavedChanges(): boolean {
+		const params = this.createParams;
+		const titleEdited = params.pendingTitle !== undefined && params.pendingTitle !== params.defaultTitle;
+		const descriptionEdited = params.pendingDescription !== undefined && params.pendingDescription !== params.defaultDescription;
+		const hasLabels = (params.labels?.length ?? 0) > 0;
+		const hasAssignees = (params.assignees?.length ?? 0) > 0;
+		const hasReviewers = (params.reviewers?.length ?? 0) > 0;
+		const hasProjects = (params.projects?.length ?? 0) > 0;
+		const hasMilestone = !!params.milestone;
+		return titleEdited || descriptionEdited || hasLabels || hasAssignees || hasReviewers || hasProjects || hasMilestone;
+	}
 
 	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
 		this.createParams = reset ? { ...defaultCreateParams, ...params } : { ...this.createParams, ...params };
@@ -85,17 +155,28 @@ export class CreatePRContextNew {
 			currentRemote,
 			currentBranch
 		};
-		const response: ChooseBaseRemoteAndBranchResult = await this.postMessage({
+		const startingBaseOwner = this.createParams.baseRemote?.owner;
+		const startingBaseRepo = this.createParams.baseRemote?.repositoryName;
+		const response: ChooseBaseRemoteAndBranchResult | undefined = await this.postMessage({
 			command: 'pr.changeBaseRemoteAndBranch',
 			args
+		}).catch(error => {
+			this.updateState({ warning: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Unable to change the base branch.' });
+			return undefined;
 		});
+		if (!response) {
+			return;
+		}
 
 		const updateValues: Partial<CreateParamsNew> = {
 			baseRemote: response.baseRemote,
 			baseBranch: response.baseBranch,
-			createError: ''
+			stackCandidate: response.stackCandidate,
+			addToStack: false,
+			createError: '',
+			warning: response.warning
 		};
-		if ((this.createParams.baseRemote?.owner !== response.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== response.baseRemote.repositoryName)) {
+		if ((startingBaseOwner !== response.baseRemote.owner) || (startingBaseRepo !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
 			updateValues.allowAutoMerge = response.allowAutoMerge;
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
@@ -103,6 +184,8 @@ export class CreatePRContextNew {
 			updateValues.baseHasMergeQueue = response.baseHasMergeQueue;
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
 				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
+			} else if (this.createParams.allowAutoMerge && !updateValues.allowAutoMerge) {
+				updateValues.autoMerge = false;
 			}
 			updateValues.defaultTitle = response.defaultTitle;
 			if ((this.createParams.pendingTitle === undefined) || (this.createParams.pendingTitle === this.createParams.defaultTitle)) {
@@ -117,23 +200,40 @@ export class CreatePRContextNew {
 		this.updateState(updateValues);
 	};
 
+	public openAssociatedPullRequest = async (): Promise<void> => {
+		return this.postMessage({ command: 'pr.openAssociatedPullRequest' });
+	};
+
 	public changeMergeRemoteAndBranch = async (currentRemote?: RemoteInfo, currentBranch?: string): Promise<void> => {
 		const args: ChooseRemoteAndBranchArgs = {
 			currentRemote,
 			currentBranch
 		};
-		const response: ChooseCompareRemoteAndBranchResult = await this.postMessage({
-			command: 'pr.changeCompareRemoteAndBranch',
-			args
-		});
+		try {
+			const response: ChooseCompareRemoteAndBranchResult = await this.postMessage({
+				command: 'pr.changeCompareRemoteAndBranch',
+				args
+			});
 
-		const updateValues: Partial<CreateParamsNew> = {
-			compareRemote: response.compareRemote,
-			compareBranch: response.compareBranch,
-			createError: ''
-		};
+			const updateValues: Partial<CreateParamsNew> = {
+				compareRemote: response.compareRemote,
+				compareBranch: response.compareBranch,
+				stackCandidate: response.stackCandidate,
+				addToStack: false,
+				createError: '',
+				warning: response.warning
+			};
 
-		this.updateState(updateValues);
+			if (response.defaultDescription !== undefined) {
+				updateValues.defaultDescription = response.defaultDescription;
+				if ((this.createParams.pendingDescription === undefined) || (this.createParams.pendingDescription === this.createParams.defaultDescription)) {
+					updateValues.pendingDescription = response.defaultDescription;
+				}
+			}
+			this.updateState(updateValues);
+		} catch (error) {
+			this.updateState({ warning: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Unable to change the merge branch.' });
+		}
 	};
 
 	public generateTitle = async (useCopilot: boolean): Promise<void> => {
@@ -144,9 +244,10 @@ export class CreatePRContextNew {
 			command: 'pr.generateTitleAndDescription',
 			args
 		});
-		const updateValues: { pendingTitle?: string, pendingDescription?: string } = {};
+		const updateValues: { pendingTitle?: string, pendingDescription?: string, showTitleValidationError?: boolean } = {};
 		if (response.title) {
 			updateValues.pendingTitle = response.title;
+			updateValues.showTitleValidationError = false;
 		}
 		if (response.description) {
 			updateValues.pendingDescription = response.description;
@@ -176,7 +277,17 @@ export class CreatePRContextNew {
 		if (this._descriptionStack.length > 0) {
 			this.updateState({ pendingDescription: this._descriptionStack.pop() });
 		}
-	}
+	};
+
+	public preReview = async (): Promise<void> => {
+		this.updateState({ reviewing: true });
+		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
+		this.updateState({ preReviewState: result, reviewing: false });
+	};
+
+	public cancelPreReview = async (): Promise<void> => {
+		return this.postMessage({ command: 'pr.cancelPreReview' });
+	};
 
 	public validate = (): boolean => {
 		let isValid = true;
@@ -185,7 +296,7 @@ export class CreatePRContextNew {
 			isValid = false;
 		}
 
-		this.updateState({ validate: true, createError: undefined });
+		this.updateState({ validate: true, createError: undefined, creating: false });
 
 		return isValid;
 	};
@@ -203,7 +314,11 @@ export class CreatePRContextNew {
 			draft: !!this.createParams.isDraft,
 			autoMerge: !!this.createParams.autoMerge,
 			autoMergeMethod: this.createParams.autoMergeMethod,
+			addToStack: !!this.createParams.addToStack,
+			stackParentPullRequest: this.createParams.stackCandidate?.parentPullRequestNumber,
+			stackNumber: this.createParams.stackCandidate?.stackNumber,
 			labels: this.createParams.labels ?? [],
+			projects: this.createParams.projects ?? [],
 			assignees: this.createParams.assignees ?? [],
 			reviewers: this.createParams.reviewers ?? [],
 			milestone: this.createParams.milestone
@@ -213,12 +328,19 @@ export class CreatePRContextNew {
 	public submit = async (): Promise<void> => {
 		try {
 			this.updateState({ creating: false });
+			if (this.createParams.addToStack && !this.createParams.stackCandidate) {
+				throw new Error('The selected base branch is no longer eligible for a pull request stack.');
+			}
 			const args: CreatePullRequestNew = this.copyParams();
-			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
 				args,
 			});
+			// Only clear persisted state after the create succeeds. Resetting before
+			// awaiting would discard the user's title/description if the create fails
+			// (for example when the branch push fails and needs `--force`), causing
+			// the description to fall back to the template on the next webview load.
+			vscode.setState(defaultCreateParams);
 		} catch (e) {
 			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
@@ -234,12 +356,29 @@ export class CreatePRContextNew {
 				if (!message.params) {
 					return;
 				}
+				const current = this.createParams;
+				const branchChanged = (message.params.baseBranch !== undefined && message.params.baseBranch !== current.baseBranch)
+					|| (message.params.compareBranch !== undefined && message.params.compareBranch !== current.compareBranch);
+				const selectionChanged = branchChanged
+					|| remoteChanged(message.params.baseRemote, current.baseRemote)
+					|| remoteChanged(message.params.compareRemote, current.compareRemote)
+					|| stackCandidateChanged(message.params, current.stackCandidate);
+				if (selectionChanged) {
+					message.params.addToStack = false;
+				}
 				if (this.createParams.pendingTitle === undefined) {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
 
-				if (this.createParams.pendingDescription === undefined) {
-					message.params.pendingDescription = message.params.defaultDescription;
+				if (message.params.defaultDescription !== undefined) {
+					if (current.pendingDescription === undefined) {
+						message.params.pendingDescription = message.params.defaultDescription;
+					} else if (!showsDefaultSelection(message.params, current)) {
+						// Keep the description and the baseline used to detect edits for the branches still shown.
+						message.params.defaultDescription = current.defaultDescription;
+					} else if (current.pendingDescription === current.defaultDescription) {
+						message.params.pendingDescription = message.params.defaultDescription;
+					}
 				}
 
 				if (this.createParams.baseRemote === undefined) {
@@ -267,7 +406,9 @@ export class CreatePRContextNew {
 				if (this.createParams.autoMerge === undefined) {
 					message.params.autoMerge = message.params.autoMergeDefault;
 					message.params.autoMergeMethod = message.params.defaultMergeMethod;
-					message.params.isDraft = false;
+					if (message.params.autoMerge) {
+						message.params.isDraft = false;
+					}
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
 					message.params.autoMergeMethod = this.createParams.autoMergeMethod;
@@ -281,6 +422,7 @@ export class CreatePRContextNew {
 					this.updateState(defaultCreateParams, true);
 					return;
 				}
+				message.params.creating = message.params.creating ?? false;
 				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
 				message.params.pendingDescription = message.params.defaultDescription ?? this.createParams.pendingDescription;
 				message.params.baseRemote = message.params.defaultBaseRemote ?? this.createParams.baseRemote;
@@ -288,6 +430,7 @@ export class CreatePRContextNew {
 				message.params.compareBranch = message.params.defaultCompareBranch ?? this.createParams.compareBranch;
 				message.params.compareRemote = message.params.defaultCompareRemote ?? this.createParams.compareRemote;
 				message.params.autoMerge = (message.params.autoMergeDefault !== undefined ? message.params.autoMergeDefault : this.createParams.autoMerge);
+				message.params.addToStack = false;
 				message.params.autoMergeMethod = (message.params.defaultMergeMethod !== undefined ? message.params.defaultMergeMethod : this.createParams.autoMergeMethod);
 				message.params.isDraft = (message.params.isDraftDefault !== undefined ? message.params.isDraftDefault : this.createParams.isDraft);
 				if (message.params.autoMergeDefault) {
@@ -306,6 +449,7 @@ export class CreatePRContextNew {
 			case 'set-labels':
 			case 'set-assignees':
 			case 'set-reviewers':
+			case 'set-projects':
 				if (!message.params) {
 					return;
 				}
@@ -322,6 +466,12 @@ export class CreatePRContextNew {
 					return;
 				}
 				this.updateState(message.params);
+				return;
+			case 'reviewing':
+				if (!message.params) {
+					return;
+				}
+				this.preReview();
 				return;
 		}
 	};
