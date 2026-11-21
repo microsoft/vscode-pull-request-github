@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import * as yaml from 'js-yaml';
 import * as vscode from 'vscode';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
@@ -39,6 +38,7 @@ import {
 	PROJECTS,
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
+import { getIssueTemplateData } from './issueTemplate';
 import { openCodeLink } from './issueLinkLookup';
 import { IssuesTreeData, QueryNode, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
@@ -1315,7 +1315,7 @@ ${options?.body ?? ''}\n
 					try {
 						const content = await vscode.workspace.fs.readFile(uri);
 						const text = new TextDecoder('utf-8').decode(content);
-						const template = this.getDataFromTemplate(text);
+						const template = getIssueTemplateData(text);
 
 						return template;
 					} catch (e) {
@@ -1341,87 +1341,6 @@ ${options?.body ?? ''}\n
 		});
 
 		return selectedTemplate?.template;
-	}
-
-	private getDataFromTemplate(template: string): IssueTemplate {
-		// Try to parse as YAML first (YAML templates have a different structure)
-		try {
-			const parsed = yaml.load(template);
-			// Check if it looks like a YAML issue template (has name and body fields)
-			if (parsed && typeof parsed === 'object' && (parsed as YamlIssueTemplate).name && (parsed as YamlIssueTemplate).body) {
-				// This is a YAML template
-				return this.parseYamlTemplate(parsed as YamlIssueTemplate);
-			}
-		} catch (e) {
-			// Not a valid YAML, continue to Markdown parsing
-		}
-
-		// Parse as Markdown frontmatter template
-		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
-		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
-		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
-		const labelsMatch = template.match(/labels:\s*(.*)/)?.[1];
-		const labels = labelsMatch ? labelsMatch.split(',').map(label => label.trim()).filter(label => label) : undefined;
-		const assigneesMatch = template.match(/assignees:\s*(.*)/)?.[1];
-		const assignees = assigneesMatch ? assigneesMatch.split(',').map(assignee => assignee.trim()).filter(assignee => assignee) : undefined;
-		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
-		return { title, name, about, labels, assignees, body };
-	}
-
-	private parseYamlTemplate(parsed: YamlIssueTemplate): IssueTemplate {
-		const name = parsed.name;
-		const about = parsed.description || parsed.about;
-		const title = parsed.title;
-
-		// Extract labels and assignees from YAML
-		const labels = parsed.labels && Array.isArray(parsed.labels) ? parsed.labels : undefined;
-		const assignees = parsed.assignees && Array.isArray(parsed.assignees) ? parsed.assignees : undefined;
-
-		// Convert YAML body fields to markdown
-		let body = '';
-		if (parsed.body && Array.isArray(parsed.body)) {
-			for (const field of parsed.body) {
-				if (field.type === 'markdown' && field.attributes?.value) {
-					body += field.attributes.value + '\n\n';
-				} else if (field.type === 'textarea' && field.attributes?.label) {
-					body += `## ${field.attributes.label}\n\n`;
-					if (field.attributes.description) {
-						body += `${field.attributes.description}\n\n`;
-					}
-					if (field.attributes.placeholder) {
-						body += `${field.attributes.placeholder}\n\n`;
-					} else if (field.attributes.value) {
-						body += `${field.attributes.value}\n\n`;
-					}
-				} else if (field.type === 'input' && field.attributes?.label) {
-					body += `## ${field.attributes.label}\n\n`;
-					if (field.attributes.description) {
-						body += `${field.attributes.description}\n\n`;
-					}
-					if (field.attributes.placeholder) {
-						body += `${field.attributes.placeholder}\n\n`;
-					}
-				} else if (field.type === 'dropdown' && field.attributes?.label) {
-					body += `## ${field.attributes.label}\n\n`;
-					if (field.attributes.description) {
-						body += `${field.attributes.description}\n\n`;
-					}
-					if (field.attributes.options && Array.isArray(field.attributes.options)) {
-						body += field.attributes.options.map((opt: string | { label?: string }) => typeof opt === 'string' ? `- ${opt}` : `- ${opt.label || ''}`).join('\n') + '\n\n';
-					}
-				} else if (field.type === 'checkboxes' && field.attributes?.label) {
-					body += `## ${field.attributes.label}\n\n`;
-					if (field.attributes.description) {
-						body += `${field.attributes.description}\n\n`;
-					}
-					if (field.attributes.options && Array.isArray(field.attributes.options)) {
-						body += field.attributes.options.map((opt: { label?: string } | string) => `- [ ] ${typeof opt === 'string' ? opt : opt.label || ''}`).join('\n') + '\n\n';
-					}
-				}
-			}
-		}
-
-		return { title, name, about, labels, assignees, body: body.trim() || undefined };
 	}
 
 	private async doCreateIssue(
