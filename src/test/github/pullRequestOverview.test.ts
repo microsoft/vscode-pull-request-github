@@ -1013,6 +1013,34 @@ describe('PullRequestOverview', function () {
 			});
 		}
 
+		it('replaces whitespace-only HTML in the shared cache when the Markdown is unchanged', async function () {
+			const body = 'Cached description';
+			const bodyHTML = '<p>Cached description</p>';
+			const cachedModel = repo.createOrUpdatePullRequestModel({ ...prModel.item, body, bodyHTML: '  ' });
+			assert.strictEqual(cachedModel, prModel);
+			assert.strictEqual(cachedModel.bodyHTML, '  ');
+
+			// A normal cache update preserves truthy HTML when the Markdown has not changed.
+			const updatedModel = repo.createOrUpdatePullRequestModel({ ...cachedModel.item, body, bodyHTML });
+			assert.strictEqual(updatedModel, cachedModel);
+			assert.strictEqual(updatedModel.bodyHTML, '  ');
+
+			getPreview.restore();
+			const query = sinon.stub(repo, 'query').resolves({
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+				data: { repository: { pullRequest: {
+					...preview, body, bodyHTML,
+					author: null, baseRefName: 'main', headRefName: 'feature',
+					baseRepository: { owner: { login: remote.owner } }, headRepository: null,
+				} } },
+			});
+			await openPanel(updatedModel);
+			sinon.assert.calledWithMatch(query, { query: repo.schema.PullRequestPreview });
+			assert.strictEqual(cachedModel.body, body);
+			assert.strictEqual(cachedModel.bodyHTML, bodyHTML);
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML, bodyHTML);
+		});
+
 		it('initializes with description HTML parsed from a GitHub GraphQL response', async function () {
 			prModel.bodyHTML = undefined;
 			getPreview.restore();
