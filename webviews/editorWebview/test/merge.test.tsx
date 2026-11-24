@@ -259,9 +259,32 @@ describe('Merge section', function () {
 		const summary = view.container.querySelector('#status-checks > .merge-summary.blocked');
 		assert.strictEqual(summary, view.container.querySelector('#status-checks')?.firstElementChild);
 		assert.strictEqual(summary?.querySelector('.merge-summary-title')?.textContent, 'Merging is blocked');
-		assert.strictEqual(summary?.querySelector('.merge-summary-detail')?.textContent, 'Review required · 1 check failed · Branch out of date');
+		assert.strictEqual(summary?.querySelector('.merge-summary-detail')?.textContent, 'Review required · 1 required check failed · Branch out of date');
 		assert.deepStrictEqual(headings(view.container), ['Review required', 'Some checks failed', 'Branch is out of date']);
 		assert.strictEqual(view.container.querySelector('.passing-summary'), null, 'nothing is collapsed while merging is blocked');
+	});
+
+	it('only presents required checks as blocking the merge', function () {
+		const optional = [check('lint', CheckState.Failure, false), check('docs', CheckState.Pending, false)];
+		const blockedByRules = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.NotMergeable)
+			.status(s => s.state(CheckState.Failure).statuses(optional).workflowRunIdsAwaitingApproval([11]))
+			.build();
+
+		const view = renderSection(blockedByRules);
+
+		assert.strictEqual(view.container.querySelector('.merge-summary-detail')?.textContent, 'Branch protection rules not met');
+		assert(headings(view.container).includes('Some checks failed'), 'optional checks are still shown with the checks');
+		view.unmount();
+
+		const waitingOnRequired = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.NotMergeable)
+			.status(s => s.state(CheckState.Failure).statuses([...optional, check('test', CheckState.Pending, true)]).workflowRunIdsAwaitingApproval([11]))
+			.build();
+
+		const other = renderSection(waitingOnRequired);
+
+		assert.strictEqual(other.container.querySelector('.merge-summary-detail')?.textContent, 'Workflows awaiting approval · 1 required check pending');
 	});
 
 	it('collapses the requirements that are met once the pull request is ready, and shows them on request', function () {

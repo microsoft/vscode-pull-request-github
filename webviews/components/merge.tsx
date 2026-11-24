@@ -388,15 +388,17 @@ function getBlockingReasons(pr: PullRequest): string[] {
 	} else if (pr.reviewRequirement?.state === CheckState.Pending) {
 		reasons.push('Changes requested');
 	}
-	if (pr.status?.workflowRunIdsAwaitingApproval?.length) {
+	// Only required checks keep the pull request from being merged. The others are still shown with the checks.
+	const requiredChecks = countChecks((pr.status?.statuses ?? []).filter(status => status.isRequired));
+	// A workflow that is waiting for approval only blocks merging through the required checks that it hasn't reported yet.
+	if (pr.status?.workflowRunIdsAwaitingApproval?.length && requiredChecks.pending) {
 		reasons.push('Workflows awaiting approval');
 	}
-	const checks = countChecks(pr.status?.statuses ?? []);
-	if (checks.failure) {
-		reasons.push(`${pluralize(checks.failure, 'check')} failed`);
+	if (requiredChecks.failure) {
+		reasons.push(`${pluralize(requiredChecks.failure, 'required check')} failed`);
 	}
-	if (checks.pending) {
-		reasons.push(`${pluralize(checks.pending, 'check')} pending`);
+	if (requiredChecks.pending) {
+		reasons.push(`${pluralize(requiredChecks.pending, 'required check')} pending`);
 	}
 	if (pr.mergeable === PullRequestMergeability.Conflict) {
 		reasons.push('Conflicts');
