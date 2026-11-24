@@ -268,12 +268,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 		const refresh = async () => {
 			const item = this._item;
-			if (!item || this.isDisposed || !this._panel.visible) {
+			if (!item || !this.lastRefreshTime || this.isDisposed || !this._panel.visible) {
 				return;
 			}
 			try {
-				// A cached model can predate the panel, so opening the panel is not a freshness boundary.
-				const previousRefreshTime = this.lastRefreshTime ?? new Date(item.item.updatedAt);
+				const previousRefreshTime = this.lastRefreshTime;
 				const lastRefreshTime = await item.getLastUpdateTime(previousRefreshTime);
 				if (this.isDisposed || item !== this._item || !this._panel.visible) {
 					return;
@@ -527,6 +526,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				throw new Error(`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`);
 			}
 			const resolvedIssueModel = issueModel;
+			// Snapshot before initialization yields: other consumers can update the shared model while the panel is hidden.
+			this.lastRefreshTime ??= new Date(resolvedIssueModel.item.updatedAt);
 			if (progressLocation) {
 				return await vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(resolvedIssueModel));
 			} else {

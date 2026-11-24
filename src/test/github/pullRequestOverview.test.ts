@@ -1221,6 +1221,29 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(messages.filter(message => message.command === 'pr.initialize').pop()?.pullrequest?.state, GithubItemStateEnum.Merged);
 		});
 
+		it('refreshes a model updated in place while hidden before the first poll', async function () {
+			sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			let visible = true;
+			sinon.stub(webviewPanel, 'visible').get(() => visible);
+			const mergedAt = new Date(Date.now() - 60_000);
+			sinon.stub(prModel, 'getLastUpdateTime').callsFake(async since =>
+				new Date(Math.max(since.getTime(), mergedAt.getTime())));
+			sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel);
+			await openPanel();
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.state, GithubItemStateEnum.Open);
+
+			visible = false;
+			prModel.update({ ...prModel.item, state: 'MERGED', merged: true, updatedAt: mergedAt.toISOString() });
+			await new Promise(resolve => setImmediate(resolve));
+			assert.strictEqual(messages.filter(message => message.command === 'pr.initialize').pop()?.pullrequest?.state, GithubItemStateEnum.Open);
+
+			visible = true;
+			onDidChangeViewState.fire({ webviewPanel });
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.strictEqual(messages.filter(message => message.command === 'pr.initialize').pop()?.pullrequest?.state, GithubItemStateEnum.Merged);
+		});
+
 		for (const hideDuringPoll of [false, true]) {
 			it(`refreshes a merged PR on reveal when hidden ${hideDuringPoll ? 'during' : 'before'} the update poll`, async function () {
 				const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
