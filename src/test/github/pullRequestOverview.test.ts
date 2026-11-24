@@ -1158,6 +1158,29 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(deferred?.pullrequest?.allowAutoMerge, true);
 		});
 
+		it('does not replace the auto-merge permission from a newer comparison with the one that was loaded with the page', async function () {
+			let releaseReviewRequests!: (value: Awaited<ReturnType<PullRequestModel['getReviewRequests']>>) => void;
+			getReviewRequests.returns(new Promise(resolve => { releaseReviewRequests = resolve; }));
+			getMergeability.resolves({ mergeability: PullRequestMergeability.NotMergeable, allowAutoMerge: false });
+			await openPanel();
+
+			// The base moves while the rest of the page loads, so a newer comparison publishes the branch status.
+			prModel.item.allowAutoMerge = true;
+			const base = prModel.item.base;
+			assert(base);
+			prModel.update({ ...prModel.item, base: { ...base, sha: 'updated-base' } });
+			await new Promise(resolve => setImmediate(resolve));
+			releaseReviewRequests([]);
+			await new Promise(resolve => setImmediate(resolve));
+
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert(deferred?.pullrequest);
+			assert.strictEqual('mergeable' in deferred.pullrequest, false);
+			assert.strictEqual('allowAutoMerge' in deferred.pullrequest, false);
+			const permissions = messages.filter(message => message.pullrequest && 'allowAutoMerge' in message.pullrequest);
+			assert.strictEqual(permissions[permissions.length - 1].pullrequest?.allowAutoMerge, true);
+		});
+
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
 			sinon.stub(vscode.env, 'asExternalUri').callsFake(async uri => uri);
 			sinon.stub(prModel, 'getStack').resolves({
