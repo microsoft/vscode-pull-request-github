@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.182.0
+
+### Changes
+
+- The experimental tabbed pull request overview can now be enabled everywhere with `githubPullRequests.experimental.overviewTabs` set to `true`, or only in the Agents window with `"agents"`. This replaces `githubPullRequests.experimental.agentsOverviewTabs`.
+- The tabbed pull request overview offers actions to prefill chat with a request to address unresolved review comments or fix failed checks.
+
 ## 0.180.0
 
 ### Changes
