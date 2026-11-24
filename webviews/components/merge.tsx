@@ -824,9 +824,18 @@ const CheckDetailsLink = ({ url }: { url: string }) => {
 	</a>;
 };
 
-const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+/** Opens the logs of a failed check run. */
+const ViewCheckLogsButton = ({ status }: { status: PullRequestCheckStatus }) => {
 	const { viewCheckLogs } = useContext(PullRequestContext);
-	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
+	const [isOpening, run] = useBusyAction();
+	return (
+		<button className="icon-button" title={isOpening ? 'Opening Logs...' : 'View Logs'} disabled={isOpening} onClick={() => run(() => viewCheckLogs(status))}>
+			{isOpening ? loadingIcon : outputIcon}
+		</button>
+	);
+};
+
+const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	// Required checks come first, then each group is ordered by state.
 	// Use slice() to avoid mutating the original array
 	const sortedStatuses = statuses.slice().sort((a, b) => {
@@ -835,15 +844,6 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 		}
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
-
-	const handleViewLogs = async (s: PullRequestCheckStatus) => {
-		setLoadingLogId(s.id);
-		try {
-			await viewCheckLogs(s);
-		} finally {
-			setLoadingLogId(null);
-		}
-	};
 
 	return (
 		<div className='status-scroll'>
@@ -863,11 +863,8 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 						) : null}
 						{s.targetUrl ? <CheckDetailsLink url={s.targetUrl} />
 							: <span className="status-check-link-placeholder" aria-hidden="true">Details</span>}
-						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? (
-							<button className="icon-button" title={loadingLogId === s.id ? 'Opening Logs...' : 'View Logs'} disabled={loadingLogId === s.id} onClick={() => handleViewLogs(s)}>
-								{loadingLogId === s.id ? loadingIcon : outputIcon}
-							</button>
-						) : <span className="view-check-logs-placeholder" aria-hidden="true" />}
+						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? <ViewCheckLogsButton status={s} />
+							: <span className="view-check-logs-placeholder" aria-hidden="true" />}
 					</div>
 				</div>
 			))}

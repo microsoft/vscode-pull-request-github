@@ -15,7 +15,7 @@ import { PullRequestBuilder } from './builder/pullRequest';
 import { IComment } from '../../../src/common/comment';
 import { COPILOT_REVIEWER, COPILOT_REVIEWER_ID } from '../../../src/common/copilot';
 import { EventType, ReviewEvent, ReviewStateValue, TimelineEvent } from '../../../src/common/timelineEvent';
-import { AccountType, CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
+import { AccountType, CheckState, GithubItemStateEnum, MergeQueueEntry, MergeQueueState, PullRequestCheckStatus, PullRequestMergeability, PullRequestStack } from '../../../src/github/interface';
 import { DeleteCommentReply, PullRequest, SubmitReviewReply } from '../../../src/github/views';
 import { Root as ActivityBarRoot } from '../../activityBarView/app';
 import { Overview as ActivityBarOverview } from '../../activityBarView/overview';
@@ -2070,6 +2070,74 @@ describe('Overview', function () {
 
 			finish();
 			await wait(() => assert.strictEqual((out.getByText('Refresh') as HTMLButtonElement).disabled, false));
+		});
+
+		it('keeps saying what a review submitted from the context menu submits while the pull request is refreshed', async function () {
+			const pr = new PullRequestBuilder().isAuthor(false).build();
+			let finishRefresh!: () => void;
+			const { context, out } = renderEditor(pr, context => {
+				sinon.stub(context, 'postMessage').returns(new Promise<void>(resolve => { finishRefresh = resolve; }));
+			});
+			const submit = () => out.container.querySelector<HTMLButtonElement>('#comment-form .split-left')!;
+			act(() => {
+				context.handleMessage({ command: 'pr.submitting-review', lastReviewType: 'approve' });
+			});
+
+			fireEvent.click(out.getByText('Refresh'));
+			// The extension reloads the pull request before it replies.
+			act(() => {
+				context.handleMessage({ command: 'pr.initialize', pullrequest: { ...pr } });
+			});
+			finishRefresh();
+			await wait(() => assert.strictEqual((out.getByText('Refresh') as HTMLButtonElement).disabled, false));
+			assert.strictEqual(submit().textContent, 'Approving...');
+			assert.strictEqual(submit().disabled, true);
+
+			act(() => {
+				context.handleMessage({ command: 'pr.append-review' });
+			});
+			assert.strictEqual(submit().textContent, 'Approve');
+			assert.strictEqual(submit().disabled, false);
+		});
+
+		it('only shows a pull request in the merge queue when the reply is for it', async function () {
+			const pullRequest = (number: number, pendingCommentText: string) => new PullRequestBuilder()
+				.number(number)
+				.url(`https://github.com/owner/name/pull/${number}`)
+				.mergeQueueMethod('merge')
+				.pendingCommentText(pendingCommentText)
+				.build();
+			const first = pullRequest(1, 'First draft');
+			const second = pullRequest(2, 'Second draft');
+			const entry: MergeQueueEntry = { position: 1, state: MergeQueueState.Queued, url: 'https://github.com/owner/name/queue/main' };
+			const enqueued: ((reply: Pick<PullRequest, 'mergeQueueEntry'>) => void)[] = [];
+			const context = new PRContext(first);
+			context.setPR(first);
+			sinon.stub(context, 'postMessage').callsFake(message => message.command === 'pr.enqueue'
+				? new Promise(resolve => enqueued.push(resolve))
+				: Promise.resolve());
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<ActivityBarRoot>{(current: PullRequest) => <ActivityBarOverview {...current} />}</ActivityBarRoot>
+				</PullRequestContext.Provider>,
+			);
+			const draft = () => out.container.querySelector('textarea')!.value;
+
+			// The active pull request changes before the first one is added to the merge queue.
+			fireEvent.click(out.getByText('Add to Merge Queue'));
+			act(() => {
+				context.handleMessage({ command: 'pr.initialize', pullrequest: second });
+			});
+			enqueued[0]({ mergeQueueEntry: entry });
+			await wait(() => assert.strictEqual(out.queryByText('Adding to Merge Queue...'), null));
+			assert.strictEqual(context.pr?.number, 2);
+			assert.strictEqual(draft(), 'Second draft');
+			assert(out.getByText('Add to Merge Queue'));
+
+			fireEvent.click(out.getByText('Add to Merge Queue'));
+			enqueued[1]({ mergeQueueEntry: entry });
+			await wait(() => assert(out.getByText('Remove from Queue')));
+			assert.strictEqual(draft(), 'Second draft');
 		});
 	});
 

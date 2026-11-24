@@ -379,6 +379,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				mergeMethodsAvailability,
 				defaultMergeMethod,
 				mergeQueueMethod,
+				mergeQueueEntry: pullRequest.mergeQueueEntry,
 				stack: pullRequest.item.stack,
 				stackLoaded: false,
 				stackLoadError: false,

@@ -64,6 +64,10 @@ class TestPullRequestViewProvider extends PullRequestViewProvider {
 	public override _replyMessage(message: IRequestMessage<unknown>, response: unknown): Promise<void> {
 		return super._replyMessage(message, response);
 	}
+
+	public override _throwError(message: IRequestMessage<unknown> | undefined, error: string): Promise<void> {
+		return super._throwError(message, error);
+	}
 }
 
 describe('Active pull request stack changes', function () {
@@ -78,6 +82,7 @@ describe('Active pull request stack changes', function () {
 	let model: PullRequestModel;
 	let stackQuery: SinonStub<[], Promise<PullRequestStack | undefined>>;
 	let queueMethod: SinonStub;
+	let showErrorMessage: SinonStub;
 	const stack: PullRequestStack = {
 		position: 2, size: 3, base: 'main',
 		pullRequests: [999, 1000, 1001].map((number, index) => ({
@@ -118,7 +123,7 @@ describe('Active pull request stack changes', function () {
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
-		sinon.stub(vscode.window, 'showErrorMessage').callsFake(message => {
+		showErrorMessage = sinon.stub(vscode.window, 'showErrorMessage').callsFake(message => {
 			assert.fail(message);
 		});
 		context = new MockExtensionContext();
@@ -412,8 +417,19 @@ describe('Active pull request stack changes', function () {
 	});
 
 	describe('Merge queue', function () {
+		const entry: MergeQueueEntry = { position: 2, state: MergeQueueState.Queued, url: 'https://github.com/aaa/bbb/queue/main' };
+
+		it('shows that the pull request is in the merge queue when it is loaded', async function () {
+			model.update({ ...model.item, mergeQueueEntry: entry });
+
+			await provider.updatePullRequest(model);
+			await settleUpdates();
+
+			const initialize = provider.messages.find(message => message.command === 'pr.initialize');
+			assert.deepStrictEqual(initialize?.pullrequest?.mergeQueueEntry, entry);
+		});
+
 		it('adds the pull request to the merge queue when asked by the webview', async function () {
-			const entry: MergeQueueEntry = { position: 2, state: MergeQueueState.Queued, url: 'https://github.com/aaa/bbb/queue/main' };
 			const enqueue = sinon.stub(model, 'enqueuePullRequest').resolves(entry);
 			const reply = sinon.stub(provider, '_replyMessage').resolves();
 			const message = { req: 'enqueue', command: 'pr.enqueue', args: undefined };
@@ -434,6 +450,29 @@ describe('Active pull request stack changes', function () {
 			sinon.assert.calledOnce(dequeue);
 			assert(reply.calledOnceWithExactly(message, true));
 		});
+
+		// The webview keeps the button disabled until the request is answered.
+		const failures: { command: string; arrange: (error: Error) => void }[] = [
+			{ command: 'pr.enqueue', arrange: error => sinon.stub(model, 'enqueuePullRequest').rejects(error) },
+			{ command: 'pr.dequeue', arrange: error => sinon.stub(model, 'dequeuePullRequest').rejects(error) },
+		];
+
+		for (const failure of failures) {
+			it(`replies to ${failure.command} with an error when the merge queue cannot be changed`, async function () {
+				failure.arrange(new Error('Not signed in'));
+				showErrorMessage.callsFake(async () => undefined);
+				const reply = sinon.stub(provider, '_replyMessage').resolves();
+				const throwError = sinon.stub(provider, '_throwError').resolves();
+				const message = { req: 'queue', command: failure.command, args: undefined };
+
+				await provider._onDidReceiveMessage(message);
+
+				sinon.assert.notCalled(reply);
+				sinon.assert.calledOnce(throwError);
+				assert.strictEqual(throwError.firstCall.args[0], message);
+				sinon.assert.calledOnce(showErrorMessage);
+			});
+		}
 	});
 
 	it('opens check details in the browser when asked by the webview', async function () {

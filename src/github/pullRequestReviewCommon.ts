@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { addAttestationCommit } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, MergeQueueEntry, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { ConvertToDraftReply, MergeStackArgs, OpenCheckDetailsArgs, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
@@ -223,7 +223,13 @@ export namespace PullRequestReviewCommon {
 	}
 
 	export async function enqueue(ctx: ReviewContext, message: IRequestMessage<void>): Promise<void> {
-		const result = await ctx.item.enqueuePullRequest();
+		let result: MergeQueueEntry | undefined;
+		try {
+			result = await ctx.item.enqueuePullRequest();
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Adding the pull request to the merge queue failed. {0}', formatError(e)));
+			return ctx.throwError(message, formatError(e));
+		}
 
 		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
 		if (deleteBranchAfterMerge && result) {
@@ -240,8 +246,14 @@ export namespace PullRequestReviewCommon {
 	}
 
 	export async function dequeue(ctx: ReviewContext, message: IRequestMessage<void>): Promise<void> {
-		const result = await ctx.item.dequeuePullRequest();
-		ctx.replyMessage(message, result);
+		let isDequeued: boolean;
+		try {
+			isDequeued = await ctx.item.dequeuePullRequest();
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Removing the pull request from the merge queue failed. {0}', formatError(e)));
+			return ctx.throwError(message, formatError(e));
+		}
+		ctx.replyMessage(message, isDequeued);
 	}
 
 	/**

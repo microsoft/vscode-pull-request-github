@@ -12,7 +12,7 @@ import { CloseResult, DescriptionResult, OpenCommitChangesArgs, OpenLocalFileArg
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, PullRequestCheckStatus, PullRequestMergeabilityResult, ReadyForReview, StackAutoMerge } from '../../src/github/interface';
-import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteCommentReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OpenCheckDetailsArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackAutoMergeArgs, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
+import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeAssigneesReply, ChangeBaseReply, ConvertToDraftReply, CreateRecommendedStackArgs, DeleteCommentReply, DeleteReviewResult, FileUploadCompletedMessage, MergeArguments, MergeResult, MergeStackArgs, OpenCheckDetailsArgs, OverviewItemPreview, ProjectItemsReply, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewArgs, SubmitReviewReply, UnstackAllResult, UpdateStackAutoMergeArgs, UpdateStackResult, UploadFilesReply } from '../../src/github/views';
 
 /**
  * Encode a {@linkcode Uint8Array} as a base64 string. Uses fixed-size chunks to
@@ -32,9 +32,20 @@ function bytesToBase64(bytes: Uint8Array): string {
 // Keep in sync with MAX_UPLOAD_SIZE_BYTES on the extension host.
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
 
+const REVIEW_COMMANDS: Record<ReviewType, string> = {
+	[ReviewType.Comment]: 'pr.submit',
+	[ReviewType.Approve]: 'pr.approve',
+	[ReviewType.RequestChanges]: 'pr.request-changes',
+};
+
 export class PRContext {
 	public preview: OverviewItemPreview | undefined;
 	public onPreviewChange: ((preview: OverviewItemPreview | undefined) => void) | null = null;
+	/**
+	 * A review that the extension is submitting for a menu command, until `pr.append-review` says it is done. Reloading
+	 * the pull request replaces its state, which would otherwise stop showing the review in progress.
+	 */
+	private _submittingReview: { url: string; type: ReviewType } | undefined;
 
 	constructor(
 		public pr: PullRequest | undefined = getState(),
@@ -78,17 +89,8 @@ export class PRContext {
 
 	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
 
-	public refresh = async () =>{
-		if (this.pr) {
-			this.pr.busy = true;
-		}
-		this.updatePR(this.pr);
-		await this.postMessage({ command: 'pr.refresh' });
-		if (this.pr) {
-			this.pr.busy = false;
-		}
-		this.updatePR(this.pr);
-	};
+	/** The Refresh button shows the progress, so that refreshing doesn't end the progress of other actions. */
+	public refresh = () => this.postMessage({ command: 'pr.refresh' });
 
 	public checkMergeability = (): Promise<PullRequestMergeabilityResult> =>
 		this.postMessage({ command: 'pr.checkMergeability' });
@@ -218,23 +220,14 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	private async submitReviewCommand(command: string, args: SubmitReviewArgs) {
+	public submitReview = async (type: ReviewType, body: string, addAttestation: boolean = false): Promise<void> => {
 		try {
-			const result: SubmitReviewReply = await this.postMessage({ command, args });
-			return this.appendReview(result);
+			const result: SubmitReviewReply = await this.postMessage({ command: REVIEW_COMMANDS[type], args: { body, addAttestation } satisfies SubmitReviewArgs });
+			this.appendReview(result);
 		} catch (error) {
-			return this.updatePR({ busy: false });
+			this.updatePR({ busy: false });
 		}
-	}
-
-	public requestChanges = (body: string, addAttestation: boolean = false) =>
-		this.submitReviewCommand('pr.request-changes', { body, addAttestation });
-
-	public approve = (body: string, addAttestation: boolean = false) =>
-		this.submitReviewCommand('pr.approve', { body, addAttestation });
-
-	public submit = (body: string, addAttestation: boolean = false) =>
-		this.submitReviewCommand('pr.submit', { body, addAttestation });
+	};
 
 	private _uploadCompletionHandlers: Map<string, (message: FileUploadCompletedMessage) => void> = new Map();
 
@@ -503,28 +496,31 @@ export class PRContext {
 	};
 
 	public dequeue = async () => {
-		const { pr: state } = this;
-		if (!state) {
+		const { pr } = this;
+		if (!pr) {
 			throw new Error('Unexpectedly no pull request when trying to dequeue');
 		}
-		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
-		if (isDequeued) {
-			state.mergeQueueEntry = undefined;
+		const isDequeued: boolean = await this.postMessage({ command: 'pr.dequeue' });
+		if (isDequeued && this.isStillShown(pr)) {
+			this.updatePR({ mergeQueueEntry: undefined });
 		}
-		this.updatePR(state);
 	};
 
 	public enqueue = async () => {
-		const { pr: state } = this;
-		if (!state) {
+		const { pr } = this;
+		if (!pr) {
 			throw new Error('Unexpectedly no pull request when trying to enqueue');
 		}
-		const result = await this.postMessage({ command: 'pr.enqueue' });
-		if (result.mergeQueueEntry) {
-			state.mergeQueueEntry = result.mergeQueueEntry;
+		const { mergeQueueEntry }: Pick<PullRequest, 'mergeQueueEntry'> = await this.postMessage({ command: 'pr.enqueue' });
+		if (mergeQueueEntry && this.isStillShown(pr)) {
+			this.updatePR({ mergeQueueEntry });
 		}
-		this.updatePR(state);
 	};
+
+	/** Whether a reply to a request made for `pr` can still be shown, since the active pull request view can change in the meantime. */
+	private isStillShown(pr: PullRequest): boolean {
+		return this.pr?.url === pr.url;
+	}
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
@@ -614,7 +610,7 @@ export class PRContext {
 				this.setPR(undefined);
 				return;
 			case 'pr.initialize':
-				return this.setPR(message.pullrequest);
+				return this.setPR(this.keepSubmittingReview(message.pullrequest));
 			case 'pr.update':
 				return this.updatePR(message.pullrequest);
 			case 'update-state':
@@ -648,8 +644,10 @@ export class PRContext {
 				}
 				return;
 			case 'pr.submitting-review':
+				this._submittingReview = this.pr && { url: this.pr.url, type: message.lastReviewType };
 				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType, pendingReviewType: message.lastReviewType });
 			case 'pr.append-review':
+				this._submittingReview = undefined;
 				return this.appendReview(message);
 			case 'pr.readying-for-review':
 				return this.updatePR({ busy: true });
@@ -659,6 +657,15 @@ export class PRContext {
 				return this.completeFileUpload(message);
 		}
 	};
+
+	/** Reloading a pull request doesn't end a review of it that the extension is still submitting. */
+	private keepSubmittingReview(pr: PullRequest): PullRequest {
+		const review = this._submittingReview;
+		if (!review || review.url !== pr.url) {
+			return pr;
+		}
+		return { ...pr, busy: true, lastReviewType: review.type, pendingReviewType: review.type };
+	}
 
 	public static instance = new PRContext();
 }

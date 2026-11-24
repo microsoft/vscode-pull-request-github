@@ -511,7 +511,7 @@ export function AddComment({
 	pendingAttestation,
 	pendingReviewType,
 }: PullRequest) {
-	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const { updatePR, submitReview, close, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [pending, run] = usePendingAction<ReviewType | 'close'>();
 	const isBusy = !!pending;
 	const addAttestation = !!pendingAttestation;
@@ -539,18 +539,8 @@ export function AddComment({
 			await openOnGitHub();
 			return;
 		}
-		await run(action, async () => {
-			switch (action) {
-				case ReviewType.RequestChanges:
-					await requestChanges(value);
-					break;
-				case ReviewType.Approve:
-					await approve(value, addAttestation);
-					break;
-				default:
-					await submit(value);
-			}
-		});
+		// The attestation checkbox of the comment form is only for approvals.
+		await run(action, () => submitReview(action, value, action === ReviewType.Approve && addAttestation));
 	}
 
 	const onKeyDown = e => {
@@ -745,7 +735,7 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const { updatePR, submitReview, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
 	const [pending, run] = usePendingAction<ReviewType>();
 	const isBusy = !!pending;
 	const addAttestation = !!pr.pendingAttestation;
@@ -758,18 +748,8 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			await openOnGitHub();
 			return;
 		}
-		await run(action, async () => {
-			switch (action) {
-				case ReviewType.RequestChanges:
-					await requestChanges(value);
-					break;
-				case ReviewType.Approve:
-					await approve(value, addAttestation);
-					break;
-				default:
-					await submit(value);
-			}
-		});
+		// The attestation checkbox of the comment form is only for approvals.
+		await run(action, () => submitReview(action, value, action === ReviewType.Approve && addAttestation));
 	}
 
 	async function defaultSubmitAction(): Promise<void> {

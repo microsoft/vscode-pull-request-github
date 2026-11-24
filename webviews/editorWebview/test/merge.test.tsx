@@ -112,8 +112,15 @@ describe('Merge dropdown', function () {
 });
 
 describe('Status checks', function () {
+	let sinon: SinonSandbox;
+
+	beforeEach(function () {
+		sinon = createSandbox();
+	});
+
 	afterEach(function () {
 		cleanup();
+		sinon.restore();
 	});
 
 	function check(context: string, state: CheckState, isRequired: boolean): PullRequestCheckStatus {
@@ -162,5 +169,29 @@ describe('Status checks', function () {
 			'optional-pending',
 			'optional-success',
 		]);
+	});
+
+	it('shows the logs of each failed check opening until they are open', async function () {
+		const failed = (context: string, databaseId: number) => ({ ...check(context, CheckState.Failure, false), isCheckRun: true, databaseId });
+		const pr = new PullRequestBuilder()
+			.status(s => s.state(CheckState.Failure).statuses([failed('first', 1), failed('second', 2)]))
+			.build();
+		const context = new PRContext(pr);
+		const opened = new Map<string, () => void>();
+		sinon.stub(context, 'viewCheckLogs').callsFake(status => new Promise<void>(resolve => opened.set(status.context, resolve)));
+		const view = render(
+			<PullRequestContext.Provider value={context}>
+				<StatusChecksSection pr={pr} isSimple={false} />
+			</PullRequestContext.Provider>,
+		);
+		const [first, second] = view.getAllByTitle('View Logs') as HTMLButtonElement[];
+
+		fireEvent.click(first);
+		fireEvent.click(second);
+		assert.deepStrictEqual([first.title, first.disabled, second.title, second.disabled], ['Opening Logs...', true, 'Opening Logs...', true]);
+
+		opened.get('first')!();
+		await wait(() => assert.strictEqual(first.disabled, false));
+		assert.deepStrictEqual([first.title, second.title, second.disabled], ['View Logs', 'Opening Logs...', true]);
 	});
 });

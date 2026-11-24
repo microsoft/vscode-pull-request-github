@@ -421,7 +421,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit, deleteReview, updatePR, pr } = useContext(PullRequestContext);
+	const { submitReview, deleteReview, updatePR, pr } = useContext(PullRequestContext);
 	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
 	const [pending, run] = usePendingAction<ReviewType | 'cancel'>();
@@ -435,19 +435,8 @@ function AddReviewSummaryComment() {
 
 	function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
-		const value = commentText;
-		return run(action, async () => {
-			switch (action) {
-				case ReviewType.RequestChanges:
-					await requestChanges(value, addAttestation);
-					break;
-				case ReviewType.Approve:
-					await approve(value, addAttestation);
-					break;
-				default:
-					await submit(value, addAttestation);
-			}
-		});
+		// The attestation checkbox of the review summary is for any review.
+		return run(action, () => submitReview(action, commentText, addAttestation));
 	}
 
 	function cancelReview(event: React.MouseEvent): Promise<unknown> {
