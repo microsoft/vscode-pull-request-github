@@ -1111,12 +1111,20 @@ export async function processPermalinks(
 				const hrefMatch = attributes.match(/href="([^"]+)"/);
 				const originalUrl = hrefMatch ? hrefMatch[1] : '';
 
+				// The path in the URL is percent-encoded (e.g. spaces as %20)
+				let localFilePath = filePath;
+				try {
+					localFilePath = decodeURIComponent(filePath);
+				} catch {
+					// Not valid percent-encoding, use the path as written
+				}
+
 				// Check if file exists locally
-				const exists = await fileExistsCheck(filePath);
+				const exists = await fileExistsCheck(localFilePath);
 				if (exists) {
 					// File exists - add data attributes for local handling and "(view on GitHub)" suffix
 					const endLineValue = endLine || startLine;
-					const escapedFilePath = escapeHtmlAttr(filePath);
+					const escapedFilePath = escapeHtmlAttr(localFilePath);
 					return `<a data-permalink-processed="true" ${attributes} data-local-file="${escapedFilePath}" data-start-line="${startLine}" data-end-line="${endLineValue}" data-link-type="blob">${linkText}</a> (<a data-permalink-processed="true" href="${originalUrl}">view on GitHub</a>)`;
 				}
 			} catch (error) {

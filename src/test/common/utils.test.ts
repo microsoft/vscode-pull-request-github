@@ -149,6 +149,35 @@ describe('utils', () => {
 			assert(result.includes('data-local-file="src/file&amp;name-test.ts"'));
 			assert(!result.includes('data-local-file="src/file&name-test.ts"'));
 		});
+
+		it('should decode percent-encoded file paths', async () => {
+			const html = makePermalink('src/my%20file.ts', 10) + makePermalink('app/%5Bslug%5D/page.tsx', 3);
+			const checkedPaths: string[] = [];
+			const result = await utils.processPermalinks(html, repoName, authority, async (path) => {
+				checkedPaths.push(path);
+				return true;
+			});
+
+			assert.deepStrictEqual(checkedPaths, ['src/my file.ts', 'app/[slug]/page.tsx']);
+			assert(result.includes('data-local-file="src/my file.ts"'));
+			assert(result.includes('data-local-file="app/[slug]/page.tsx"'));
+			assert(result.includes('data-start-line="10"'));
+			assert(result.includes(`href="https://github.com/microsoft/vscode/blob/${sha}/src/my%20file.ts#L10"`));
+		});
+
+		it('should escape HTML special characters in decoded file paths', async () => {
+			const html = makePermalink('src/a%22b.ts', 10);
+			const result = await utils.processPermalinks(html, repoName, authority, async () => true);
+
+			assert(result.includes('data-local-file="src/a&quot;b.ts"'));
+		});
+
+		it('should use the raw file path when it is not valid percent-encoding', async () => {
+			const html = makePermalink('src/100%.md', 10);
+			const result = await utils.processPermalinks(html, repoName, authority, async (path) => path === 'src/100%.md');
+
+			assert(result.includes('data-local-file="src/100%.md"'));
+		});
 	});
 
 	describe('processDiffLinks', () => {
