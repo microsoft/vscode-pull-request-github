@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { existsSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { downloadAndUnzipVSCode, runTests } from '@vscode/test-electron';
 
@@ -23,6 +24,9 @@ async function downloadVSCodeInsiders(): Promise<string> {
 }
 
 async function go() {
+	// VS Code creates its IPC socket in the user data dir, and Unix socket paths are limited to ~103 chars on macOS.
+	// The default (.vscode-test/user-data in the repo) is too long for deep checkouts, so use a short temp dir.
+	const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'vscode-test-'));
 	try {
 		const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
 		const extensionTestsPath = path.resolve(__dirname, './');
@@ -36,11 +40,13 @@ async function go() {
 			vscodeExecutablePath,
 			extensionDevelopmentPath,
 			extensionTestsPath,
-			launchArgs: ['--disable-extensions'],
+			launchArgs: ['--disable-extensions', `--user-data-dir=${userDataDir}`],
 		});
 	} catch (e) {
 		console.log(e);
-		process.exit(1);
+		process.exitCode = 1;
+	} finally {
+		rmSync(userDataDir, { recursive: true, force: true });
 	}
 }
 
