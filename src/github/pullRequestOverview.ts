@@ -770,7 +770,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					return;
 				}
 				this._existingReviewers = reviewers;
-				// A base or head change during loading starts a newer comparison, which publishes the branch status itself.
+				// A base or head change during loading starts a newer comparison, which publishes the branch status itself,
+				// with the mergeability and the auto-merge permission that depends on it.
 				const isBranchStatusCurrent = branchStatusSequence === this._branchStatusSequence;
 				if (isBranchStatusCurrent) {
 					this._isBranchUpToDateWithBase = isBranchUpToDateWithBase;
@@ -784,9 +785,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						...(isBranchStatusCurrent ? {
 							canUpdateBranch: this.getCanUpdateBranch(isBranchUpToDateWithBase),
 							mergeable: mergeability.mergeability,
+							// The pull request can be older than its merge state, which decides whether auto-merge can be enabled.
+							...(mergeability.allowAutoMerge === undefined ? {} : { allowAutoMerge: mergeability.allowAutoMerge }),
 						} : {}),
-						// The pull request can be older than its merge state, which decides whether auto-merge can be enabled.
-						...(mergeability.allowAutoMerge === undefined ? {} : { allowAutoMerge: mergeability.allowAutoMerge }),
 						reviewers,
 						hasReviewDraft,
 						...(this._stackLoaded ? {} : { mergeQueueMethod }),
