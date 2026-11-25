@@ -239,7 +239,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}));
 
 		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
-		this.lastRefreshTime = new Date();
 		this.pollForUpdates(true);
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`)) {
@@ -261,7 +260,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private timeout: NodeJS.Timeout | undefined = undefined;
-	private lastRefreshTime: Date;
+	private lastRefreshTime: Date | undefined;
 	private pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
 		clearTimeout(this.timeout);
 		if (this.isDisposed) {
@@ -269,19 +268,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 		const refresh = async () => {
 			const item = this._item;
-			if (!item || this.isDisposed) {
+			if (!item || !this.lastRefreshTime || this.isDisposed || !this._panel.visible) {
 				return;
 			}
 			try {
 				const previousRefreshTime = this.lastRefreshTime;
 				const lastRefreshTime = await item.getLastUpdateTime(previousRefreshTime);
-				if (this.isDisposed || item !== this._item) {
+				if (this.isDisposed || item !== this._item || !this._panel.visible) {
 					return;
 				}
-				this.lastRefreshTime = lastRefreshTime;
 				if (lastRefreshTime.getTime() > previousRefreshTime.getTime()) {
 					await this.refreshPanel();
 				}
+				this.lastRefreshTime = lastRefreshTime;
 			} catch (error) {
 				Logger.error(`Failed to poll overview updates: ${formatError(error)}`, IssueOverviewPanel.ID);
 			}
@@ -527,6 +526,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				throw new Error(`Failed to resolve ${this.getItemTypeName()} #${identity.number} in ${identity.owner}/${identity.repo}`);
 			}
 			const resolvedIssueModel = issueModel;
+			// Snapshot before initialization yields: other consumers can update the shared model while the panel is hidden.
+			this.lastRefreshTime ??= new Date(resolvedIssueModel.item.updatedAt);
 			if (progressLocation) {
 				return await vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(resolvedIssueModel));
 			} else {
