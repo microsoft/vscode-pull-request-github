@@ -76,6 +76,8 @@ export enum PullRequestMergeability {
 export interface PullRequestMergeabilityResult {
 	mergeability: PullRequestMergeability;
 	conflicts?: string[];
+	/** Whether the viewer can enable or disable auto-merge, which changes with the merge state. */
+	allowAutoMerge?: boolean;
 }
 
 export function getUpdatableStackEntries(stack: PullRequestStack): PullRequestStack['pullRequests'] | undefined {

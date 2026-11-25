@@ -5,14 +5,36 @@
 
 import { default as assert } from 'assert';
 import * as React from 'react';
-import { cleanup, fireEvent, render, wait } from 'react-testing-library';
+import { act, cleanup, fireEvent, render, wait } from 'react-testing-library';
 import { createSandbox, SinonFakeTimers, SinonSandbox } from 'sinon';
 
 import { PullRequestBuilder } from './builder/pullRequest';
 import { CheckState, GithubItemStateEnum, PullRequestCheckStatus, PullRequestMergeability } from '../../../src/github/interface';
-import { MergeResult } from '../../../src/github/views';
+import { MergeResult, PullRequest } from '../../../src/github/views';
 import { PRContext, default as PullRequestContext } from '../../common/context';
-import { Merge, MergeSimple, MergeStatusAndActions, StatusChecksSection } from '../../components/merge';
+import { Merge, MergeSimple, StatusChecksSection } from '../../components/merge';
+import { Root as EditorRoot } from '../app';
+
+function headings(container: HTMLElement): string[] {
+	return Array.from(container.querySelectorAll('.status-heading')).map(heading => heading.textContent ?? '');
+}
+
+function check(context: string, state: CheckState, isRequired: boolean): PullRequestCheckStatus {
+	return {
+		id: context,
+		databaseId: undefined,
+		url: undefined,
+		avatarUrl: undefined,
+		state,
+		description: null,
+		targetUrl: null,
+		context,
+		workflowName: undefined,
+		event: undefined,
+		isRequired,
+		isCheckRun: false,
+	};
+}
 
 describe('Merge status and actions', function () {
 	let sinon: SinonSandbox;
@@ -40,20 +62,45 @@ describe('Merge status and actions', function () {
 
 		const view = render(
 			<PullRequestContext.Provider value={context}>
-				<MergeStatusAndActions pr={pr} isSimple={true} />
+				<StatusChecksSection pr={pr} isSimple={true} />
 			</PullRequestContext.Provider>,
 		);
 
-		assert(view.queryByText('Checking if this branch can be merged...'));
+		assert.deepStrictEqual(headings(view.container), ['Checking for conflicts...']);
 
 		await clock.tickAsync(3000);
 
-		assert(view.queryByText('This branch has no conflicts with the base branch.'));
+		assert.deepStrictEqual(headings(view.container), ['No conflicts with main']);
 		assert.strictEqual(checkMergeability.calledOnce, true);
 
 		await clock.tickAsync(3000);
 
 		assert.strictEqual(checkMergeability.calledOnce, true);
+	});
+
+	it('offers auto-merge once polling finds that it can be enabled', async function () {
+		const pr = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.Unknown)
+			.allowAutoMerge(false)
+			.build();
+		const context = new PRContext(pr);
+		context.setPR(pr);
+		sinon.stub(context, 'checkMergeability').resolves({
+			mergeability: PullRequestMergeability.NotMergeable,
+			allowAutoMerge: true,
+		});
+
+		const view = render(
+			<PullRequestContext.Provider value={context}>
+				<EditorRoot>{(current: PullRequest) => <StatusChecksSection pr={current} isSimple={false} />}</EditorRoot>
+			</PullRequestContext.Provider>,
+		);
+
+		assert.strictEqual(view.queryByLabelText('Merge automatically when requirements are met'), null);
+
+		await clock.tickAsync(3000);
+
+		assert(view.getByLabelText('Merge automatically when requirements are met'));
 	});
 
 	it('defaults the merge commit title to the head branch with its owner and repository', function () {
@@ -123,22 +170,6 @@ describe('Status checks', function () {
 		sinon.restore();
 	});
 
-	function check(context: string, state: CheckState, isRequired: boolean): PullRequestCheckStatus {
-		return {
-			id: context,
-			databaseId: undefined,
-			url: undefined,
-			avatarUrl: undefined,
-			state,
-			description: null,
-			targetUrl: null,
-			context,
-			workflowName: undefined,
-			event: undefined,
-			isRequired,
-			isCheckRun: false,
-		};
-	}
 
 	it('lists required checks first, each group ordered by state', function () {
 		const pr = new PullRequestBuilder()
@@ -193,5 +224,143 @@ describe('Status checks', function () {
 		opened.get('first')!();
 		await wait(() => assert.strictEqual(first.disabled, false));
 		assert.deepStrictEqual([first.title, second.title, second.disabled], ['View Logs', 'Opening Logs...', true]);
+	});
+});
+
+describe('Merge section', function () {
+	let sinon: SinonSandbox;
+
+	beforeEach(function () {
+		sinon = createSandbox();
+	});
+
+	afterEach(function () {
+		cleanup();
+		sinon.restore();
+	});
+
+	function renderSection(pr: PullRequest, context = new PRContext(pr)) {
+		return render(
+			<PullRequestContext.Provider value={context}>
+				<StatusChecksSection pr={pr} isSimple={false} />
+			</PullRequestContext.Provider>,
+		);
+	}
+
+	it('summarizes why merging is blocked before the requirements', function () {
+		const pr = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.Behind)
+			.reviewRequirement({ count: 1, state: CheckState.Failure, approvals: [], requestedChanges: [] })
+			.status(s => s.state(CheckState.Failure).statuses([check('build', CheckState.Failure, true), check('lint', CheckState.Success, false)]))
+			.build();
+
+		const view = renderSection(pr);
+
+		const summary = view.container.querySelector('#status-checks > .merge-summary.blocked');
+		assert.strictEqual(summary, view.container.querySelector('#status-checks')?.firstElementChild);
+		assert.strictEqual(summary?.querySelector('.merge-summary-title')?.textContent, 'Merging is blocked');
+		assert.strictEqual(summary?.querySelector('.merge-summary-detail')?.textContent, 'Review required · 1 required check failed · Branch out of date');
+		assert.deepStrictEqual(headings(view.container), ['Review required', 'Some checks failed', 'Branch is out of date']);
+		assert.strictEqual(view.container.querySelector('.passing-summary'), null, 'nothing is collapsed while merging is blocked');
+	});
+
+	it('only presents required checks as blocking the merge', function () {
+		const optional = [check('lint', CheckState.Failure, false), check('docs', CheckState.Pending, false)];
+		const blockedByRules = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.NotMergeable)
+			.status(s => s.state(CheckState.Failure).statuses(optional).workflowRunIdsAwaitingApproval([11]))
+			.build();
+
+		const view = renderSection(blockedByRules);
+
+		assert.strictEqual(view.container.querySelector('.merge-summary-detail')?.textContent, 'Branch protection rules not met');
+		assert(headings(view.container).includes('Some checks failed'), 'optional checks are still shown with the checks');
+		view.unmount();
+
+		const waitingOnRequired = new PullRequestBuilder()
+			.mergeable(PullRequestMergeability.NotMergeable)
+			.status(s => s.state(CheckState.Failure).statuses([...optional, check('test', CheckState.Pending, true)]).workflowRunIdsAwaitingApproval([11]))
+			.build();
+
+		const other = renderSection(waitingOnRequired);
+
+		assert.strictEqual(other.container.querySelector('.merge-summary-detail')?.textContent, 'Workflows awaiting approval · 1 required check pending');
+	});
+
+	it('collapses the requirements that are met once the pull request is ready, and shows them on request', function () {
+		const pr = new PullRequestBuilder()
+			.reviewRequirement({ count: 1, state: CheckState.Success, approvals: ['reviewer'], requestedChanges: [] })
+			.status(s => s.state(CheckState.Success).statuses([check('build', CheckState.Success, true), check('docs', CheckState.Neutral, false)]))
+			.build();
+
+		const view = renderSection(pr);
+
+		assert.strictEqual(view.container.querySelector('.merge-summary-title')?.textContent, 'Ready to merge');
+		assert.deepStrictEqual(Array.from(view.container.querySelectorAll('.passing-label')).map(label => label.textContent),
+			['Approved', '1 check passed, 1 skipped', 'No conflicts with main']);
+		const content = view.container.querySelector('#passing-requirements-content')!;
+		assert.strictEqual(content.hasAttribute('hidden'), true);
+		assert.deepStrictEqual(headings(content as HTMLElement), ['Approved', 'All checks passed', 'No conflicts with main']);
+		assert.strictEqual(view.container.querySelectorAll('.status-heading').length, 3, 'each requirement is shown once');
+
+		fireEvent.click(view.getByText('Approved', { selector: '.passing-label' }));
+
+		assert.strictEqual(content.hasAttribute('hidden'), false);
+		assert.strictEqual(view.getByLabelText('Hide requirements that are met').getAttribute('aria-expanded'), 'true');
+	});
+
+	it('shows the check counts only while the list of checks is hidden', function () {
+		const pr = new PullRequestBuilder()
+			.status(s => s.state(CheckState.Failure).statuses([check('build', CheckState.Failure, true), check('lint', CheckState.Success, false)]))
+			.build();
+
+		const view = renderSection(pr);
+
+		assert(view.container.querySelector('.status-check'), 'a failed check shows the list');
+		assert.strictEqual(view.container.querySelector('.check-counts'), null);
+
+		fireEvent.click(view.getByLabelText('Hide status checks'));
+
+		assert.strictEqual(view.container.querySelector('.status-check'), null);
+		assert.strictEqual(view.container.querySelector('.check-counts')?.textContent, '1 failing1 passing');
+	});
+
+	it('shows a branch that is behind its base in one row with the action that updates it', function () {
+		const pr = new PullRequestBuilder().canUpdateBranch(true).build();
+		const context = new PRContext(pr);
+		const updateBranch = sinon.stub(context, 'updateBranch').resolves();
+
+		const view = renderSection(pr, context);
+
+		assert.deepStrictEqual(headings(view.container), ['Branch is behind main']);
+		fireEvent.click(view.getByText('Update with Merge Commit'));
+		assert(updateBranch.calledOnce);
+	});
+
+	it('merges with the method that is chosen from the merge button menu', function () {
+		const pr = new PullRequestBuilder()
+			.number(1234)
+			.defaultMergeMethod('squash')
+			.mergeMethodsAvailability({ merge: true, squash: true, rebase: false })
+			.build();
+		const context = new PRContext(pr);
+
+		const view = render(
+			<PullRequestContext.Provider value={context}>
+				<Merge {...pr} />
+			</PullRequestContext.Provider>,
+		);
+
+		assert(view.getByText('Squash and Merge', { selector: 'button' }));
+		const menu = JSON.parse(view.getByTitle('Choose Merge Method').getAttribute('data-vscode-context')!);
+		assert.deepStrictEqual(
+			[menu['github:mergeMenu'], menu['github:mergeMenuMerge'], menu['github:mergeMenuSquash'], menu['github:mergeMenuRebase']],
+			[true, true, true, false],
+		);
+
+		act(() => context.handleMessage({ command: 'pr.select-merge-method', method: 'merge' }));
+
+		assert.strictEqual(view.container.querySelector<HTMLInputElement>('input[name="title"]')?.value, 'Merge pull request #1234 from my-fork/name:my-branch');
+		assert(view.getByText('Create Merge Commit'));
 	});
 });

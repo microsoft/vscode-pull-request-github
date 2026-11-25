@@ -931,6 +931,7 @@ describe('PullRequestOverview', function () {
 		let getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
 		let getMergeQueueMethod: SinonStub;
+		let getMergeability: SinonStub<[], ReturnType<PullRequestModel['getMergeability']>>;
 		const preview: PullRequestPreview = {
 			number: 1000, title: 'Preview title', titleHTML: 'Preview title',
 			body: 'Preview description', bodyHTML: '<p>Preview description</p>', url: 'https://github.com/aaa/bbb/pull/1000',
@@ -954,7 +955,7 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel, 'validateDraftMode').resolves(false);
 			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			sinon.stub(prModel, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
+			getMergeability = sinon.stub(prModel, 'getMergeability').resolves({ mergeability: PullRequestMergeability.Mergeable });
 			sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves(undefined);
 			getMergeQueueMethod = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
 			sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
@@ -1144,6 +1145,17 @@ describe('PullRequestOverview', function () {
 				assert.strictEqual(initialize?.pullrequest?.stack, null);
 				assert.strictEqual(initialize?.pullrequest?.stackLoaded, false);
 			});
+		});
+
+		it('sends whether auto-merge can be enabled with the mergeability that is loaded after the page', async function () {
+			getMergeability.resolves({ mergeability: PullRequestMergeability.NotMergeable, allowAutoMerge: true });
+
+			await openPanel();
+
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.allowAutoMerge, false);
+			const deferred = messages.find(message => message.pullrequest?.status);
+			assert.strictEqual(deferred?.pullrequest?.mergeable, PullRequestMergeability.NotMergeable);
+			assert.strictEqual(deferred?.pullrequest?.allowAutoMerge, true);
 		});
 
 		it('keeps the stack queue method when deferred PR data arrives after the stack', async function () {
@@ -1960,6 +1972,17 @@ describe('PullRequestOverview', function () {
 			const update = lastBranchStatusUpdate();
 			assert.strictEqual(update?.mergeable, PullRequestMergeability.Behind);
 			assert.strictEqual(update?.canUpdateBranch, true);
+		});
+
+		it('publishes whether auto-merge can be enabled with a mergeability change', async function () {
+			const { model, lastBranchStatusUpdate } = await openPanel();
+
+			model.update({ ...model.item, mergeable: PullRequestMergeability.NotMergeable, allowAutoMerge: true });
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			const update = lastBranchStatusUpdate();
+			assert.strictEqual(update?.mergeable, PullRequestMergeability.NotMergeable);
+			assert.strictEqual(update?.allowAutoMerge, true);
 		});
 
 		it('ignores an older comparison that finishes after a newer one', async function () {
