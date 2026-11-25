@@ -24,9 +24,13 @@ async function downloadVSCodeInsiders(): Promise<string> {
 }
 
 async function go() {
-	// VS Code creates its IPC socket in the user data dir, and Unix socket paths are limited to ~103 chars on macOS.
+	// On macOS, VS Code creates its IPC socket in the user data dir, and Unix socket paths are limited to ~103 chars.
 	// The default (.vscode-test/user-data in the repo) is too long for deep checkouts, so use a short temp dir.
-	const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'vscode-test-'));
+	const userDataDir = process.platform === 'darwin' ? mkdtempSync(path.join(os.tmpdir(), 'vscode-test-')) : undefined;
+	const launchArgs = ['--disable-extensions'];
+	if (userDataDir) {
+		launchArgs.push(`--user-data-dir=${userDataDir}`);
+	}
 	try {
 		const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
 		const extensionTestsPath = path.resolve(__dirname, './');
@@ -40,13 +44,15 @@ async function go() {
 			vscodeExecutablePath,
 			extensionDevelopmentPath,
 			extensionTestsPath,
-			launchArgs: ['--disable-extensions', `--user-data-dir=${userDataDir}`],
+			launchArgs,
 		});
 	} catch (e) {
 		console.log(e);
 		process.exitCode = 1;
 	} finally {
-		rmSync(userDataDir, { recursive: true, force: true });
+		if (userDataDir) {
+			rmSync(userDataDir, { recursive: true, force: true });
+		}
 	}
 }
 
