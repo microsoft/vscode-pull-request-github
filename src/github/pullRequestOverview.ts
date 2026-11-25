@@ -55,7 +55,7 @@ import { commands, contexts } from '../common/executeCommands';
 import { openWithDefaultExternalOpener } from '../common/externalUri';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, DELETE_BRANCH_AFTER_MERGE, EXPERIMENTAL_OVERVIEW_TABS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { CHECKOUT_DEFAULT_BRANCH, CHECKOUT_PULL_REQUEST_BASE_BRANCH, DEFAULT_MERGE_METHOD, EXPERIMENTAL_OVERVIEW_TABS, POST_DONE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -1120,6 +1120,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.view-check-logs':
 				return this.viewCheckLogs(message);
+			case 'pr.open-check-details':
+				return PullRequestReviewCommon.openCheckDetails(this.getReviewContext(), message);
 			case 'pr.fix-checks-in-session':
 				return this.fixChecksInSession(message);
 			case 'pr.address-comments-in-session':
@@ -1240,6 +1242,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(`Applying patch failed: ${e}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
 		}
+		return this._replyMessage(message, {});
 	}
 
 	protected override fetchTimelineEvents(item: PullRequestModel): Promise<TimelineEvent[] | undefined> {
@@ -1288,10 +1291,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
 			const resource = SessionIdForPr.getResource(this._item.number, message.args.link.sessionIndex);
-			return vscode.commands.executeCommand('vscode.open', resource);
+			await vscode.commands.executeCommand('vscode.open', resource);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
+		return this._replyMessage(message, {});
 	}
 
 	private async viewCheckLogs(message: IRequestMessage<{ status: PullRequestCheckStatus }>): Promise<void> {
@@ -1415,20 +1419,33 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
-		const openToTheSide = message?.args?.openToTheSide || false;
-		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
+	private async openChanges(message: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
+		const openToTheSide = message.args?.openToTheSide || false;
+		try {
+			await PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
+			await this._replyMessage(message, {});
+		} catch (error) {
+			Logger.error(`Failed to open changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open changes: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
+		}
 	}
 
 	private async viewChanges(message: IRequestMessage<void>): Promise<void> {
-		const fileSystemProvider = getGitHubCommitFileSystemProvider();
-		if (!fileSystemProvider) {
-			throw new Error('GitHub commit file system provider is not initialized.');
+		try {
+			const fileSystemProvider = getGitHubCommitFileSystemProvider();
+			if (!fileSystemProvider) {
+				throw new Error('GitHub commit file system provider is not initialized.');
+			}
+			fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
+			// Match the overview tab title; the changes editor adds its own icon and file count.
+			await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item, this.getCurrentTitle());
+			await this._replyMessage(message, {});
+		} catch (error) {
+			Logger.error(`Failed to view changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to view changes: {0}', formatError(error)));
+			await this._throwError(message, formatError(error));
 		}
-		fileSystemProvider.registerGitHubRepository(this._item.githubRepository);
-		// Match the overview tab title; the changes editor adds its own icon and file count.
-		await PullRequestModel.openReadonlyChanges(this._folderRepositoryManager, this._item, this.getCurrentTitle());
-		await this._replyMessage(message, {});
 	}
 
 	private resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
@@ -1858,27 +1875,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async dequeue(message: IRequestMessage<void>): Promise<void> {
-		const result = await this._item.dequeuePullRequest();
-		await this._replyMessage(message, result);
+		await PullRequestReviewCommon.dequeue(this.getReviewContext(), message);
 		await this.refreshTimeline();
 	}
 
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
-		const result = await this._item.enqueuePullRequest();
-
-		// Check if auto-delete branch setting is enabled
-		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
-		if (deleteBranchAfterMerge && result) {
-			// For merge queues, only delete the local branch since the PR isn't merged yet
-			try {
-				await PullRequestReviewCommon.autoDeleteLocalBranchAfterEnqueue(this._folderRepositoryManager, this._item);
-			} catch (e) {
-				Logger.appendLine(`Auto-delete local branch after enqueue failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
-				void vscode.window.showWarningMessage(vscode.l10n.t('Auto-deleting the local branch after enqueueing to the merge queue failed.'));
-			}
-		}
-
-		await this._replyMessage(message, { mergeQueueEntry: result });
+		await PullRequestReviewCommon.enqueue(this.getReviewContext(), message);
 		await this.refreshTimeline();
 	}
 

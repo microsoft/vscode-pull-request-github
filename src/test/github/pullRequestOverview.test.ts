@@ -30,7 +30,7 @@ import { EXTENSION_ID } from '../../constants';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
-import { CheckState, GithubItemStateEnum, IAccount, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest, StackAutoMerge } from '../../github/interface';
+import { CheckState, GithubItemStateEnum, IAccount, IProjectItem, MergeMethod, MergeQueueState, PullRequestChecks, PullRequestMergeability, PullRequestReviewRequirement, PullRequestStack, StackablePullRequest, StackAutoMerge } from '../../github/interface';
 import { GitHubRepository } from '../../github/githubRepository';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -41,7 +41,7 @@ import { PullRequestReviewCommon, ReviewContext } from '../../github/pullRequest
 import { COPILOT_REVIEWER_ACCOUNT } from '../../common/copilot';
 import * as emoji from '../../common/emoji';
 import Logger from '../../common/logger';
-import { CreateRecommendedStackArgs, Issue, IssuePreview, OverviewItemPreview, PullRequest, PullRequestPreview, UpdateStackAutoMergeArgs } from '../../github/views';
+import { CreateRecommendedStackArgs, DeleteCommentReply, Issue, IssuePreview, OpenCheckDetailsArgs, OverviewItemPreview, PullRequest, PullRequestPreview, UpdateStackAutoMergeArgs } from '../../github/views';
 import * as stackGit from '../../github/updateStackBranches';
 import { lockedStacks } from '../../github/pullRequestStackUpdate';
 import { IRequestMessage } from '../../common/webview';
@@ -104,6 +104,10 @@ class TestPullRequestOverviewPanel extends PullRequestOverviewPanel {
 
 	public override _replyMessage(message: IRequestMessage<unknown>, response: unknown): Promise<void> {
 		return super._replyMessage(message, response);
+	}
+
+	public override _throwError(message: IRequestMessage<unknown> | undefined, error: string): Promise<void> {
+		return super._throwError(message, error);
 	}
 }
 
@@ -418,16 +422,20 @@ describe('PullRequestOverview', function () {
 
 			it('keeps the temporary manager when the repository has not been discovered', async function () {
 				const openChanges = sinon.stub(PullRequestModel, 'openChanges').resolves();
+				const reply = sinon.stub(panel, '_replyMessage').resolves();
+				const message = { req: 'changes', command: 'pr.open-changes', args: undefined };
 
-				await panel._onDidReceiveMessage({ req: 'changes', command: 'pr.open-changes', args: undefined });
+				await panel._onDidReceiveMessage(message);
 
 				assert.strictEqual(panel.folderRepositoryManager, temporaryManager);
 				assert.ok(panel.folderRepositoryManager.repository instanceof RemoteOnlyRepository);
 				sinon.assert.calledWithExactly(openChanges, temporaryManager, model, false);
+				sinon.assert.calledWithExactly(reply, message, {});
 			});
 
 			it('upgrades on an operation after discovery without needing a checkout event', async function () {
 				const openChanges = sinon.stub(PullRequestModel, 'openChanges').resolves();
+				sinon.stub(panel, '_replyMessage').resolves();
 				discovered = true;
 
 				await panel._onDidReceiveMessage({ req: 'changes', command: 'pr.open-changes', args: { openToTheSide: true } });
@@ -1594,7 +1602,7 @@ describe('PullRequestOverview', function () {
 			assert(model);
 			return model.author;
 		});
-		sinon.stub(pullRequestManager, 'getAssignableUsers').resolves({});
+		const assignableUsers = sinon.stub(pullRequestManager, 'getAssignableUsers').resolves({});
 		const branch = sinon.stub(pullRequestManager, 'getBranchNameForPullRequest').resolves(undefined);
 		const queueMethod = sinon.stub(pullRequestManager, 'mergeQueueMethodForBranch').resolves(undefined);
 		sinon.stub(pullRequestManager, 'isHeadUpToDateWithBase').resolves(true);
@@ -1605,7 +1613,7 @@ describe('PullRequestOverview', function () {
 		const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
 		const stackablePullRequests = sinon.stub(repo, 'getStackablePullRequests').resolves({});
 		const query = sinon.spy(repo, 'query');
-		return { models, access, currentUser, branch, queueMethod, resolvePullRequest, externalUri, showError, stackablePullRequests, query };
+		return { models, access, currentUser, assignableUsers, branch, queueMethod, resolvePullRequest, externalUri, showError, stackablePullRequests, query };
 	}
 
 	/** A pull request whose branches are both in the test repository, so it can be stacked. */
@@ -3368,6 +3376,147 @@ describe('PullRequestOverview', function () {
 			sinon.assert.calledOnce(services.showError);
 			assert.match(services.showError.firstCall.args[0], /Must have write access/);
 			assert(reply.calledOnceWithExactly(message, { status: refreshed, reviewRequirement: null }));
+		});
+	});
+
+	describe('replies to the webview', function () {
+		let panel: TestPullRequestOverviewPanel;
+		let model: PullRequestModel;
+		let services: ReturnType<typeof stubPanelServices>;
+		let reply: SinonStub<[IRequestMessage<unknown>, unknown], Promise<void>>;
+		let throwError: SinonStub<[IRequestMessage<unknown> | undefined, string], Promise<void>>;
+		const comment = { id: 100 };
+
+		function stubClipboard(writeText: (value: string) => Promise<void>) {
+			const clipboard: vscode.Clipboard = { readText: async () => '', writeText };
+			sinon.stub(vscode.env, 'clipboard').get(() => clipboard);
+		}
+
+		function confirmDeletion() {
+			sinon.stub(vscode.window, 'showWarningMessage').callsFake(async (_message, _options, action) => action);
+		}
+
+		beforeEach(function () {
+			model = new PullRequestModel(credentialStore, telemetry, repo, remote,
+				convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+			services = panelServices ??= stubPanelServices();
+			services.models.set(model.number, model);
+			stubModelServices(model);
+			panel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			panel.setItem(model);
+			context.subscriptions.push(panel);
+			reply = sinon.stub(panel, '_replyMessage').resolves();
+			throwError = sinon.stub(panel, '_throwError').resolves();
+			// Without a webview, posting waits for it to be ready forever.
+			sinon.stub(panel, '_postMessage').resolves();
+		});
+
+		// The webview keeps a button disabled until its request is answered, so these must reply whatever happens.
+		const replies: { description: string; command: string; args?: unknown; arrange?: () => void; reply: unknown }[] = [
+			{
+				description: 'that nothing was deleted when deleting the comment is cancelled',
+				command: 'pr.delete-comment', args: comment,
+				arrange: () => sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined),
+				reply: { deleted: false } satisfies DeleteCommentReply,
+			},
+			{
+				description: 'that the comment was deleted when deleting it is confirmed',
+				command: 'pr.delete-comment', args: comment,
+				arrange: () => {
+					confirmDeletion();
+					sinon.stub(model, 'deleteReviewComment').resolves();
+				},
+				reply: { deleted: true } satisfies DeleteCommentReply,
+			},
+			{ description: 'once the panel is refreshed', command: 'pr.refresh', arrange: () => sinon.stub(panel, 'refreshPanel').resolves(), reply: {} },
+			{ description: 'once the link is copied', command: 'pr.copy-prlink', arrange: () => stubClipboard(async () => undefined), reply: {} },
+			// Applying a patch reports its own failure, so the webview only needs to know that it is done.
+			{ description: 'when the patch could not be applied', command: 'pr.apply-patch', args: { comment: { id: 100, body: 'No suggestion' } }, reply: {} },
+			{
+				description: 'once the session log is opened',
+				command: 'pr.open-session-log', args: { link: { sessionIndex: 0 } },
+				arrange: () => sinon.stub(vscode.commands, 'executeCommand').resolves(),
+				reply: {},
+			},
+		];
+
+		for (const expected of replies) {
+			it(`replies to ${expected.command} ${expected.description}`, async function () {
+				expected.arrange?.();
+				const message = { req: 'replying', command: expected.command, args: expected.args };
+
+				await panel._onDidReceiveMessage(message);
+
+				assert(reply.calledOnceWithExactly(message, expected.reply), `replied ${JSON.stringify(reply.args)}`);
+				sinon.assert.notCalled(throwError);
+			});
+		}
+
+		const failures: { command: string; args?: unknown; arrange: (error: Error) => void }[] = [
+			{ command: 'pr.close', arrange: error => sinon.stub(model, 'close').rejects(error) },
+			{ command: 'pr.re-request-review', args: 'reviewer-id', arrange: error => sinon.stub(model, 'requestReview').rejects(error) },
+			{ command: 'pr.remove-label', args: 'bug', arrange: error => sinon.stub(model, 'removeLabel').rejects(error) },
+			{ command: 'pr.remove-milestone', arrange: error => sinon.stub(model, 'updateMilestone').rejects(error) },
+			{
+				command: 'pr.remove-project', args: { id: 'project-item', project: { id: 'project', title: 'Roadmap' } } satisfies IProjectItem,
+				arrange: error => sinon.stub(model, 'removeProjects').rejects(error),
+			},
+			{ command: 'pr.add-assignee-yourself', arrange: error => services.currentUser.callsFake(() => Promise.reject(error)) },
+			{ command: 'pr.add-assignee-copilot', arrange: error => services.assignableUsers.callsFake(() => Promise.reject(error)) },
+			{
+				command: 'pr.delete-comment', args: comment,
+				arrange: error => {
+					confirmDeletion();
+					sinon.stub(model, 'deleteReviewComment').rejects(error);
+				},
+			},
+			{ command: 'pr.copy-prlink', arrange: error => stubClipboard(() => Promise.reject(error)) },
+			{ command: 'pr.open-changes', arrange: error => sinon.stub(PullRequestModel, 'openChanges').rejects(error) },
+			{
+				command: 'pr.view-changes',
+				arrange: error => {
+					getGitHubCommitFileSystemProvider({ reposManager: repositoriesManager, gitAPI: new GitApiImpl(repositoriesManager), credentialStore });
+					sinon.stub(PullRequestModel, 'openReadonlyChanges').rejects(error);
+				},
+			},
+		];
+
+		for (const failure of failures) {
+			it(`replies to ${failure.command} with an error when it fails`, async function () {
+				failure.arrange(new Error('Request failed'));
+				const message = { req: 'failing', command: failure.command, args: failure.args };
+
+				await panel._onDidReceiveMessage(message);
+
+				sinon.assert.notCalled(reply);
+				sinon.assert.calledOnce(throwError);
+				assert.strictEqual(throwError.firstCall.args[0], message);
+			});
+		}
+
+		it('opens check details in the browser even when they link to the pull request', async function () {
+			const openExternal = sinon.stub(vscode.env, 'openExternal').resolves(true);
+			const url = `https://github.com/${remote.owner}/${remote.repositoryName}/pull/1000`;
+			const message = { req: 'details', command: 'pr.open-check-details', args: { url } satisfies OpenCheckDetailsArgs };
+
+			await panel._onDidReceiveMessage(message);
+
+			assert(openExternal.calledOnce);
+			assert.strictEqual(openExternal.firstCall.args[0].toString(), url);
+			// Skips the extension's own opener, which would show the pull request in this overview.
+			assert.deepStrictEqual(openExternal.firstCall.args[1], { allowContributedOpeners: 'default' });
+			assert(reply.calledOnceWithExactly(message, {}));
+		});
+
+		it('does not open check details that are not a web page', async function () {
+			const openExternal = sinon.stub(vscode.env, 'openExternal').resolves(true);
+			const message = { req: 'details', command: 'pr.open-check-details', args: { url: 'command:workbench.action.quit' } satisfies OpenCheckDetailsArgs };
+
+			await panel._onDidReceiveMessage(message);
+
+			sinon.assert.notCalled(openExternal);
+			sinon.assert.notCalled(reply);
+			sinon.assert.calledOnce(throwError);
 		});
 	});
 

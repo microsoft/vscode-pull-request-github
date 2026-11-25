@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { chevronDownIcon } from './icon';
+import { useBusyAction } from '../common/hooks';
 
 const enum KEYCODES {
 	esc = 27,
@@ -13,9 +14,10 @@ const enum KEYCODES {
 	up = 38,
 }
 
-export const Dropdown = ({ options, defaultOption, disabled, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, disabled?: boolean, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
+export const Dropdown = ({ options, defaultOption, disabled, busyLabel, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, disabled?: boolean, busyLabel?: string, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
 	const [selectedMethod, selectMethod] = useState<string>(defaultOption);
 	const [areOptionsVisible, setOptionsVisible] = useState<boolean>(false);
+	const [isBusy, run] = useBusyAction();
 
 	const dropdownId = uuid();
 	const EXPAND_OPTIONS_BUTTON = `expandOptions${dropdownId}`;
@@ -85,20 +87,22 @@ export const Dropdown = ({ options, defaultOption, disabled, submitAction, chang
 
 	const hasMultipleOptions = Object.entries(options).length > 1;
 	const expandButtonClass = !hasMultipleOptions ? 'hidden' : areOptionsVisible ? 'open' : '';
+	const isDisabled = isBusy || !!disabled;
+
+	const onSubmit = (event: React.FormEvent) => {
+		event.preventDefault();
+		return run(() => submitAction(selectedMethod));
+	};
 
 	return (
 		<div className="select-container" onKeyDown={onKeyDown}>
 			<div className="select-control">
-				<Confirm
-					dropdownId={dropdownId}
-					className={hasMultipleOptions ? 'select-left' : ''}
-					options={options}
-					selected={selectedMethod}
-					submitAction={submitAction}
-					disabled={!!disabled}
-				/>
-				{hasMultipleOptions ? <div className={`split${disabled ? ' disabled' : ''}`}><div className={`separator${disabled ? ' disabled' : ''}`}></div></div> : null}
-				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
+				<form onSubmit={onSubmit}>
+					<input disabled={isDisabled} type="submit" className={hasMultipleOptions ? 'select-left' : ''} id={`confirm-button${dropdownId}`}
+						value={isBusy && busyLabel ? busyLabel : options[selectedMethod]} />
+				</form>
+				{hasMultipleOptions ? <div className={`split${isDisabled ? ' disabled' : ''}`}><div className={`separator${isDisabled ? ' disabled' : ''}`}></div></div> : null}
+				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' disabled={isBusy} onClick={onClick}>
 					{chevronDownIcon}
 				</button>
 			</div>
@@ -112,38 +116,3 @@ export const Dropdown = ({ options, defaultOption, disabled, submitAction, chang
 		</div>
 	);
 };
-
-function Confirm({
-	dropdownId,
-	className,
-	options,
-	selected,
-	disabled,
-	submitAction,
-}: {
-	dropdownId: string;
-	className: string;
-	options: { [key: string]: string };
-	selected: string;
-	disabled: boolean;
-	submitAction: (selected: string) => Promise<void>;
-}) {
-	const [isBusy, setBusy] = useState(false);
-
-	const onSubmit = async (event: React.FormEvent) => {
-		event.preventDefault();
-
-		try {
-			setBusy(true);
-			await submitAction(selected);
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	return (
-		<form onSubmit={onSubmit}>
-			<input disabled={isBusy || disabled} type="submit" className={className} id={`confirm-button${dropdownId}`} value={options[selected]} />
-		</form>
-	);
-}

@@ -7,10 +7,11 @@
 import * as vscode from 'vscode';
 import { addAttestationCommit } from './attestationCommit';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, PullRequestMergeability, reviewerId, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isITeam, ITeam, MergeMethod, MergeQueueEntry, PullRequestMergeability, reviewerId, ReviewState } from './interface';
 import { BranchInfo } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { ConvertToDraftReply, MergeStackArgs, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
+import { ConvertToDraftReply, MergeStackArgs, OpenCheckDetailsArgs, PullRequest, ReadyForReviewReply, ReviewType, StackMergeResult, SubmitReviewReply } from './views';
+import { openWithDefaultExternalOpener } from '../common/externalUri';
 import Logger from '../common/logger';
 import { DEFAULT_DELETION_METHOD, DELETE_BRANCH_AFTER_MERGE, PR_SETTINGS_NAMESPACE, SELECT_LOCAL_BRANCH, SELECT_REMOTE, SELECT_WORKTREE } from '../common/settingKeys';
 import { CommitEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
@@ -194,7 +195,12 @@ export namespace PullRequestReviewCommon {
 			userReviewers.push(targetReviewer.reviewer);
 		}
 
-		await ctx.item.requestReview(userReviewers, teamReviewers, true);
+		try {
+			await ctx.item.requestReview(userReviewers, teamReviewers, true);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Re-requesting review failed. {0}', formatError(e)));
+			return ctx.throwError(message, formatError(e));
+		}
 		if (targetReviewer) {
 			targetReviewer.state = 'REQUESTED';
 		}
@@ -213,6 +219,58 @@ export namespace PullRequestReviewCommon {
 		} finally {
 			// Complete webview promise so that button becomes enabled again
 			ctx.replyMessage(message, {});
+		}
+	}
+
+	export async function enqueue(ctx: ReviewContext, message: IRequestMessage<void>): Promise<void> {
+		let result: MergeQueueEntry | undefined;
+		try {
+			result = await ctx.item.enqueuePullRequest();
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Adding the pull request to the merge queue failed. {0}', formatError(e)));
+			return ctx.throwError(message, formatError(e));
+		}
+
+		const deleteBranchAfterMerge = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(DELETE_BRANCH_AFTER_MERGE, false);
+		if (deleteBranchAfterMerge && result) {
+			// For merge queues, only delete the local branch since the PR isn't merged yet
+			try {
+				await autoDeleteLocalBranchAfterEnqueue(ctx.folderRepositoryManager, ctx.item);
+			} catch (e) {
+				Logger.appendLine(`Auto-delete local branch after enqueue failed: ${formatError(e)}`, 'PullRequestReviewCommon');
+				void vscode.window.showWarningMessage(vscode.l10n.t('Auto-deleting the local branch after enqueueing to the merge queue failed.'));
+			}
+		}
+
+		ctx.replyMessage(message, { mergeQueueEntry: result });
+	}
+
+	export async function dequeue(ctx: ReviewContext, message: IRequestMessage<void>): Promise<void> {
+		let isDequeued: boolean;
+		try {
+			isDequeued = await ctx.item.dequeuePullRequest();
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Removing the pull request from the merge queue failed. {0}', formatError(e)));
+			return ctx.throwError(message, formatError(e));
+		}
+		ctx.replyMessage(message, isDequeued);
+	}
+
+	/**
+	 * Opens the details of a check in the browser. Checks without details of their own link to the pull request, which
+	 * the extension's link opener would otherwise open in the overview that the check is shown in.
+	 */
+	export async function openCheckDetails(ctx: ReviewContext, message: IRequestMessage<OpenCheckDetailsArgs>): Promise<void> {
+		try {
+			const uri = vscode.Uri.parse(message.args.url, true);
+			if (uri.scheme !== 'http' && uri.scheme !== 'https') {
+				throw new Error(`Check details must be a web page, not ${uri.scheme}.`);
+			}
+			await openWithDefaultExternalOpener(uri);
+			ctx.replyMessage(message, {});
+		} catch (e) {
+			Logger.error(`Opening check details failed: ${formatError(e)}`, 'PullRequestReviewCommon');
+			ctx.throwError(message, formatError(e));
 		}
 	}
 

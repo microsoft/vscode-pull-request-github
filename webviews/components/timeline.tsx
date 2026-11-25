@@ -46,6 +46,7 @@ import { gitHubLabelColor, groupBy, UnreachableCaseError } from '../../src/commo
 import { IAccount, IActor, isITeam, ITeam, reviewerId } from '../../src/github/interface';
 import { DisplayLabel, ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { useBusyAction, usePendingAction } from '../common/hooks';
 
 const CONSOLIDATION_WINDOW_MS = 1000 * 60 * 10;
 
@@ -297,12 +298,7 @@ const NewCommitsSinceReviewEventView = () => {
 		return null;
 	}
 
-	const [busy, setBusy] = useState(false);
-	const viewChanges = async () => {
-		setBusy(true);
-		await gotoChangesSinceReview();
-		setBusy(false);
-	};
+	const [busy, run] = useBusyAction();
 
 	return (
 		<div className="comment-container commit">
@@ -314,10 +310,10 @@ const NewCommitsSinceReviewEventView = () => {
 			<button
 				aria-live="polite"
 				title="View the changes since your last review"
-				onClick={viewChanges}
+				onClick={() => run(gotoChangesSinceReview)}
 				disabled={busy}
 			>
-				View Changes
+				{busy ? 'Opening Changes...' : 'View Changes'}
 			</button>
 		</div>
 	);
@@ -358,14 +354,16 @@ const ReviewEventView = (event: ReviewEvent) => {
 
 function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEvent }) {
 	const comment = thread[0];
-	const [revealed, setRevealed] = useState(!comment.isResolved);
-	const [resolved, setResolved] = useState(!!comment.isResolved);
+	// Changes from the toggle below show once the timeline that they return arrives.
+	const resolved = !!comment.isResolved;
+	const [revealed, setRevealed] = useState(!resolved);
+	const [isToggling, runToggle] = useBusyAction();
 	const { openDiff, toggleResolveComment } = useContext(PullRequestContext);
 
+	// Resolving a conversation collapses it, and unresolving it expands it again.
 	useEffect(() => {
-		setResolved(!!comment.isResolved);
-		setRevealed(!comment.isResolved);
-	}, [comment.isResolved]);
+		setRevealed(!resolved);
+	}, [resolved]);
 	// Look up this group's own review thread info. A single ReviewEvent can
 	// have comments on multiple threads, so resolve actions must target the
 	// thread that owns this group's comments - looked up by `comment.threadId`.
@@ -377,10 +375,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 
 	const toggleResolve = () => {
 		if (reviewThread) {
-			const newResolved = !resolved;
-			setRevealed(!newResolved);
-			setResolved(newResolved);
-			toggleResolveComment(reviewThread.threadId, thread, newResolved);
+			return runToggle(() => toggleResolveComment(reviewThread.threadId, thread, !resolved));
 		}
 	};
 
@@ -412,8 +407,10 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 					))}
 					{resolvePermission ? (
 						<div className="resolve-comment-row">
-							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
-								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
+							<button className="secondary comment-resolve" disabled={isToggling} onClick={() => toggleResolve()}>
+								{isToggling
+									? (resolved ? 'Unresolving Conversation...' : 'Resolving Conversation...')
+									: (resolved ? 'Unresolve Conversation' : 'Resolve Conversation')}
 							</button>
 						</div>
 					) : null}
@@ -424,41 +421,31 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit, deleteReview, updatePR, pr } = useContext(PullRequestContext);
+	const { submitReview, deleteReview, updatePR, pr } = useContext(PullRequestContext);
 	const isAuthor = pr?.isAuthor;
 	const comment = useRef<HTMLTextAreaElement>();
-	const [isBusy, setBusy] = useState(false);
+	const [pending, run] = usePendingAction<ReviewType | 'cancel'>();
+	const isBusy = !!pending;
 	const commentText = pr.pendingReviewSummaryText ?? '';
 	const addAttestation = !!pr.pendingAttestation;
+	// A review submitted from the context menu of the comment form is also in progress here.
+	const submitting = pending ?? pr.pendingReviewType;
 
 	const showAttestationCheckbox = !isAuthor && !!pr?.attestationCommitsEnabled && !!pr?.isCurrentlyCheckedOut;
 
-	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
+	function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
-		const value = commentText;
-		setBusy(true);
-		switch (action) {
-			case ReviewType.RequestChanges:
-				await requestChanges(value, addAttestation);
-				break;
-			case ReviewType.Approve:
-				await approve(value, addAttestation);
-				break;
-			default:
-				await submit(value, addAttestation);
-		}
-		setBusy(false);
+		// The attestation checkbox of the review summary is for any review.
+		return run(action, () => submitReview(action, commentText, addAttestation));
 	}
 
-	async function cancelReview(event: React.MouseEvent): Promise<void> {
+	function cancelReview(event: React.MouseEvent): Promise<unknown> {
 		event.preventDefault();
-		setBusy(true);
-		await deleteReview();
-		setBusy(false);
+		return run('cancel', deleteReview);
 	}
 
 	const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !isBusy && !pr.busy) {
 			submitAction(event, ReviewType.Comment);
 		}
 	};
@@ -488,7 +475,7 @@ function AddReviewSummaryComment() {
 					disabled={isBusy || pr?.busy}
 					onClick={cancelReview}
 				>
-					Cancel Review
+					{pending === 'cancel' ? 'Cancelling Review...' : 'Cancel Review'}
 				</button>
 				{showAttestationCheckbox ? (
 					<div className="attestation-checkbox-wrapper checkbox-wrapper" title="Add a signed attestation commit to the head of the pull request branch when submitting this review.">
@@ -510,7 +497,7 @@ function AddReviewSummaryComment() {
 						disabled={isBusy || pr.busy || shouldDisableButtons}
 						onClick={(event) => submitAction(event, ReviewType.RequestChanges)}
 					>
-						Request Changes
+						{submitting === ReviewType.RequestChanges ? 'Requesting Changes...' : 'Request Changes'}
 					</button>
 				)}
 				{isAuthor ? null : (
@@ -519,13 +506,13 @@ function AddReviewSummaryComment() {
 						disabled={isBusy || pr.busy}
 						onClick={(event) => submitAction(event, ReviewType.Approve)}
 					>
-						Approve
+						{submitting === ReviewType.Approve ? 'Approving...' : 'Approve'}
 					</button>
 				)}
 				<button
 					disabled={isBusy || pr.busy || shouldDisableButtons}
 					onClick={(event) => submitAction(event, ReviewType.Comment)}
-				>Submit Review</button>
+				>{submitting === ReviewType.Comment ? 'Submitting Review...' : 'Submit Review'}</button>
 			</div>
 		</form>
 	);
@@ -535,6 +522,7 @@ const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode 
 
 const MergedEventView = (event: MergedEvent) => {
 	const { revert, pr } = useContext(PullRequestContext);
+	const [isReverting, run] = useBusyAction();
 
 	return (
 		<div className="comment-container commit">
@@ -557,7 +545,7 @@ const MergedEventView = (event: MergedEvent) => {
 			</div>
 			{pr.revertable ?
 				<div className="timeline-detail">
-					<button className='secondary' disabled={pr.busy} onClick={revert}>Revert</button>
+					<button className='secondary' disabled={pr.busy || isReverting} onClick={() => run(revert)}>{isReverting ? 'Reverting...' : 'Revert'}</button>
 				</div> : null}
 			<Timestamp href={event.url} date={event.createdAt} />
 		</div>
@@ -696,11 +684,13 @@ const BaseRefChangedEventView = ({ event }: { event: BaseRefChangedEvent }) => {
 const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 	const { createdAt, onBehalfOf, sessionLink } = event;
 	const { openSessionLog } = useContext(PullRequestContext);
+	const [isOpening, run] = useBusyAction();
 
+	// The click is handled by the link around the button, which a disabled button doesn't stop.
 	const handleSessionLogClick = (e: React.MouseEvent) => {
-		if (sessionLink) {
+		if (sessionLink && !isOpening) {
 			sessionLink.openToTheSide = e.ctrlKey || e.metaKey;
-			openSessionLog(sessionLink);
+			return run(() => openSessionLog(sessionLink));
 		}
 	};
 
@@ -713,7 +703,7 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 			</div>
 			{sessionLink ? (
 				<div className="timeline-detail">
-					<a onClick={handleSessionLogClick}><button className='secondary' title="View session log (Ctrl/Cmd+Click to open in second editor group)">View session</button></a>
+					<a onClick={handleSessionLogClick}><button className='secondary' disabled={isOpening} title="View session log (Ctrl/Cmd+Click to open in second editor group)">{isOpening ? 'Opening Session...' : 'View session'}</button></a>
 				</div>)
 				: null}
 			<Timestamp date={createdAt} />

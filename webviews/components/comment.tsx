@@ -5,7 +5,8 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { cloudUploadIcon, copyIcon, editIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
+import { CopyButton } from './copyButton';
+import { cloudUploadIcon, editIcon, loadingIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -17,7 +18,7 @@ import { ariaAnnouncementForReview } from '../common/aria';
 import { COMMENT_TEXTAREA_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
-import { useStateProp } from '../common/hooks';
+import { useBusyAction, usePendingAction, useStateProp } from '../common/hooks';
 
 export type Props = {
 	headerInEditMode?: boolean;
@@ -95,6 +96,7 @@ export function CommentView(commentProps: Props) {
 	const currentDraft = pr?.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
+	const [isDeleting, runDelete] = useBusyAction();
 	const commentUrl = (comment as Partial<IComment | ReviewEvent | CommentEvent>).htmlUrl || (comment as PullRequest).url;
 
 	if (inEditMode) {
@@ -137,7 +139,8 @@ export function CommentView(commentProps: Props) {
 			onFocus={() => setShowActionBar(true)}
 		>
 			{ariaAnnouncement ? <div role='alert' aria-label={ariaAnnouncement} /> : null}
-			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
+			{/* Kept visible while deleting, so the progress still shows once the mouse leaves for the confirmation. */}
+			<div className="action-bar comment-actions" style={{ display: showActionBar || isDeleting ? 'flex' : 'none' }}>
 				<button
 					title="Quote reply"
 					className="icon-button"
@@ -146,13 +149,7 @@ export function CommentView(commentProps: Props) {
 					{quoteIcon}
 				</button>
 				{commentUrl ? (
-					<button
-						title="Copy Comment Link"
-						className="icon-button"
-						onClick={() => navigator.clipboard.writeText(commentUrl)}
-					>
-						{copyIcon}
-					</button>
+					<CopyButton title="Copy Comment Link" copy={() => navigator.clipboard.writeText(commentUrl)} />
 				) : null}
 				{canEdit ? (
 					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
@@ -161,11 +158,12 @@ export function CommentView(commentProps: Props) {
 				) : null}
 				{canDelete ? (
 					<button
-						title="Delete comment"
+						title={isDeleting ? 'Deleting comment...' : 'Delete comment'}
 						className="icon-button"
-						onClick={() => deleteComment({ id, pullRequestReviewId })}
+						disabled={isDeleting}
+						onClick={() => runDelete(() => deleteComment({ id, pullRequestReviewId }))}
 					>
-						{trashIcon}
+						{isDeleting ? loadingIcon : trashIcon}
 					</button>
 				) : null}
 			</div>
@@ -274,6 +272,7 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 	const draftComment = useRef<{ body: string; dirty: boolean }>({ body, dirty: false });
 	const form = useRef<HTMLFormElement>();
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [isSaving, runSave] = useBusyAction();
 
 	useEffect(() => {
 		const interval = setInterval(() => {
@@ -285,15 +284,10 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 		return () => clearInterval(interval);
 	}, [draftComment]);
 
-	const submit = useCallback(async () => {
-		const { markdown, submitButton }: FormInputSet = form.current!;
-		submitButton.disabled = true;
-		try {
-			await onSave(markdown.value);
-		} finally {
-			submitButton.disabled = false;
-		}
-	}, [form, onSave]);
+	const submit = useCallback(() => {
+		const { markdown }: FormInputSet = form.current!;
+		return runSave(() => onSave(markdown.value));
+	}, [form, onSave, runSave]);
 
 	const onSubmit = useCallback(
 		event => {
@@ -307,10 +301,12 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 		e => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
 				e.preventDefault();
-				submit();
+				if (!isSaving) {
+					submit();
+				}
 			}
 		},
-		[submit],
+		[submit, isSaving],
 	);
 
 	const onInput = useCallback(
@@ -406,10 +402,10 @@ function EditComment({ id, body, isPRDescription, onCancel, onSave }: EditCommen
 				</button>
 			</div>
 			<div className="form-actions">
-				<button className="secondary" onClick={onCancel}>
+				<button type="button" className="secondary" disabled={isSaving} onClick={onCancel}>
 					Cancel
 				</button>
-				<button type="submit" name="submitButton">Save</button>
+				<button type="submit" name="submitButton" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</button>
 			</div>
 		</form>
 	);
@@ -441,7 +437,7 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 
 	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
 	const applyPatchButton =
-		containsSuggestion && canApplyPatch && comment ? <button onClick={() => applyPatch(comment)}>Apply Patch</button> : <></>;
+		containsSuggestion && canApplyPatch && comment ? <ApplyPatchButton applyPatch={() => applyPatch(comment)} /> : <></>;
 
 	return (
 		<div className="comment-body">
@@ -452,6 +448,11 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 			<CommentReactions reactions={comment?.reactions} />
 		</div>
 	);
+};
+
+const ApplyPatchButton = ({ applyPatch }: { applyPatch: () => Promise<void> }) => {
+	const [isBusy, run] = useBusyAction();
+	return <button onClick={() => run(applyPatch)} disabled={isBusy}>{isBusy ? 'Applying Patch...' : 'Apply Patch'}</button>;
 };
 
 type CommentReactionsProps = {
@@ -507,10 +508,12 @@ export function AddComment({
 	number,
 	attestationCommitsEnabled,
 	isCurrentlyCheckedOut,
-	pendingAttestation
+	pendingAttestation,
+	pendingReviewType,
 }: PullRequest) {
-	const { updatePR, requestChanges, approve, close, openOnGitHub, submit, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const { updatePR, submitReview, close, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const [pending, run] = usePendingAction<ReviewType | 'close'>();
+	const isBusy = !!pending;
 	const addAttestation = !!pendingAttestation;
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -525,7 +528,7 @@ export function AddComment({
 	const closeButton: React.MouseEventHandler<HTMLButtonElement> = e => {
 		e.preventDefault();
 		const { value } = textareaRef.current!;
-		close(value);
+		return run('close', () => close(value));
 	};
 
 	let currentSelection: ReviewType = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
@@ -536,22 +539,12 @@ export function AddComment({
 			await openOnGitHub();
 			return;
 		}
-		setBusy(true);
-		switch (action) {
-			case ReviewType.RequestChanges:
-				await requestChanges(value);
-				break;
-			case ReviewType.Approve:
-				await approve(value, addAttestation);
-				break;
-			default:
-				await submit(value);
-		}
-		setBusy(false);
+		// The attestation checkbox of the comment form is only for approvals.
+		await run(action, () => submitReview(action, value, action === ReviewType.Approve && addAttestation));
 	}
 
 	const onKeyDown = e => {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isBusy && !busy) {
 			submitAction(currentSelection);
 		}
 	};
@@ -569,6 +562,7 @@ export function AddComment({
 				[ReviewType.RequestChanges]: 'Request changes on github.com',
 			}
 			: commentMethods(isIssue);
+	const submitting = pending !== 'close' ? pending ?? pendingReviewType : undefined;
 
 	// Disable buttons when summary comment is empty AND there are no review comments
 	// Note: Approve button is allowed even with empty content and no pending review
@@ -615,7 +609,7 @@ export function AddComment({
 						onClick={closeButton}
 						data-command="close"
 					>
-						{isIssue ? 'Close Issue' : 'Close Pull Request'}
+						{pending === 'close' ? 'Closing...' : isIssue ? 'Close Issue' : 'Close Pull Request'}
 					</button>
 				) : null}
 
@@ -638,21 +632,9 @@ export function AddComment({
 					<ContextDropdown
 						optionsContext={() => makeCommentMenuContext(owner, repo, number, availableActions, pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 						defaultAction={defaultSubmitAction}
-						defaultOptionLabel={() => availableActions[currentSelection]!}
+						defaultOptionLabel={() => reviewButtonLabel(currentSelection, availableActions, submitting)}
 						defaultOptionValue={() => currentSelection}
-						allOptions={() => {
-							const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
-							if (availableActions.comment) {
-								actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
-							}
-							if (availableActions.approve) {
-								actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
-							}
-							if (availableActions.requestChanges) {
-								actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
-							}
-							return actions;
-						}}
+						allOptions={() => reviewOptions(availableActions, submitting, submitAction, shouldDisableNonApproveButtons, shouldDisableApproveButton)}
 						optionsTitle='Submit pull request review'
 						disabled={isBusy || busy}
 						hasSingleAction={Object.keys(availableActions).length === 1}
@@ -663,6 +645,41 @@ export function AddComment({
 			</div>
 		</form>
 	);
+}
+
+const REVIEW_PROGRESS: Record<ReviewType, string> = {
+	[ReviewType.Comment]: 'Commenting...',
+	[ReviewType.Approve]: 'Approving...',
+	[ReviewType.RequestChanges]: 'Requesting Changes...',
+};
+
+/** The label of the submit button, which says what is being submitted while it is. */
+function reviewButtonLabel(selection: ReviewType, availableActions: { [key in ReviewType]?: string }, submitting: ReviewType | undefined): React.ReactNode {
+	return submitting ? <>
+		<span className='loading-button'>{loadingIcon}</span>
+		{REVIEW_PROGRESS[submitting]}
+	</> : availableActions[selection]!;
+}
+
+function reviewOptions(
+	availableActions: { [key in ReviewType]?: string },
+	submitting: ReviewType | undefined,
+	submitAction: (action: ReviewType) => Promise<void>,
+	shouldDisableNonApproveButtons: boolean,
+	shouldDisableApproveButton: boolean,
+): { label: string; value: string; optionDisabled: boolean; action: () => void }[] {
+	const label = (action: ReviewType) => action === submitting ? REVIEW_PROGRESS[action] : availableActions[action]!;
+	const actions: { label: string; value: string; optionDisabled: boolean; action: () => void }[] = [];
+	if (availableActions.comment) {
+		actions.push({ label: label(ReviewType.Comment), value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
+	}
+	if (availableActions.approve) {
+		actions.push({ label: label(ReviewType.Approve), value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
+	}
+	if (availableActions.requestChanges) {
+		actions.push({ label: label(ReviewType.RequestChanges), value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
+	}
+	return actions;
 }
 
 function commentMethods(isIssue: boolean) {
@@ -718,8 +735,9 @@ const makeCommentMenuContext = (owner: string, repo: string, number: number, ava
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, submit, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const { updatePR, submitReview, openOnGitHub, uploadFilesIntoPendingComment, uploadPastedFilesIntoPendingComment } = useContext(PullRequestContext);
+	const [pending, run] = usePendingAction<ReviewType>();
+	const isBusy = !!pending;
 	const addAttestation = !!pr.pendingAttestation;
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
@@ -730,18 +748,8 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			await openOnGitHub();
 			return;
 		}
-		setBusy(true);
-		switch (action) {
-			case ReviewType.RequestChanges:
-				await requestChanges(value);
-				break;
-			case ReviewType.Approve:
-				await approve(value, addAttestation);
-				break;
-			default:
-				await submit(value);
-		}
-		setBusy(false);
+		// The attestation checkbox of the comment form is only for approvals.
+		await run(action, () => submitReview(action, value, action === ReviewType.Approve && addAttestation));
 	}
 
 	async function defaultSubmitAction(): Promise<void> {
@@ -768,6 +776,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				requestChanges: 'Request changes on github.com',
 			}
 			: commentMethods(pr.isIssue);
+	const submitting = pending ?? pr.pendingReviewType;
 
 	// Disable buttons when summary comment is empty AND there are no review comments
 	// Note: Approve button is allowed even with empty content and no pending review
@@ -817,21 +826,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(pr.owner, pr.repo, pr.number, availableActions, pr.pendingCommentText, shouldDisableNonApproveButtons, addAttestation)}
 					defaultAction={defaultSubmitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]!}
+					defaultOptionLabel={() => reviewButtonLabel(currentSelection, availableActions, submitting)}
 					defaultOptionValue={() => currentSelection}
-					allOptions={() => {
-						const actions: { label: string; value: string; optionDisabled: boolean; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
-						if (availableActions.comment) {
-							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment), optionDisabled: shouldDisableNonApproveButtons });
-						}
-						if (availableActions.approve) {
-							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve), optionDisabled: shouldDisableApproveButton });
-						}
-						if (availableActions.requestChanges) {
-							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges), optionDisabled: shouldDisableNonApproveButtons });
-						}
-						return actions;
-					}}
+					allOptions={() => reviewOptions(availableActions, submitting, submitAction, shouldDisableNonApproveButtons, shouldDisableApproveButton)}
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}

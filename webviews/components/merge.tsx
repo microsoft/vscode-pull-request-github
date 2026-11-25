@@ -36,6 +36,7 @@ import {
 } from '../../src/github/interface';
 import { PullRequest, ReadyForReviewAndMergeContext, ReadyForReviewContext } from '../../src/github/views';
 import PullRequestContext from '../common/context';
+import { useBusyAction, usePendingAction } from '../common/hooks';
 import { Reviewer } from '../components/reviewer';
 
 const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
@@ -97,16 +98,13 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 
 const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
 	const { approveWorkflowRuns } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [isBusy, run] = useBusyAction();
 	const workflowRunIds = pr.status?.workflowRunIdsAwaitingApproval;
 	if (pr.state !== GithubItemStateEnum.Open || !workflowRunIds?.length) {
 		return null;
 	}
 
-	const approve = () => {
-		setBusy(true);
-		approveWorkflowRuns(workflowRunIds).finally(() => setBusy(false));
-	};
+	const approve = () => run(() => approveWorkflowRuns(workflowRunIds));
 	const isPlural = workflowRunIds.length > 1;
 	return (
 		<div className="status-section">
@@ -118,7 +116,7 @@ const WorkflowsAwaitingApproval = ({ pr }: { pr: PullRequest }) => {
 				</div>
 				{pr.hasWritePermission ? (
 					<div className="button-container">
-						<button className="secondary" onClick={approve} disabled={isBusy}>Approve workflows to run</button>
+						<button className="secondary" onClick={approve} disabled={isBusy}>{isBusy ? 'Approving...' : 'Approve workflows to run'}</button>
 					</div>
 				) : null}
 			</div>
@@ -269,21 +267,20 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	stackHasConflicts?: boolean;
 }) => {
 	const { updateBranch } = useContext(PullRequestContext);
-	const [busy, setBusy] = useState(false);
+	const [busy, run] = useBusyAction();
 
-	const onClick = () => {
-		setBusy(true);
-		updateBranch().finally(() => setBusy(false));
-	};
+	const onClick = () => run(updateBranch);
 
 	let icon: JSX.Element | null = circleFilledIcon;
 	let summary: string = 'Checking if this branch can be merged...';
 	let action: string | null = null;
+	let progress: string | null = null;
 	const hasConflicts = mergeable === PullRequestMergeability.Conflict || !!stackHasConflicts;
 	if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
 		action = canUpdateWithMergeCommit ? 'Resolve conflicts' : null;
+		progress = 'Resolving conflicts...';
 	} else if (stackHasConflicts) {
 		// This branch's own status would contradict the stack's conflicts, which block merging it.
 		icon = closeIcon;
@@ -298,6 +295,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 		icon = closeIcon;
 		summary = 'This branch is out-of-date with the base branch.';
 		action = canUpdateWithMergeCommit ? 'Update with merge commit' : null;
+		progress = 'Updating...';
 	}
 
 	// The editor offers to update the stack with the branch's status, whatever it is. The sidebar only offers it to resolve conflicts.
@@ -312,7 +310,7 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 	const button = offerStackUpdate && stackUpdate
 		? stackUpdate
 		: action && canUpdateBranch
-			? <button className="secondary" onClick={onClick} disabled={busy}>{action}</button>
+			? <button className="secondary" onClick={onClick} disabled={busy}>{busy ? progress : action}</button>
 			: null;
 	return (
 		<div className="status-section">
@@ -329,11 +327,8 @@ export const MergeStatus = ({ mergeable, isSimple, canUpdateBranch, canUpdateWit
 
 export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean; canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
-	const update = () => {
-		setBusy(true);
-		updateBranch().finally(() => setBusy(false));
-	};
+	const [isBusy, run] = useBusyAction();
+	const update = () => run(updateBranch);
 	const isNotCheckedoutWithConflicts = !isCurrentlyCheckedOut && mergeable === PullRequestMergeability.Conflict;
 	if (!canUpdateBranch || isNotCheckedoutWithConflicts || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
 		return null;
@@ -342,7 +337,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 		<div className="status-item status-section">
 			{warningIcon}
 			<p>This branch is out-of-date with the base branch.</p>
-			<button className="secondary" onClick={update} disabled={isBusy} >Update with Merge Commit</button>
+			<button className="secondary" onClick={update} disabled={isBusy} >{isBusy ? 'Updating...' : 'Update with Merge Commit'}</button>
 		</div>
 	);
 
@@ -350,27 +345,17 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 
 export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: { isSimple: boolean; isCopilotOnMyBehalf?: boolean; mergeMethod: MergeMethod }) => {
 	const { readyForReview, readyForReviewAndMerge, updatePR, pr } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(pr?.busy ?? false);
+	const [isBusy, run] = useBusyAction();
 
-	const markReadyForReview = useCallback(async () => {
-		try {
-			setBusy(true);
-			const result = await readyForReview();
-			updatePR(result);
-		} finally {
-			setBusy(false);
-		}
-	}, [readyForReview, updatePR]);
+	const markReadyForReview = useCallback(() => run(async () => {
+		const result = await readyForReview();
+		updatePR(result);
+	}), [run, readyForReview, updatePR]);
 
-	const markReadyAndMerge = useCallback(async () => {
-		try {
-			setBusy(true);
-			const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
-			updatePR(result);
-		} finally {
-			setBusy(false);
-		}
-	}, [readyForReviewAndMerge, updatePR, mergeMethod]);
+	const markReadyAndMerge = useCallback(() => run(async () => {
+		const result = await readyForReviewAndMerge({ mergeMethod: mergeMethod });
+		updatePR(result);
+	}), [run, readyForReviewAndMerge, updatePR, mergeMethod]);
 
 	const allOptions = useCallback(() => {
 		const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [
@@ -424,7 +409,12 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 						return JSON.stringify(ctx);
 					}}
 					defaultAction={markReadyForReview}
-					defaultOptionLabel={() => 'Ready for Review'}
+					defaultOptionLabel={() => isBusy ? (
+						<>
+							<span className='loading-button'>{loadingIcon}</span>
+							Marking Ready for Review...
+						</>
+					) : 'Ready for Review'}
 					defaultOptionValue={() => 'ready'}
 					allOptions={allOptions}
 					optionsTitle='Ready for Review'
@@ -437,15 +427,22 @@ export const ReadyForReview = ({ isSimple, isCopilotOnMyBehalf, mergeMethod }: {
 	);
 };
 
+/** Adds the pull request to the merge queue of its base branch. */
+const EnqueueButton = () => {
+	const { enqueue } = useContext(PullRequestContext);
+	const [isBusy, run] = useBusyAction();
+
+	return <button onClick={() => run(enqueue)} disabled={isBusy}>{isBusy ? 'Adding to Merge Queue...' : 'Add to Merge Queue'}</button>;
+};
+
 export const Merge = (pr: PullRequest) => {
-	const ctx = useContext(PullRequestContext);
 	const select = useRef<HTMLSelectElement>();
 	const [selectedMethod, selectMethod] = useState<MergeMethod | null>(null);
 
 	if (pr.mergeQueueMethod) {
 		return <div>
 			<div id='merge-comment-form'>
-				<button onClick={() => ctx.enqueue()}>Add to Merge Queue</button>
+				<EnqueueButton />
 			</div>
 		</div>;
 	}
@@ -663,11 +660,11 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 };
 
 export const MergeSimple = (pr: PullRequest) => {
-	const { merge, updatePR, enqueue } = useContext(PullRequestContext);
+	const { merge, updatePR } = useContext(PullRequestContext);
 
 	if (pr.mergeQueueMethod) {
 		return <div className='button-container'>
-			<button onClick={() => enqueue()}>Add to Merge Queue</button>
+			<EnqueueButton />
 		</div>;
 	}
 
@@ -687,12 +684,12 @@ export const MergeSimple = (pr: PullRequest) => {
 			return methods;
 		}, {});
 
-	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />;
+	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} busyLabel='Merging...' />;
 };
 
 export const DeleteBranch = (pr: PullRequest) => {
 	const { deleteBranch } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [isBusy, run] = useBusyAction();
 
 	if (pr.isRemoteHeadDeleted !== false && pr.isLocalHeadDeleted !== false) {
 		return <div />;
@@ -700,22 +697,13 @@ export const DeleteBranch = (pr: PullRequest) => {
 		return (
 			<div className={`branch-status-container${pr.stack ? ' stacked-delete-branch-container' : ''}`}>
 				<form
-					onSubmit={async event => {
+					onSubmit={event => {
 						event.preventDefault();
-
-						try {
-							setBusy(true);
-							const result = await deleteBranch();
-							if (result && result.cancelled) {
-								setBusy(false);
-							}
-						} finally {
-							setBusy(false);
-						}
+						return run(deleteBranch);
 					}}
 				>
 					<button disabled={isBusy} className="secondary" type="submit">
-						Delete Branch...
+						{isBusy ? 'Deleting Branch...' : 'Delete Branch...'}
 					</button>
 				</form>
 			</div>
@@ -725,17 +713,16 @@ export const DeleteBranch = (pr: PullRequest) => {
 
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMethod; cancel: () => void }) {
 	const { merge, updatePR, changeEmail } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [pending, run] = usePendingAction<'merge' | 'changeEmail'>();
+	const isBusy = !!pending;
 	const emailForCommit = pr.emailForCommit;
 	return (
 		<div>
 			<form id='merge-comment-form'
-				onSubmit={async event => {
+				onSubmit={event => {
 					event.preventDefault();
-
-					try {
-						setBusy(true);
-						const { title, description }: any = event.target;
+					const { title, description }: any = event.target;
+					return run('merge', async () => {
 						const mergeResult = await merge({
 							title: title?.value,
 							description: description?.value,
@@ -743,9 +730,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 							email: emailForCommit
 						});
 						updatePR(mergeResult);
-					} finally {
-						setBusy(false);
-					}
+					});
 				}}
 			>
 				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
@@ -753,16 +738,18 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 				{(method === 'rebase' || !emailForCommit) ? null : (
 					<div className='commit-association'>
 						<span>
-							Commit will be associated with <button className='input-box' title='Change email' aria-label='Change email' disabled={isBusy} onClick={() => {
-								setBusy(true);
-								changeEmail(emailForCommit).finally(() => setBusy(false));
-							}}>{emailForCommit}</button>
+							Commit will be associated with <button type='button' className='input-box' title='Change email' aria-label='Change email' disabled={isBusy}
+								onClick={() => run('changeEmail', () => changeEmail(emailForCommit))}>
+								{pending === 'changeEmail' ? 'Changing email...' : emailForCommit}
+							</button>
 						</span>
 					</div>
 				)}
 				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>
-					<button className="secondary" onClick={cancel}>Cancel</button>
-					<button disabled={isBusy} type="submit" id="confirm-merge">{method === 'rebase' ? 'Confirm ' : ''}{MERGE_METHODS[method]}</button>
+					<button type="button" className="secondary" disabled={isBusy} onClick={cancel}>Cancel</button>
+					<button disabled={isBusy} type="submit" id="confirm-merge">
+						{pending === 'merge' ? 'Merging...' : `${method === 'rebase' ? 'Confirm ' : ''}${MERGE_METHODS[method]}`}
+					</button>
 				</div>
 			</form>
 		</div>
@@ -823,9 +810,32 @@ const CHECK_STATE_ORDER: Record<CheckState, number> = {
 
 };
 
-const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
+/** Opens the details of a check in the browser. */
+const CheckDetailsLink = ({ url }: { url: string }) => {
+	const { openCheckDetails } = useContext(PullRequestContext);
+	return <a href={url} title={url} onClick={event => {
+		// The webview host opens any anchor with an href and ignores defaultPrevented. It would open a link to this
+		// pull request, which checks without details of their own have, in this overview, so the click must not reach it.
+		event.preventDefault();
+		event.stopPropagation();
+		void openCheckDetails(url);
+	}}>
+		Details
+	</a>;
+};
+
+/** Opens the logs of a failed check run. */
+const ViewCheckLogsButton = ({ status }: { status: PullRequestCheckStatus }) => {
 	const { viewCheckLogs } = useContext(PullRequestContext);
-	const [loadingLogId, setLoadingLogId] = useState<string | null>(null);
+	const [isOpening, run] = useBusyAction();
+	return (
+		<button className="icon-button" title={isOpening ? 'Opening Logs...' : 'View Logs'} disabled={isOpening} onClick={() => run(() => viewCheckLogs(status))}>
+			{isOpening ? loadingIcon : outputIcon}
+		</button>
+	);
+};
+
+const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }) => {
 	// Required checks come first, then each group is ordered by state.
 	// Use slice() to avoid mutating the original array
 	const sortedStatuses = statuses.slice().sort((a, b) => {
@@ -834,15 +844,6 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 		}
 		return CHECK_STATE_ORDER[a.state] - CHECK_STATE_ORDER[b.state];
 	});
-
-	const handleViewLogs = async (s: PullRequestCheckStatus) => {
-		setLoadingLogId(s.id);
-		try {
-			await viewCheckLogs(s);
-		} finally {
-			setLoadingLogId(null);
-		}
-	};
 
 	return (
 		<div className='status-scroll'>
@@ -860,16 +861,10 @@ const StatusCheckDetails = ({ statuses }: { statuses: PullRequestCheckStatus[] }
 						{s.isRequired ? (
 							<span className="label">Required</span>
 						) : null}
-						{!!s.targetUrl ? (
-							<a href={s.targetUrl} title={s.targetUrl}>
-								Details
-							</a>
-						) : <span className="status-check-link-placeholder" aria-hidden="true">Details</span>}
-						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? (
-							<button className="icon-button" title="View Logs" onClick={() => handleViewLogs(s)}>
-								{loadingLogId === s.id ? loadingIcon : outputIcon}
-							</button>
-						) : <span className="view-check-logs-placeholder" aria-hidden="true" />}
+						{s.targetUrl ? <CheckDetailsLink url={s.targetUrl} />
+							: <span className="status-check-link-placeholder" aria-hidden="true">Details</span>}
+						{s.isCheckRun && s.databaseId && s.state === CheckState.Failure ? <ViewCheckLogsButton status={s} />
+							: <span className="view-check-logs-placeholder" aria-hidden="true" />}
 					</div>
 				</div>
 			))}

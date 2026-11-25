@@ -5,16 +5,17 @@
 
 import React, { useContext, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, copyIcon, diffMultipleIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
+import { CopyButton } from './copyButton';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, diffMultipleIcon, editIcon, gitMergeIcon, gitPullRequestClosedIcon, gitPullRequestDraftIcon, gitPullRequestIcon, issuescon, loadingIcon, passIcon } from './icon';
 import { StackBadge } from './pullRequestStack';
 import { AuthorLink, Avatar } from './user';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
-import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
+import { CopilotStartedEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum, PullRequestStack, StateReason } from '../../src/github/interface';
 import { BaseContext, CodingAgentContext, OverviewContext, OverviewItemPreview, PullRequest } from '../../src/github/views';
 import { EDIT_TITLE_BUTTON_ID } from '../common/constants';
 import PullRequestContext from '../common/context';
-import { useStateProp } from '../common/hooks';
+import { useBusyAction, usePendingAction, useStateProp } from '../common/hooks';
 
 export function Header({
 	canEdit,
@@ -34,7 +35,6 @@ export function Header({
 	events,
 	owner,
 	repo,
-	busy,
 	stateReason,
 	stack,
 }: PullRequest) {
@@ -67,7 +67,6 @@ export function Header({
 					owner={owner}
 					repo={repo}
 					number={number}
-					busy={busy}
 				/>
 				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={codingAgentEvent} />
 			</div>
@@ -143,18 +142,20 @@ interface TitleProps {
 
 function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, isIssue, owner, repo }: TitleProps): JSX.Element {
 	const { setTitle, copyPrLink, openOnGitHub } = useContext(PullRequestContext);
+	const [isSaving, runSave] = useBusyAction();
 
 	const titleForm = (
 		<form
 			className="editing-form title-editing-form"
 			onSubmit={async evt => {
 				evt.preventDefault();
+				const firstElement = evt.currentTarget.elements[0] as HTMLInputElement | undefined;
+				const txt = firstElement ? firstElement.value : '';
 				try {
-					const form = evt.currentTarget;
-					const firstElement = form.elements[0] as HTMLInputElement | undefined;
-					const txt = firstElement ? firstElement.value : '';
-					await setTitle(txt);
-					setCurrentTitle(txt);
+					await runSave(async () => {
+						await setTitle(txt);
+						setCurrentTitle(txt);
+					});
 				} finally {
 					setEditMode(false);
 				}
@@ -162,10 +163,10 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		>
 			<input type="text" style={{ width: '100%' }} defaultValue={title} ></input>
 			<div className="form-actions">
-				<button type="button" className="secondary" onClick={() => setEditMode(false)}>
+				<button type="button" className="secondary" disabled={isSaving} onClick={() => setEditMode(false)}>
 					Cancel
 				</button>
-				<button type="submit">Update</button>
+				<button type="submit" disabled={isSaving}>{isSaving ? 'Updating...' : 'Update'}</button>
 			</div>
 		</form>
 	);
@@ -187,9 +188,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 					{editIcon}
 				</button>
 				: null}
-			<button title="Copy Link" onClick={copyPrLink} className="icon-button" aria-label="Copy Pull Request Link">
-				{copyIcon}
-			</button>
+			<CopyButton title="Copy Link" ariaLabel="Copy Pull Request Link" copy={copyPrLink} />
 			{!isIssue ? <ViewChangesButton /> : null}
 		</div>
 	);
@@ -200,9 +199,12 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 
 export function ViewChangesButton(): JSX.Element {
 	const { viewChanges } = useContext(PullRequestContext);
+	const [isBusy, run] = useBusyAction();
+
 	return (
-		<button title="View Changes" onClick={viewChanges} className="icon-button" aria-label="View Pull Request Changes">
-			{diffMultipleIcon}
+		<button title={isBusy ? 'Opening Changes...' : 'View Changes'} onClick={() => run(viewChanges)} disabled={isBusy} className="icon-button"
+			aria-label={isBusy ? 'Opening Pull Request Changes...' : 'View Pull Request Changes'}>
+			{isBusy ? loadingIcon : diffMultipleIcon}
 		</button>
 	);
 }
@@ -215,42 +217,37 @@ interface ButtonGroupProps {
 	owner: string;
 	repo: string;
 	number: number;
-	busy?: boolean;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, isAgentSessionsWorkspace, doneCheckoutBranch, owner, repo, number, busy }: ButtonGroupProps): JSX.Element {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, isAgentSessionsWorkspace, doneCheckoutBranch, owner, repo, number }: ButtonGroupProps): JSX.Element {
 	const { refresh } = useContext(PullRequestContext);
+	const [isRefreshing, run] = useBusyAction();
 
 	return (
 		<div className="button-group">
 			{isAgentSessionsWorkspace ? null : <CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }} />}
-			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
-				Refresh
+			<button title="Refresh with the latest data from GitHub" onClick={() => run(refresh)} disabled={isRefreshing} className="secondary">
+				{isRefreshing ? 'Refreshing...' : 'Refresh'}
 			</button>
-			{busy ? (
-				<div className='spinner'>
-					{loadingIcon}
-				</div>
-			) : null}
 		</div>
 	);
 }
 
 function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean; codingAgentEvent: TimelineEvent | undefined }): JSX.Element | null {
 	const { cancelCodingAgent, updatePR, openSessionLog } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [pending, run] = usePendingAction<'cancel' | 'viewSession'>();
 
-	const cancel = async () => {
+	const cancel = () => run('cancel', async () => {
 		if (!codingAgentEvent) {
 			return;
 		}
-		setBusy(true);
 		const result = await cancelCodingAgent(codingAgentEvent);
 		if (result.events.length > 0) {
 			updatePR(result);
 		}
-		setBusy(false);
-	};
+	});
+
+	const viewSession = (link: SessionLinkInfo) => run('viewSession', () => openSessionLog(link));
 
 	// Extract sessionLink from the coding agent event
 	const sessionLink = (codingAgentEvent as CopilotStartedEvent)?.sessionLink;
@@ -271,7 +268,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 		actions.push({
 			label: 'View Session',
 			value: '',
-			action: () => openSessionLog(sessionLink)
+			action: () => viewSession(sessionLink)
 		});
 	}
 
@@ -286,10 +283,10 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	return <ContextDropdown
 		optionsContext={() => JSON.stringify(context)}
 		defaultAction={actions[0].action}
-		defaultOptionLabel={() => isBusy ? (
+		defaultOptionLabel={() => pending ? (
 			<>
 				<span className='loading-button'>{loadingIcon}</span>
-				{actions[0].label}
+				{pending === 'cancel' ? 'Cancelling Coding Agent...' : 'Opening Session...'}
 			</>
 		) : actions[0].label}
 		defaultOptionValue={() => actions[0].value}
@@ -297,7 +294,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 			return actions;
 		}}
 		optionsTitle={actions[0].label}
-		disabled={isBusy}
+		disabled={!!pending}
 		hasSingleAction={false}
 		spreadable={false}
 		isSecondary={true}
@@ -371,31 +368,27 @@ interface CheckoutButtonProps {
 	number: number;
 }
 
+type CheckoutAction = 'checkout' | 'exitReviewMode' | 'openChanges';
+
 const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, isIssue, doneCheckoutBranch, owner, repo, number }) => {
 	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
+	const [pending, run] = usePendingAction<CheckoutAction>();
 
-	const onClick = async (command: string) => {
-		try {
-			setBusy(true);
-
-			switch (command) {
-				case 'checkout':
-					await checkout();
-					break;
-				case 'exitReviewMode':
-					await exitReviewMode();
-					break;
-				case 'openChanges':
-					await openChanges();
-					break;
-				default:
-					throw new Error(`Can't find action ${command}`);
-			}
-		} finally {
-			setBusy(false);
+	const onClick = (command: CheckoutAction) => run(command, async () => {
+		switch (command) {
+			case 'checkout':
+				await checkout();
+				break;
+			case 'exitReviewMode':
+				await exitReviewMode();
+				break;
+			case 'openChanges':
+				await openChanges();
+				break;
+			default:
+				throw new Error(`Can't find action ${command}`);
 		}
-	};
+	});
 
 	if (isIssue) {
 		return null;
@@ -431,16 +424,27 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ isCurrentlyCheckedOut, 
 		action: () => onClick('openChanges')
 	});
 
+	const progress: Record<CheckoutAction, string> = {
+		checkout: 'Checking Out...',
+		exitReviewMode: `Checking Out '${doneCheckoutBranch}'...`,
+		openChanges: 'Opening Changes...',
+	};
+
 	return <ContextDropdown
 		optionsContext={() => JSON.stringify(context)}
 		defaultAction={actions[0].action}
-		defaultOptionLabel={() => actions[0].label}
+		defaultOptionLabel={() => pending ? (
+			<>
+				<span className='loading-button'>{loadingIcon}</span>
+				{progress[pending]}
+			</>
+		) : actions[0].label}
 		defaultOptionValue={() => actions[0].value}
 		allOptions={() => {
 			return actions;
 		}}
 		optionsTitle={actions[0].label}
-		disabled={isBusy}
+		disabled={!!pending}
 		hasSingleAction={false}
 		spreadable={false}
 	/>;
