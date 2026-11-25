@@ -972,6 +972,21 @@ export class GitHubRepository extends Disposable {
 		return undefined;
 	}
 
+	async getUniqueOpenPullRequestForBranch(branch: string, headOwner: string, headRepo: string): Promise<PullRequestModel | undefined> {
+		const { octokit, remote } = await this.ensure();
+		const { data } = await octokit.call(octokit.api.pulls.list, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			head: `${headOwner}:${branch}`,
+			state: 'open',
+			per_page: 2,
+		});
+		if (data.length !== 1 || !data[0].head.repo || compareIgnoreCase(data[0].head.repo.full_name, `${headOwner}/${headRepo}`) !== 0) {
+			return undefined;
+		}
+		return this.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(data[0], this));
+	}
+
 	async getPullRequestForBranch(branch: string, headOwner: string, throwOnError: boolean = false): Promise<PullRequestModel | undefined> {
 		let remote: GitHubRemote | undefined;
 		try {

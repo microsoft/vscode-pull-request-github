@@ -390,11 +390,14 @@ describe('ReviewManager polling', function () {
 			githubRepository.dispose();
 		});
 
-		it('does not associate a worktree branch with a pull request for the branch it tracks', async function () {
+		it('does not fall back to a closed pull request for a differently named worktree branch', async function () {
 			repository.setWorktrees([
 				{ name: 'root', path: '/root', ref: 'refs/heads/main', main: true, detached: false },
 				{ name: 'my-feature', path: '/root.worktrees/my-feature', ref: 'refs/heads/my-feature', main: false, detached: false },
 			]);
+			githubRepository.queryProvider.expectOctokitRequest(['pulls', 'list'], [{
+				owner: 'octocat', repo: 'reponame', head: 'octocat:dev', state: 'open', per_page: 2,
+			}], []);
 
 			assert.strictEqual(await reviewManager['checkGitHubForPrBranch'](await repository.getBranch('my-feature')), undefined);
 			assert.strictEqual(getPullRequestForBranch.called, false);
