@@ -48,7 +48,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		remoteName: string | undefined,
-		progress: vscode.Progress<{ message?: string; increment?: number }>
+		progress: vscode.Progress<{ message?: string; increment?: number; }>
 	) {
 		// the branch is from a fork
 		const localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -84,7 +84,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		remotes: Remote[],
 		pullRequest: PullRequestModel,
-		progress: vscode.Progress<{ message?: string; increment?: number }>
+		progress: vscode.Progress<{ message?: string; increment?: number; }>
 	): Promise<void> {
 		if (!pullRequest.validatePullRequestModel('Checkout pull request failed')) {
 			return;
@@ -110,26 +110,19 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(localBranchName);
-			const refsHeadsPrefix = 'refs/heads/';
-			const isCheckedOutInAnotherWorktree = repository.state.worktrees?.some(worktree => {
-				if (worktree.main || worktree.detached) {
-					return false;
-				}
-
-				const worktreeBranch = worktree.ref.startsWith(refsHeadsPrefix)
-					? worktree.ref.substring(refsHeadsPrefix.length)
-					: worktree.ref;
-				return worktreeBranch === localBranchName;
-			}) ?? false;
+			const isCheckedOutInAnotherWorktree = PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, localBranchName);
 			const canFastForward = !isCheckedOutInAnotherWorktree
 				&& branch.behind !== undefined
 				&& branch.behind > 0
 				&& branch.ahead === 0
 				&& branch.upstream?.remote === remoteName
 				&& branch.upstream?.name === originalBranchName;
-			// Check if local branch is pointing to the same commit as the remote
-			if (branch.commit !== trackedBranch.commit && !canFastForward) {
-				Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
+			if (isCheckedOutInAnotherWorktree || (branch.commit !== trackedBranch.commit && !canFastForward)) {
+				if (isCheckedOutInAnotherWorktree) {
+					Logger.appendLine(`Local branch ${localBranchName} is checked out in another worktree. Creating new branch for PR checkout.`, PullRequestGitHelper.ID);
+				} else {
+					Logger.appendLine(`Local branch ${localBranchName} commit ${branch.commit} differs from remote commit ${trackedBranch.commit}. Creating new branch to avoid overwriting user's work.`, PullRequestGitHelper.ID);
+				}
 				// Instead of deleting the user's branch, create a unique branch name to avoid conflicts
 				const uniqueBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
 				Logger.appendLine(`Creating branch ${uniqueBranchName} for PR checkout`, PullRequestGitHelper.ID);
@@ -175,7 +168,7 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>) {
+	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number; }>) {
 		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		const configs = await repository.getConfigs();
 
@@ -192,9 +185,12 @@ export class PullRequestGitHelper {
 			})
 			.filter(c => c.branch && c.value === key);
 
-		if (branchInfos && branchInfos.length) {
-			// let's immediately checkout to branchInfos[0].branch
-			const branchName = branchInfos[0].branch!;
+		// Git won't check out a branch that another worktree already has checked out, so skip those
+		const branchInfo = branchInfos.find(info => !PullRequestGitHelper.isBranchCheckedOutInAnotherWorktree(repository, info.branch!));
+
+		if (branchInfo) {
+			// let's immediately checkout to the branch
+			const branchName = branchInfo.branch!;
 			progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 			await repository.checkout(branchName);
 
@@ -207,7 +203,7 @@ export class PullRequestGitHelper {
 				await repository.fetch(remote, ref);
 			}
 
-			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
+			const branchStatus = await repository.getBranch(branchName);
 			if (branchStatus.upstream === undefined) {
 				return false;
 			}
@@ -384,7 +380,7 @@ export class PullRequestGitHelper {
 			return matchingMetadata;
 		}
 
-		let configs: { key: string; value: string }[];
+		let configs: { key: string; value: string; }[];
 		try {
 			configs = await repository.getConfigs();
 		} catch (_) {
@@ -462,6 +458,24 @@ export class PullRequestGitHelper {
 		return result;
 	}
 
+	static isBranchCheckedOutInAnotherWorktree(repository: Repository, branchName: string): boolean {
+		if (repository.state.HEAD?.name === branchName) {
+			return false;
+		}
+
+		const refsHeadsPrefix = 'refs/heads/';
+		return repository.state.worktrees?.some(worktree => {
+			if (worktree.detached) {
+				return false;
+			}
+
+			const worktreeBranch = worktree.ref.startsWith(refsHeadsPrefix)
+				? worktree.ref.substring(refsHeadsPrefix.length)
+				: worktree.ref;
+			return worktreeBranch === branchName;
+		}) ?? false;
+	}
+
 	static async getUniqueRemoteName(repository: Repository, name: string) {
 		let uniqueName = name;
 		let number = 1;
@@ -512,7 +526,7 @@ export class PullRequestGitHelper {
 		base: {
 			owner: string,
 			repo: string,
-			branch: string
+			branch: string;
 		} | undefined
 	) {
 		try {
