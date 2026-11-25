@@ -642,27 +642,13 @@ describe('PullRequestManager', function () {
 			]);
 		}
 
-		function expectOpenPullRequests(...numbers: number[]) {
-			githubRepository.queryProvider.expectOctokitRequest(['pulls', 'list'], [{
-				owner: 'octocat', repo: 'reponame', head: 'octocat:dev', state: 'open', per_page: 2,
-			}], numbers.map(number => new PullRequestBuilder().number(number).head(head => head.ref('dev')).build()));
-		}
-
-		it('matches the only open pull request for the upstream of a differently named worktree branch', async function () {
-			expectOpenPullRequests(2);
+		it('matches an open pull request to a linked worktree branch tracking another branch', async function () {
+			getPullRequestForBranch.resolves(openPullRequest);
 			checkOut('main', 'my-feature');
 			const branch = await repository.getBranch('my-feature');
 
 			const metadata = await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev');
-			assert.strictEqual(metadata?.prNumber, 2);
-		});
-
-		it('does not pick between open pull requests for the same upstream head', async function () {
-			expectOpenPullRequests(2, 3);
-			checkOut('main', 'my-feature');
-			const branch = await repository.getBranch('my-feature');
-
-			assert.strictEqual(await manager.getMatchingPullRequestMetadataFromGitHub(branch, 'origin', undefined, 'dev'), null);
+			assert.strictEqual(metadata?.model, openPullRequest);
 		});
 
 		it('does not match a closed pull request to a main worktree branch tracking another branch', async function () {
@@ -722,16 +708,14 @@ describe('PullRequestManager', function () {
 			assert.ok(getPullRequestForBranch.calledOnceWithExactly('dev', 'octocat'));
 		});
 
-		it('associates a worktree branch with a unique open upstream pull request on first activation', async function () {
-			expectOpenPullRequests(2);
+		it('does not associate a closed upstream pull request with a differently named linked worktree branch on first activation', async function () {
 			checkOut('main', 'my-feature', 'feature');
 
 			await manager['associateLocalBranchesWithPRsOnFirstActivation']();
 
-			assert.ok(getPullRequestForBranch.calledOnceWithExactly('feature', 'octocat'));
-			assert.deepStrictEqual((await repository.getConfigs()).sort((a, b) => a.key.localeCompare(b.key)), [
+			assert.ok(getPullRequestForBranch.calledWithExactly('dev', 'octocat'));
+			assert.deepStrictEqual(await repository.getConfigs(), [
 				{ key: 'branch.feature.github-pr-owner-number', value: 'octocat#reponame#1' },
-				{ key: 'branch.my-feature.github-pr-owner-number', value: 'octocat#reponame#2' },
 			]);
 		});
 

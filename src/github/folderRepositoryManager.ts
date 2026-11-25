@@ -11,7 +11,7 @@ import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { CopilotWorkingStatus, GitHubRepository, IMetadata, isRateLimitError, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { CopilotWorkingStatus, GitHubRepository, isRateLimitError, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestChangeEvent, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -1174,6 +1174,8 @@ export class FolderRepositoryManager extends Disposable {
 					// Try to find a matching PR on GitHub
 					const remoteName = branch.upstream.remote;
 					const upstreamBranchName = branch.upstream.name;
+					const upstreamMatch = await this.getUpstreamPullRequestMatch(branchName, upstreamBranchName);
+
 					const githubRepo = githubRepositories.find(
 						repo => repo.remote.remoteName === remoteName,
 					);
@@ -1189,9 +1191,9 @@ export class FolderRepositoryManager extends Disposable {
 					}
 
 					// Search for a PR with this head branch
-					const matchingPR = await this.getPullRequestForUpstreamBranch(githubRepo, metadata, upstreamBranchName, branchName);
+					const matchingPR = await githubRepo.getPullRequestForBranch(upstreamBranchName, metadata.owner.login);
 
-					if (matchingPR) {
+					if (matchingPR && (upstreamMatch === 'all' || matchingPR.isOpen)) {
 						Logger.appendLine(`Found PR #${matchingPR.number} for branch ${branchName}, associating...`, this.id);
 						await PullRequestGitHelper.associateBranchWithPullRequest(
 							this.repository,
@@ -2600,17 +2602,19 @@ export class FolderRepositoryManager extends Disposable {
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		try {
+			const upstreamMatch = await this.getUpstreamPullRequestMatch(branch.name, upstreamBranchName);
+			const openOnly = upstreamMatch === 'open';
 			if (remoteName) {
-				return await this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName, branch.name);
+				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName, openOnly);
 			}
-			return await this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
+			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName, openOnly);
 		} catch (e) {
 			Logger.error(`Unable to get matching pull request metadata from GitHub: ${e}`, this.id);
 			return null;
 		}
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteUrl}`, this.id);
@@ -2626,7 +2630,7 @@ export class FolderRepositoryManager extends Disposable {
 				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
-		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, branch.name);
+		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
 		const headBranchName = matchingPR?.model.head?.ref;
 		if (matchingPR && headBranchName && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
 			// Setting up the upstream is best effort: a failed fetch (for example, an SSH key that needs a passphrase)
@@ -2643,7 +2647,7 @@ export class FolderRepositoryManager extends Disposable {
 		return matchingPR;
 	}
 
-	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string, branchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteName}`, this.id);
@@ -2668,10 +2672,10 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}
 
-		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, branchName);
+		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName, openOnly);
 	}
 
-	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string, branchName?: string): Promise<
+	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string, openOnly: boolean = false): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
 		if (!headGitHubRepo || !upstreamBranchName) {
@@ -2693,8 +2697,10 @@ export class FolderRepositoryManager extends Disposable {
 
 		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of parentRepos) {
-			const matchingPullRequest = await this.getPullRequestForUpstreamBranch(repo, headRepoMetadata, upstreamBranchName, branchName);
-			if (matchingPullRequest) {
+			const matchingPullRequest = await repo.getPullRequestForBranch(upstreamBranchName, headRepoMetadata.owner.login);
+			if (matchingPullRequest && openOnly && !matchingPullRequest.isOpen) {
+				Logger.debug(`Pull request #${matchingPullRequest.number} for ${upstreamBranchName} is not open, not matching it to a branch that tracks ${upstreamBranchName} under another name`, this.id);
+			} else if (matchingPullRequest) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,
@@ -2730,18 +2736,20 @@ export class FolderRepositoryManager extends Disposable {
 		return worktree ? vscode.Uri.file(worktree.path) : undefined;
 	}
 
-	private async getPullRequestForUpstreamBranch(repo: GitHubRepository, headRepo: IMetadata, upstream: string, branchName?: string): Promise<PullRequestModel | undefined> {
-		const unassociatedAlias = branchName && branchName !== upstream
-			&& !(await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName])).has(branchName);
-		if (unassociatedAlias && this.getWorktreeForBranch(branchName)) {
-			return repo.getUniqueOpenPullRequestForBranch(upstream, headRepo.owner.login, headRepo.name);
+	/**
+	 * A branch created from a base branch (e.g. `git checkout -b my-feature origin/dev`) tracks that base branch, so its
+	 * upstream name isn't the branch's own name on the remote and matches pull requests from the base branch instead.
+	 * Such a branch is only matched to an open pull request by its upstream, since tracking another pull request's branch
+	 * under a different name is a legitimate setup, including in a linked worktree.
+	 * Branches created for a pull request (e.g. fork pull requests checked out as `pr/<author>/<number>`) also track a
+	 * branch with another name, but they're associated with the pull request when they're created.
+	 */
+	private async getUpstreamPullRequestMatch(branchName: string | undefined, upstreamBranchName: string | undefined): Promise<'all' | 'open'> {
+		if (!branchName || !upstreamBranchName || branchName === upstreamBranchName) {
+			return 'all';
 		}
-		const pr = await repo.getPullRequestForBranch(upstream, headRepo.owner.login);
-		if (unassociatedAlias && pr && !pr.isOpen) {
-			Logger.debug(`Pull request #${pr.number} for ${upstream} is not open, not matching it to a branch that tracks ${upstream} under another name`, this.id);
-			return undefined;
-		}
-		return pr;
+		const metadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranches(this.repository, [branchName]);
+		return metadata.has(branchName) ? 'all' : 'open';
 	}
 
 	async removeWorktree(worktreePath: string): Promise<void> {
