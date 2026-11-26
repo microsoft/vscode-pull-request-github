@@ -1,0 +1,72 @@
+name: PR Checks
+
+on:
+  push:
+    branches:
+      - main
+      - release/**
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test_suite:
+    name: Test suite
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The package quarantine check compares package-lock.json against HEAD^1.
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.x"
+
+      - name: Enforce package quarantine
+        run: npm run check:package-quarantine
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4; do
+            npm ci && exit 0
+            echo "npm ci failed (attempt $attempt)"
+            sleep $((attempt * 10))
+          done
+          exit 1
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run hygiene checks
+        run: npm run hygiene
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Verify command registrations
+        run: npm run check:commands
+
+      - name: Run test suite
+        run: npm run test
+        env:
+          TEST_JUNIT_XML_PATH: ${{ runner.temp }}/test-results.xml
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/*test-results.xml
+          if-no-files-found: ignore
