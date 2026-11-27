@@ -7,7 +7,7 @@ import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { AccountType, isITeam, reviewerLabel } from '../../github/interface';
-import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, isAgentManagedWorkspace, parseGraphQLIssue, parseGraphQLComment, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
+import { getPRFetchQuery, getPullRequestBranchLabels, insertNewCommitsSinceReview, parseGraphQLIssue, parseGraphQLComment, parseCombinedTimelineEvents, sanitizeIssueTitle, variableSubstitution } from '../../github/utils';
 import { IssueModel } from '../../github/issueModel';
 import { GitHubRef } from '../../common/githubRef';
 import { CommitEvent, EventType, ReviewEvent, TimelineEvent } from '../../common/timelineEvent';
@@ -15,17 +15,6 @@ import * as GraphQL from '../../github/graphql';
 import { GitHubRepository } from '../../github/githubRepository';
 
 describe('utils', () => {
-
-	describe('isAgentManagedWorkspace', () => {
-		it('uses the current flag even when it is false', () => {
-			assert.strictEqual(isAgentManagedWorkspace({ isAgentManaged: true }), true);
-			assert.strictEqual(isAgentManagedWorkspace({ isAgentManaged: false, isAgentSessionsWorkspace: true }), false);
-		});
-
-		it('recognizes an agent workspace on VS Code 1.148', () => {
-			assert.strictEqual(isAgentManagedWorkspace({ isAgentSessionsWorkspace: true }), true);
-		});
-	});
 
 	describe('getPullRequestBranchLabels', () => {
 		const sameOwner = { base: { owner: 'owner', ref: 'main' }, head: { owner: 'owner', ref: 'feature' } };

@@ -2042,11 +2042,6 @@ export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
 }
 
-export function isAgentManagedWorkspace(workspace: { isAgentManaged?: boolean; isAgentSessionsWorkspace?: boolean }): boolean {
-	// VS Code 1.148 exposes the previous name of the proposal.
-	return workspace.isAgentManaged ?? workspace.isAgentSessionsWorkspace ?? false;
-}
-
 export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
 	return !!gravatarId ? `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=retro` : undefined;
 }

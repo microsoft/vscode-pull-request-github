@@ -696,6 +696,83 @@ describe('Overview', function () {
 		assert.strictEqual(content.hasAttribute('hidden'), false);
 	});
 
+	describe('description', function () {
+		function contextFor(pr: PullRequest) {
+			const context = new PRContext(pr);
+			context.setPR(pr);
+			return context;
+		}
+
+		function renderDescription(context: PRContext) {
+			const postMessage = sinon.stub(context, 'postMessage').resolves();
+			const out = render(
+				<PullRequestContext.Provider value={context}>
+					<EditorRoot>{(current: PullRequest) => <Overview {...current} />}</EditorRoot>
+				</PullRequestContext.Provider>,
+			);
+			const chevron = out.getByLabelText(/^(Collapse|Expand) description$/);
+			return {
+				out,
+				chevron,
+				content: document.getElementById(chevron.getAttribute('aria-controls')!)!,
+				remembered: () => postMessage.args.map(([message]) => message)
+					.filter(message => message.command === 'pr.set-description-collapsed').map(message => message.args),
+			};
+		}
+
+		it('collapses and expands from the chevron in its header, and remembers it for the next one', function () {
+			const { out, chevron, content, remembered } = renderDescription(contextFor(new PullRequestBuilder().build()));
+			assert(content.querySelector('.comment-body'), 'the chevron controls the description');
+			assert.strictEqual(chevron.getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(content.hidden, false);
+
+			fireEvent.click(chevron);
+
+			assert.strictEqual(chevron.getAttribute('aria-expanded'), 'false');
+			assert.strictEqual(chevron.getAttribute('aria-label'), 'Expand description');
+			assert(content.hidden);
+			assert(out.container.querySelector('#description .review-comment-header .author-link'), 'the author is still shown');
+			assert.deepStrictEqual(remembered(), [true]);
+
+			fireEvent.click(chevron);
+
+			assert.strictEqual(chevron.getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(content.hidden, false);
+			assert.deepStrictEqual(remembered(), [true, false]);
+		});
+
+		it('stays collapsed when the pull request or the webview is reloaded', function () {
+			const pr = new PullRequestBuilder().build();
+			const context = contextFor(pr);
+			const { out, chevron, content } = renderDescription(context);
+			fireEvent.click(chevron);
+
+			// Another overview can have expanded its description since, which only the next one that is opened follows.
+			act(() => {
+				context.handleMessage({ command: 'pr.initialize', pullrequest: { ...pr, isDescriptionCollapsed: false } });
+			});
+			assert(content.hidden);
+
+			out.unmount();
+			const reloaded = renderDescription(new PRContext());
+			assert.strictEqual(reloaded.chevron.getAttribute('aria-expanded'), 'false');
+			assert(reloaded.content.hidden);
+		});
+
+		it('opens collapsed when the last one was collapsed, and expands to edit without changing that', function () {
+			const { out, chevron, content, remembered } = renderDescription(contextFor(new PullRequestBuilder().isDescriptionCollapsed(true).build()));
+			assert.strictEqual(chevron.getAttribute('aria-expanded'), 'false');
+			assert(content.hidden);
+
+			fireEvent.click(out.container.querySelector('#description button[title="Edit comment"]')!);
+			fireEvent.click(out.container.querySelector('#description .form-actions .secondary')!);
+
+			assert.strictEqual(out.getByLabelText('Collapse description').getAttribute('aria-expanded'), 'true');
+			assert.strictEqual(document.getElementById('description-content')?.hidden, false);
+			assert.deepStrictEqual(remembered(), [], 'the next one still opens collapsed');
+		});
+	});
+
 	it('does not offer Update stack when the host rejects eligibility or stack details are unavailable', function () {
 		const entry = { position: 1, number: 1234, title: 'First', head: 'D1', url: 'https://example.com/1234', state: GithubItemStateEnum.Open, isDraft: false, mergeable: PullRequestMergeability.Mergeable };
 		const stack = { position: 1, size: 1, base: 'main', pullRequests: [entry] };

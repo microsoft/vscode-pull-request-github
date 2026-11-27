@@ -46,7 +46,7 @@ import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { addressCommentsInSession, fixChecksInSession } from './sessionPrompts';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
-import { getIssueOrURLExpression, getPullRequestBranchLabels, isAgentManagedWorkspace, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeMethodMenuContext, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult, UpdateStackAutoMergeArgs } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -61,6 +61,7 @@ import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../commo
 import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { PULL_REQUEST_DESCRIPTION_COLLAPSED } from '../extensionState';
 import { toCheckRunLogUri } from '../view/checkRunLogContentProvider';
 import { getGitHubCommitFileSystemProvider } from '../view/githubFileContentProvider';
 
@@ -78,6 +79,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	public static override ID: string = 'PullRequestOverviewPanel';
 	public static override readonly viewType = PULL_REQUEST_OVERVIEW_VIEW_TYPE;
 	protected override readonly previewLog = { label: 'PR', id: PullRequestOverviewPanel.ID };
+	protected override readonly descriptionCollapsedKey = PULL_REQUEST_DESCRIPTION_COLLAPSED;
 
 	/**
 	 * All open PR panels, keyed by "owner/repo#number".
@@ -692,7 +694,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
-				isAgentSessionsWorkspace: isAgentManagedWorkspace(vscode.workspace),
+				isAgentSessionsWorkspace: vscode.workspace.isAgentManaged,
 				overviewTabs: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean | 'agents'>(EXPERIMENTAL_OVERVIEW_TABS, false),
 				stack: initialStack,
 				stackLoaded: false,
