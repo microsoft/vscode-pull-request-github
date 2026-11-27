@@ -156,6 +156,16 @@ html {
 	border-bottom: none;
 }
 
+/*
+ * A line under the title of each section ties the actions on its right to it.
+ * The minimum height is that of the icon buttons, so that the lines of sections without actions line up with the others.
+ */
+#overview-tabs .section-header {
+	min-height: 22px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
 /* Not `display`, so that `hidden` hides the actions of the other tabs. */
 #overview-tabs .overview-session-action {
 	min-width: 0;
