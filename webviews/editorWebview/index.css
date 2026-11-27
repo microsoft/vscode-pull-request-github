@@ -156,6 +156,16 @@ html {
 	border-bottom: none;
 }
 
+/*
+ * A line under the title of each section ties the actions on its right to it.
+ * The minimum height is that of the icon buttons, so that the lines of sections without actions line up with the others.
+ */
+#overview-tabs .section-header {
+	min-height: 22px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
 /* Not `display`, so that `hidden` hides the actions of the other tabs. */
 #overview-tabs .overview-session-action {
 	min-width: 0;
@@ -652,9 +662,9 @@ button.input-box {
 	display: none;
 }
 
-/* Without merge actions, the last row ends the section, whose border it would double. */
-#status-checks > .status-section:has(+ .merge-footer:empty) > .status-item {
-	border-bottom: none;
+/* Without merge actions, the last row ends the section, whose border it would double. Wherever that row's bottom border is, such as under its last check, it is pulled under the section's border and clipped. */
+#status-checks > :is(.status-section, .passing-requirements, .stack-section):has(+ .merge-footer:empty) {
+	margin-bottom: -1px;
 }
 
 .merge-footer-message {
@@ -700,6 +710,8 @@ button.input-box {
 #status-checks {
 	border: 1px solid var(--vscode-editorHoverWidget-border);
 	border-radius: 6px;
+	/* Unlike hidden, clip doesn't make the section a scroll container, which links to the stack could scroll. */
+	overflow: clip;
 }
 
 #status-checks .label {
