@@ -694,7 +694,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
-				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				isAgentSessionsWorkspace: vscode.workspace.isAgentManaged,
 				overviewTabs: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean | 'agents'>(EXPERIMENTAL_OVERVIEW_TABS, false),
 				stack: initialStack,
 				stackLoaded: false,

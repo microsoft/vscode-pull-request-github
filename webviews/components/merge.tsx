@@ -904,11 +904,11 @@ export const MergeStack = ({ pr }: { pr: PullRequest }) => {
 		{confirmed ? <>
 			<p>{confirmed.prompt}</p>
 			{error ? <p role="alert">Unable to merge stack: {error}</p> : null}
-			<button className="secondary" disabled={busy} onClick={() => setConfirming(undefined)}>Cancel</button>
 			<button disabled={busy} onClick={submit}>
 				{busy ? <span className="loading-button">{loadingIcon}</span> : null}
 				{busy ? confirmed.progress : confirmed.label}
 			</button>
+			<button className="secondary" disabled={busy} onClick={() => setConfirming(undefined)}>Cancel</button>
 		</> : <>
 			<div className="stack-merge-buttons">
 				<button onClick={() => setConfirming('stack')}>{actions.stack.label}</button>

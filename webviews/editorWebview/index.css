@@ -665,6 +665,12 @@ button.input-box {
 	justify-content: flex-end;
 }
 
+/* Confirming a stack merge asks on a line of its own, so the button that confirms it starts where the merge button was rather than after the question. */
+#status-checks .stack-merge > p {
+	flex-basis: 100%;
+	margin: 0;
+}
+
 /* The merge method of an automatic merge is chosen at the end of the row, where the merge button is otherwise. */
 .merge-footer .automerge-section .merge-select-container {
 	margin-left: auto;
