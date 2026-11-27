@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { shouldShowHover, USER_EXPRESSION } from './util';
 import { ITelemetry } from '../common/telemetry';
-import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, LUA_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
@@ -49,6 +49,10 @@ export class UserHoverProvider implements vscode.HoverProvider {
 				}
 				const isDoxygenLanguage = document.languageId === 'cpp' || document.languageId === 'c' || document.languageId === 'csharp' || document.languageId === 'java' || document.languageId === 'objective-c' || document.languageId === 'php';
 				if (isDoxygenLanguage && DOXYGEN_NON_USERS.indexOf(username) >= 0) {
+					return;
+				}
+				// Lua annotation checks
+				if ((document.languageId === 'lua') && LUA_NON_USERS.indexOf(username) >= 0) {
 					return;
 				}
 				return this.createHover(document.uri, username, wordPosition);
