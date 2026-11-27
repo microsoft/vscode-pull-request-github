@@ -15,6 +15,8 @@ export const PREVIOUS_CREATE_METHOD = 'github.pullRequest.previousCreateMethod';
 export const LAST_USED_EMAIL = 'github.pullRequest.lastUsedEmail';
 export const BRANCHES_ASSOCIATED_WITH_PRS = 'github.pullRequest.branchesAssociatedWithPRs';
 export const RECENTLY_USED_BRANCHES = 'github.pullRequest.recentlyUsedBranches';
+export const PULL_REQUEST_DESCRIPTION_COLLAPSED = 'github.pullRequest.descriptionCollapsed';
+export const ISSUE_DESCRIPTION_COLLAPSED = 'github.issue.descriptionCollapsed';
 
 export interface RepoState {
 	mentionableUsers?: IAccount[];

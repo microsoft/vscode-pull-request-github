@@ -156,6 +156,16 @@ html {
 	border-bottom: none;
 }
 
+/*
+ * A line under the title of each section ties the actions on its right to it.
+ * The minimum height is that of the icon buttons, so that the lines of sections without actions line up with the others.
+ */
+#overview-tabs .section-header {
+	min-height: 22px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
 /* Not `display`, so that `hidden` hides the actions of the other tabs. */
 #overview-tabs .overview-session-action {
 	min-width: 0;
@@ -466,6 +476,32 @@ body .comment-container .review-comment-header {
 	margin-left: auto;
 }
 
+.review-comment-header .comment-chevron {
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.review-comment-header .comment-chevron:hover,
+.review-comment-header .comment-chevron:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.comment-chevron[aria-expanded="false"] .icon {
+	transform: rotate(-90deg);
+}
+
+/* The ids override the border below headers that have content after them, which is only hidden. */
+#main #description .review-comment-header.collapsed {
+	border-bottom: none;
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
+}
+
+/* Keeps the actions that show on hover beside the chevron instead of over it. */
+#description .action-bar {
+	right: 40px;
+}
+
 .review-comment-header .pending {
 	color: inherit;
 	font-style: italic;
@@ -637,6 +673,12 @@ button.input-box {
 
 .merge-actions {
 	justify-content: flex-end;
+}
+
+/* Confirming a stack merge asks on a line of its own, so the button that confirms it starts where the merge button was rather than after the question. */
+#status-checks .stack-merge > p {
+	flex-basis: 100%;
+	margin: 0;
 }
 
 /* The merge method of an automatic merge is chosen at the end of the row, where the merge button is otherwise. */
@@ -2114,6 +2156,10 @@ code {
 .vscode-high-contrast #status-checks {
 	background: none;
 	border: 1px solid var(--vscode-panel-border);
+}
+
+.vscode-high-contrast #main #description .review-comment-header.collapsed {
+	border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .vscode-high-contrast .comment-container .comment-body,

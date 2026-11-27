@@ -163,7 +163,31 @@ describe('Root', function () {
 			</PullRequestContext.Provider>,
 		);
 		out.container.querySelector('.overview-title h2 a')!.removeAttribute('data-vscode-context');
+		// The preview has no controls, so it has no chevron to collapse the description.
+		out.container.querySelector('#description .comment-chevron')!.remove();
 		assert.deepStrictEqual(selectors.map(selector => out.container.querySelector(selector)!.outerHTML), previewMarkup);
+	});
+
+	it('shows the description collapsed in the preview when the last one was collapsed', function () {
+		const pr = new PullRequestBuilder().canEdit(false).isAuthor(false).isDescriptionCollapsed(true).build();
+		const context = new PRContext(pr);
+		const out = render(
+			<PullRequestContext.Provider value={context}>
+				<OverviewPreview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		const header = '#description .review-comment-header';
+		const previewHeader = out.container.querySelector(header)!.outerHTML;
+		assert.strictEqual(out.container.querySelector('#description .comment-body'), null);
+
+		out.rerender(
+			<PullRequestContext.Provider value={context}>
+				<Overview {...pr} />
+			</PullRequestContext.Provider>,
+		);
+		out.container.querySelector('#description .comment-chevron')!.remove();
+		assert.strictEqual(out.container.querySelector(header)!.outerHTML, previewHeader, 'the description does not move when it is loaded');
+		assert(document.getElementById('description-content')?.hidden);
 	});
 
 	it('uses a collapsed metadata placeholder in a narrow preview', function () {
