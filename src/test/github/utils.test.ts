@@ -117,6 +117,10 @@ describe('utils', () => {
 			{ input: 'Issue ;A', expected: 'Issue-A' },
 			{ input: 'Issue ~A', expected: 'Issue-A' },
 			{ input: 'Issue #A', expected: 'Issue-A' },
+			{ input: 'Issue > A', expected: 'Issue-A' },
+			{ input: 'Issue < A', expected: 'Issue-A' },
+			{ input: 'Issue | A', expected: 'Issue-A' },
+			{ input: 'Fix a>b|c<d', expected: 'Fix-abcd' },
 		].forEach(testCase => {
 			it(`Transforms '${testCase.input}' into '${testCase.expected}'`, () => {
 				const actual = sanitizeIssueTitle(testCase.input);
