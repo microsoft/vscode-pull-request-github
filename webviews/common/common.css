@@ -170,26 +170,35 @@ input[type='checkbox']:checked {
  * Task list items rendered from markdown (e.g. `- [x] done`) produce
  * `<li class="task-list-item"><input type="checkbox" checked disabled> ...</li>`
  * without a `.checkbox-wrapper`, so the wrapper-based checkmark above does
- * not apply. Pseudo-elements cannot be placed on `<input>` elements, so we
- * draw the checkmark on the parent `<li>` using `:has()`, positioned over
- * the checkbox.
+ * not apply. As on github.com, the checkbox hangs in the list indent and is
+ * vertically centered on the first line of text; its em margins are relative
+ * to that text. The checkmark is drawn on the checkbox itself (pseudo-elements
+ * render on `appearance: none` checkboxes) so it always stays inside the box.
  */
-.task-list-item {
+.task-list-item > input[type='checkbox'],
+.task-list-item > p > input[type='checkbox'] {
 	position: relative;
+	width: 14px;
+	height: 14px;
+	min-width: 14px;
+	min-height: 14px;
+	margin-block: 0 0.15em;
+	margin-inline: -1.6em 0.2em;
+	font-size: inherit;
+	vertical-align: middle;
 }
 
-.task-list-item:has(> input[type='checkbox']:checked)::before,
-.task-list-item:has(> p > input[type='checkbox']:checked)::before {
+.task-list-item > input[type='checkbox']:checked::after,
+.task-list-item > p > input[type='checkbox']:checked::after {
 	content: '';
 	position: absolute;
-	top: 5px;
-	left: 6px;
-	width: 5px;
-	height: 10px;
+	top: 0;
+	left: 4px;
+	width: 3px;
+	height: 8px;
 	border: solid var(--vscode-checkbox-foreground);
 	border-width: 0 1px 1px 0;
 	transform: rotate(45deg);
-	pointer-events: none;
 }
 
 input[type='checkbox']:focus {
