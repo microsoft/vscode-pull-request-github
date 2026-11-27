@@ -180,7 +180,7 @@ describe('PullRequestOverview', function () {
 			const opening = openPanel(new Promise<TItem>(resolve => resolveModel = resolve));
 			try {
 				await new Promise(resolve => setImmediate(resolve));
-				assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, preview);
+				assert.deepStrictEqual(messages.find(message => message.command === 'pr.preview')?.pullrequest, { ...preview, isDescriptionCollapsed: false });
 				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
 				sinon.assert.notCalled(getAssignableUsers);
 			} finally {
@@ -221,7 +221,7 @@ describe('PullRequestOverview', function () {
 
 					resolvePreview(preview);
 					await new Promise(resolve => setImmediate(resolve));
-					assert.deepStrictEqual(messages.filter(message => message.command === 'pr.preview').pop()?.pullrequest, preview);
+					assert.deepStrictEqual(messages.filter(message => message.command === 'pr.preview').pop()?.pullrequest, { ...preview, isDescriptionCollapsed: false });
 					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
 				} finally {
 					resolveModel?.(model);
@@ -1492,7 +1492,7 @@ describe('PullRequestOverview', function () {
 		let issueModel: IssueModel;
 		let webviewPanel: vscode.WebviewPanel;
 		let messages: { command: string; pullrequest?: Partial<Issue> }[];
-		let onDidReceiveMessage: vscode.EventEmitter<{ command: string }>;
+		let onDidReceiveMessage: vscode.EventEmitter<WebviewRequest>;
 		let getPreview: SinonStub<[number], Promise<IssuePreview>>;
 		let getRepository: SinonStub<Parameters<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>, ReturnType<FolderRepositoryManager['createGitHubRepositoryFromOwnerName']>>;
 		let getRepositoryAccess: SinonStub<Parameters<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>, ReturnType<FolderRepositoryManager['getPullRequestRepositoryAccessAndMergeMethods']>>;
@@ -1571,6 +1571,7 @@ describe('PullRequestOverview', function () {
 						state: issueModel.state,
 						stateReason: issueModel.stateReason,
 						isIssue: true,
+						isDescriptionCollapsed: false,
 					});
 					assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
 					sinon.assert.calledOnce(createPanel);
@@ -1618,6 +1619,22 @@ describe('PullRequestOverview', function () {
 			}
 			assert.ok(messages.some(message => message.command === 'pr.initialize'));
 			sinon.assert.notCalled(getPreview);
+		});
+
+		it('remembers whether descriptions are collapsed separately for issues and pull requests', async function () {
+			const pullRequestPanel = new TestPullRequestOverviewPanel(telemetry, pullRequestManager);
+			context.subscriptions.push(pullRequestPanel);
+			sinon.stub(pullRequestPanel, '_replyMessage').resolves();
+			await pullRequestPanel._onDidReceiveMessage({ req: 'collapse-pull-request', command: 'pr.set-description-collapsed', args: true });
+			const initialized = () => messages.filter(message => message.command === 'pr.initialize').pop()?.pullrequest;
+
+			await openPanel();
+			assert.strictEqual(initialized()?.isDescriptionCollapsed, false, 'collapsing a pull request description does not collapse issues');
+
+			onDidReceiveMessage.fire({ command: 'pr.set-description-collapsed', req: 'collapse-issue', args: true });
+			await new Promise(resolve => setImmediate(resolve));
+			await openPanel();
+			assert.strictEqual(initialized()?.isDescriptionCollapsed, true);
 		});
 
 		previewLoadingTests(() => ({ model: issueModel, preview, getPreview, getRepository, getRepositoryAccess, getAssignableUsers, openPanel, messages, webviewPanel }));
@@ -1831,6 +1848,27 @@ describe('PullRequestOverview', function () {
 
 			assert(webviewPostMessage.calledOnce);
 			assert.deepStrictEqual(webviewPostMessage.firstCall.args[0], { seq: message.req, res: response });
+		});
+	});
+
+	describe('collapsed descriptions', function () {
+		const initialized = (webviewPostMessage: SinonStub) => webviewPostMessage.args.map(([message]: [PanelMessage]) => message.res)
+			.find(response => response?.command === 'pr.initialize')?.pullrequest;
+
+		it('opens the next pull request with its description collapsed once one is collapsed', async function () {
+			const first = await createPanel(1000);
+			assert.strictEqual(initialized(first.webviewPostMessage)?.isDescriptionCollapsed, false);
+			const replied = new Promise<void>(resolve => first.onDidPost(message => {
+				if (message.seq === 'collapse') {
+					resolve();
+				}
+			}));
+
+			first.received.fire({ command: 'pr.set-description-collapsed', req: 'collapse', args: true });
+			await replied;
+
+			const second = await createPanel(1001);
+			assert.strictEqual(initialized(second.webviewPostMessage)?.isDescriptionCollapsed, true);
 		});
 	});
 

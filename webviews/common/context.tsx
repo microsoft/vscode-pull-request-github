@@ -65,6 +65,12 @@ export class PRContext {
 	public setDescription = (description: string) =>
 		this.postMessage({ command: 'pr.edit-description', args: { text: description } });
 
+	/** Collapses or expands the description, and remembers it for the next pull request or issue that is opened. */
+	public setDescriptionCollapsed = (collapsed: boolean) => {
+		this.updatePR({ isDescriptionCollapsed: collapsed });
+		return this.postMessage({ command: 'pr.set-description-collapsed', args: collapsed });
+	};
+
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
 	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
@@ -610,7 +616,7 @@ export class PRContext {
 				this.setPR(undefined);
 				return;
 			case 'pr.initialize':
-				return this.setPR(this.keepSubmittingReview(message.pullrequest));
+				return this.setPR(this.keepDescriptionCollapsed(this.keepSubmittingReview(message.pullrequest)));
 			case 'pr.update':
 				return this.updatePR(message.pullrequest);
 			case 'update-state':
@@ -668,6 +674,18 @@ export class PRContext {
 			return pr;
 		}
 		return { ...pr, busy: true, lastReviewType: review.type, pendingReviewType: review.type };
+	}
+
+	/**
+	 * Reloading a pull request keeps its description as it is, even when it was collapsed or expanded in another overview
+	 * since. That is only for the next one that is opened.
+	 */
+	private keepDescriptionCollapsed(pr: PullRequest): PullRequest {
+		const shown = this.pr;
+		if (shown?.url !== pr.url || shown.isDescriptionCollapsed === undefined) {
+			return pr;
+		}
+		return { ...pr, isDescriptionCollapsed: shown.isDescriptionCollapsed };
 	}
 
 	public static instance = new PRContext();
