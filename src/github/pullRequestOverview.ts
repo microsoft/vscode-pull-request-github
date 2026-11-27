@@ -46,7 +46,7 @@ import { branchPicks, pickEmail, reviewersQuickPick } from './quickPicks';
 import type { RepositoriesManager } from './repositoriesManager';
 import { addressCommentsInSession, fixChecksInSession } from './sessionPrompts';
 import { getStackRecommendation, StackRecommendation } from './stackRecommendation';
-import { getIssueOrURLExpression, getPullRequestBranchLabels, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
+import { getIssueOrURLExpression, getPullRequestBranchLabels, isAgentManagedWorkspace, parseIssueExpressionOutput, parseReviewers, processDiffLinks, processPermalinks } from './utils';
 import { ApproveWorkflowRunsArgs, ApproveWorkflowRunsReply, CancelCodingAgentReply, ChangeBaseReply, ChangeReviewersReply, CreateRecommendedStackArgs, DeleteReviewResult, MergeArguments, MergeMethodMenuContext, MergeResult, PullRequest, PullRequestPreview, ReadyForReviewAndMergeContext, ReadyForReviewContext, ReviewCommentContext, ReviewType, SubmitReviewArgs, UnresolvedIdentity, UnstackAllResult, UpdateStackAutoMergeArgs } from './views';
 import { debounce } from '../common/async';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
@@ -692,7 +692,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				currentUserReviewState: reviewState,
 				revertable: pullRequest.state === GithubItemStateEnum.Merged,
 				isCopilotOnMyBehalf: false,
-				isAgentSessionsWorkspace: vscode.workspace.isAgentSessionsWorkspace,
+				isAgentSessionsWorkspace: isAgentManagedWorkspace(vscode.workspace),
 				overviewTabs: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean | 'agents'>(EXPERIMENTAL_OVERVIEW_TABS, false),
 				stack: initialStack,
 				stackLoaded: false,
