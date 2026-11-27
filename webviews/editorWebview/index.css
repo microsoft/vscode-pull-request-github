@@ -466,6 +466,32 @@ body .comment-container .review-comment-header {
 	margin-left: auto;
 }
 
+.review-comment-header .comment-chevron {
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.review-comment-header .comment-chevron:hover,
+.review-comment-header .comment-chevron:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.comment-chevron[aria-expanded="false"] .icon {
+	transform: rotate(-90deg);
+}
+
+/* The ids override the border below headers that have content after them, which is only hidden. */
+#main #description .review-comment-header.collapsed {
+	border-bottom: none;
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
+}
+
+/* Keeps the actions that show on hover beside the chevron instead of over it. */
+#description .action-bar {
+	right: 40px;
+}
+
 .review-comment-header .pending {
 	color: inherit;
 	font-style: italic;
@@ -2112,6 +2138,10 @@ code {
 .vscode-high-contrast #status-checks {
 	background: none;
 	border: 1px solid var(--vscode-panel-border);
+}
+
+.vscode-high-contrast #main #description .review-comment-header.collapsed {
+	border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .vscode-high-contrast .comment-container .comment-body,

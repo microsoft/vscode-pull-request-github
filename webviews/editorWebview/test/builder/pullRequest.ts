@@ -76,4 +76,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isAgentSessionsWorkspace: { default: false },
 	overviewTabs: { default: false },
 	reactions: { default: [] },
+	isDescriptionCollapsed: { default: false },
 });
