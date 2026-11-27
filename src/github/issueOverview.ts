@@ -27,6 +27,7 @@ import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../com
 import { asPromise, formatError } from '../common/utils';
 import { generateUuid } from '../common/uuid';
 import { IRequestMessage, WebviewBase } from '../common/webview';
+import { ISSUE_DESCRIPTION_COLLAPSED } from '../extensionState';
 
 export function panelKey(owner: string, repo: string, number: number): string {
 	return `${owner}/${repo}#${number}`;
@@ -50,6 +51,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _identityUpdateSequence = 0;
 	protected readonly previewLog = { label: 'Issue', id: IssueOverviewPanel.ID };
+	/** Where whether descriptions are collapsed is remembered, separately for issues and pull requests. */
+	protected readonly descriptionCollapsedKey: string = ISSUE_DESCRIPTION_COLLAPSED;
 
 	protected get _folderRepositoryManager(): FolderRepositoryManager {
 		if (this._localFolderRepositoryManager) {
@@ -307,6 +310,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
+	/** Whether the description opens collapsed, which is how the last description of this kind was left. */
+	protected isDescriptionCollapsed(): boolean {
+		return this._folderRepositoryManager.context.globalState.get<boolean>(this.descriptionCollapsedKey, false);
+	}
+
+	private async setDescriptionCollapsed(message: IRequestMessage<boolean>): Promise<void> {
+		try {
+			await this._folderRepositoryManager.context.globalState.update(this.descriptionCollapsedKey, message.args === true);
+		} finally {
+			await this._replyMessage(message, {});
+		}
+	}
+
 	protected async getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Promise<Issue> {
 		const hasWritePermission = repositoryAccess.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
@@ -347,6 +363,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			canRequestCopilotReview: false,
 			reactions: issue.item.reactions,
 			isAuthor: issue.author.login === currentUser.login,
+			isDescriptionCollapsed: this.isDescriptionCollapsed(),
 		};
 
 		return context;
@@ -369,6 +386,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						state: issueModel.state,
 						stateReason: issueModel.stateReason,
 						isIssue: true,
+						isDescriptionCollapsed: this.isDescriptionCollapsed(),
 					} satisfies IssuePreview,
 				});
 				Logger.debug('Issue overview preview loaded from model', IssueOverviewPanel.ID);
@@ -483,7 +501,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					}
 					const preview = await this.getPreview(repository, identity.number);
 					if (isLoading()) {
-						await this._postMessage({ command: 'pr.preview', pullrequest: preview });
+						await this._postMessage({ command: 'pr.preview', pullrequest: { ...preview, isDescriptionCollapsed: this.isDescriptionCollapsed() } });
 						Logger.debug(`${this.previewLog.label} overview preview loaded in ${Date.now() - start}ms`, this.previewLog.id);
 					}
 				} catch (error) {
@@ -605,6 +623,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.uploadFiles(message);
 			case 'pr.upload-pasted-files':
 				return this.uploadPastedFiles(message);
+			case 'pr.set-description-collapsed':
+				return this.setDescriptionCollapsed(message);
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}

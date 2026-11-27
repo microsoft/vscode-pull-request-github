@@ -6,7 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ContextDropdown } from './contextDropdown';
 import { CopyButton } from './copyButton';
-import { cloudUploadIcon, editIcon, loadingIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
+import { chevronDownIcon, cloudUploadIcon, editIcon, loadingIcon, quoteIcon, sparkleIcon, stopCircleIcon, trashIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -81,6 +81,8 @@ function replaceEditPlaceholder(
 	draftComment.current.dirty = true;
 }
 
+const DESCRIPTION_CONTENT_ID = 'description-content';
+
 export function CommentView(commentProps: Props) {
 	const { isPRDescription, children, comment, headerInEditMode } = commentProps;
 	const { bodyHTML, body } = comment;
@@ -92,9 +94,10 @@ export function CommentView(commentProps: Props) {
 	const pullRequestReviewId = (comment as IComment).pullRequestReviewId;
 	const [bodyMd, setBodyMd] = useStateProp(body);
 	const [bodyHTMLState, setBodyHtml] = useStateProp(bodyHTML);
-	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
+	const { deleteComment, editComment, setDescription, setDescriptionCollapsed, updatePR, pr } = useContext(PullRequestContext);
 	const currentDraft = pr?.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
+	const [collapsed, setCollapsed] = useStateProp(!!isPRDescription && !!(comment as PullRequest).isDescriptionCollapsed);
 	const [showActionBar, setShowActionBar] = useState(false);
 	const [isDeleting, runDelete] = useBusyAction();
 	const commentUrl = (comment as Partial<IComment | ReviewEvent | CommentEvent>).htmlUrl || (comment as PullRequest).url;
@@ -131,12 +134,35 @@ export function CommentView(commentProps: Props) {
 	const ariaAnnouncement = ((comment as CommentEvent | ReviewEvent).event === EventType.Commented || (comment as CommentEvent | ReviewEvent).event === EventType.Reviewed)
 		? ariaAnnouncementForReview(comment as (CommentEvent | ReviewEvent)) : undefined;
 
+	const content = <>
+		<CommentBody
+			comment={comment as IComment}
+			bodyHTML={bodyHTMLState}
+			body={bodyMd}
+			canApplyPatch={!!pr?.isCurrentlyCheckedOut}
+			allowEmpty={!!commentProps.allowEmpty}
+			specialDisplayBodyPostfix={(comment as IComment).specialDisplayBodyPostfix}
+		/>
+		{children}
+	</>;
+
 	return (
 		<CommentBox
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
 			onFocus={() => setShowActionBar(true)}
+			collapsed={collapsed}
+			collapseToggle={isPRDescription
+				? {
+					contentId: DESCRIPTION_CONTENT_ID,
+					label: 'description',
+					onToggle: () => {
+						setCollapsed(!collapsed);
+						void setDescriptionCollapsed(!collapsed);
+					},
+				}
+				: undefined}
 		>
 			{ariaAnnouncement ? <div role='alert' aria-label={ariaAnnouncement} /> : null}
 			{/* Kept visible while deleting, so the progress still shows once the mouse leaves for the confirmation. */}
@@ -152,7 +178,14 @@ export function CommentView(commentProps: Props) {
 					<CopyButton title="Copy Comment Link" copy={() => navigator.clipboard.writeText(commentUrl)} />
 				) : null}
 				{canEdit ? (
-					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
+					<button title="Edit comment" className="icon-button" onClick={() => {
+						if (collapsed) {
+							// Shows the edited text once editing is done, without changing how the next description opens.
+							setCollapsed(false);
+							updatePR({ isDescriptionCollapsed: false });
+						}
+						setEditMode(true);
+					}}>
 						{editIcon}
 					</button>
 				) : null}
@@ -167,24 +200,19 @@ export function CommentView(commentProps: Props) {
 					</button>
 				) : null}
 			</div>
-			<CommentBody
-				comment={comment as IComment}
-				bodyHTML={bodyHTMLState}
-				body={bodyMd}
-				canApplyPatch={!!pr?.isCurrentlyCheckedOut}
-				allowEmpty={!!commentProps.allowEmpty}
-				specialDisplayBodyPostfix={(comment as IComment).specialDisplayBodyPostfix}
-			/>
-			{children}
+			{/* Kept in the DOM while collapsed, so the chevron always has a region to control. */}
+			{isPRDescription ? <div id={DESCRIPTION_CONTENT_ID} hidden={collapsed}>{content}</div> : content}
 		</CommentBox>
 	);
 }
 
 export const CommentPreview = (preview: OverviewItemPreview | PullRequest) => (
-	<CommentBox for={preview}>
-		{preview.bodyHTML === undefined && preview.body
-			? <div className="comment-body" style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</div>
-			: <CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />}
+	<CommentBox for={preview} collapsed={preview.isDescriptionCollapsed}>
+		{preview.isDescriptionCollapsed
+			? null
+			: preview.bodyHTML === undefined && preview.body
+				? <div className="comment-body" style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</div>
+				: <CommentBody body={preview.body} bodyHTML={preview.bodyHTML} canApplyPatch={false} allowEmpty={false} />}
 	</CommentBox>
 );
 
@@ -194,6 +222,10 @@ type CommentBoxProps = {
 	onFocus?: React.FocusEventHandler;
 	onMouseEnter?: React.MouseEventHandler;
 	onMouseLeave?: React.MouseEventHandler;
+	/** Hides everything below the header, which then has the bottom corners of the box. */
+	collapsed?: boolean;
+	/** Adds a chevron at the end of the header that collapses the element with `contentId`, which `label` names. */
+	collapseToggle?: { contentId: string; label: string; onToggle: () => void };
 	children?: React.ReactNode;
 };
 
@@ -216,7 +248,7 @@ const DESCRIPTORS = {
 
 const reviewDescriptor = (state: keyof typeof DESCRIPTORS) => DESCRIPTORS[state];
 
-function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, collapsed, collapseToggle, children }: CommentBoxProps) {
 	const asNotPullRequest = comment as Partial<IComment | ReviewEvent | CommentEvent>;
 	const htmlUrl = asNotPullRequest.htmlUrl ?? (comment as PullRequest).url;
 	const isDraft = (isIComment(comment) && comment.isDraft) ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
@@ -226,7 +258,7 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 	return (
 		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
-				<h3 className={`review-comment-header${(isReviewEvent(comment) && comment.comments.length > 0) ? '' : ' no-details'}`}>
+				<h3 className={`review-comment-header${(isReviewEvent(comment) && comment.comments.length > 0) ? '' : ' no-details'}${collapsed ? ' collapsed' : ''}`}>
 					<Spaced>
 						<Avatar for={author} />
 						<AuthorLink for={author} />
@@ -248,6 +280,19 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 							</>
 						) : null}
 					</Spaced>
+					{collapseToggle ? (
+						<button
+							className="icon-button comment-chevron"
+							type="button"
+							aria-expanded={!collapsed}
+							aria-controls={collapseToggle.contentId}
+							aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${collapseToggle.label}`}
+							title={`${collapsed ? 'Expand' : 'Collapse'} ${collapseToggle.label}`}
+							onClick={collapseToggle.onToggle}
+						>
+							{chevronDownIcon}
+						</button>
+					) : null}
 				</h3>
 				{children}
 			</div>

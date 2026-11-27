@@ -75,15 +75,20 @@ export interface Issue {
 	canRequestCopilotReview: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
+	/**
+	 * Whether the description is collapsed. Pull requests and issues open the way that the last one of their kind was left,
+	 * and an open overview keeps its own state when it is reloaded.
+	 */
+	isDescriptionCollapsed?: boolean;
 }
 
 /** Read-only content shown during a cold load; never persisted as a complete issue. */
 export type IssuePreview = Pick<Issue, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
-	| 'author' | 'createdAt' | 'state' | 'stateReason'> & { isIssue: true };
+	| 'author' | 'createdAt' | 'state' | 'stateReason' | 'isDescriptionCollapsed'> & { isIssue: true };
 
 /** Read-only content shown during a cold load; never persisted as a complete PR. */
 export type PullRequestPreview = Pick<PullRequest, 'number' | 'title' | 'titleHTML' | 'url' | 'body' | 'bodyHTML'
-	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head'> & { isIssue?: false; stateReason?: undefined };
+	| 'author' | 'createdAt' | 'state' | 'isDraft' | 'base' | 'head' | 'isDescriptionCollapsed'> & { isIssue?: false; stateReason?: undefined };
 
 export type OverviewItemPreview = IssuePreview | PullRequestPreview;
 
