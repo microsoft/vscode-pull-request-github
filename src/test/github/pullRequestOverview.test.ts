@@ -5,6 +5,7 @@
 
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
+import { NetworkStatus } from 'apollo-boost';
 import { SinonSandbox, SinonStub, createSandbox, match as sinonMatch } from 'sinon';
 
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -632,6 +633,7 @@ describe('PullRequestOverview', function () {
 			it(`initializes with the latest checkout state when ${initiallyCheckedOut ? 'leaving' : 'entering'} review mode during loading`, async function () {
 				const model = new PullRequestModel(credentialStore, telemetry, repo, remote,
 					convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo));
+				model.bodyHTML = '<p>Please merge thx</p>';
 				const identity = { owner: remote.owner, repo: remote.repositoryName, number: model.number };
 				pullRequestManager.activePullRequest = initiallyCheckedOut ? model : undefined;
 				sinon.stub(pullRequestManager, 'getCurrentUser').resolves(model.author);
@@ -764,6 +766,7 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			prItem0.bodyHTML = '<p>Please merge thx</p>';
 			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
 			const identity0 = { owner: prModel0.remote.owner, repo: prModel0.remote.repositoryName, number: prModel0.number };
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
@@ -798,6 +801,8 @@ describe('PullRequestOverview', function () {
 			const firstModel = new PullRequestModel(credentialStore, telemetry, repo, remote, firstItem);
 			const updatedItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Updated title').build(), repo);
 			const updatedModel = new PullRequestModel(credentialStore, telemetry, repo, remote, updatedItem);
+			firstModel.bodyHTML = '<p>Please merge thx</p>';
+			updatedModel.bodyHTML = '<p>Please merge thx</p>';
 			const identity = { owner: firstModel.remote.owner, repo: firstModel.remote.repositoryName, number: firstModel.number };
 			let releaseInitialization: (defaultBranch: string) => void;
 			const blockedInitialization = new Promise<string>(resolve => releaseInitialization = resolve);
@@ -827,6 +832,8 @@ describe('PullRequestOverview', function () {
 			const firstModel = new PullRequestModel(credentialStore, telemetry, repo, remote, firstItem);
 			const updatedItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).title('Updated title').build(), repo);
 			const updatedModel = new PullRequestModel(credentialStore, telemetry, repo, remote, updatedItem);
+			firstModel.bodyHTML = '<p>Please merge thx</p>';
+			updatedModel.bodyHTML = '<p>Please merge thx</p>';
 			const identity = { owner: firstModel.remote.owner, repo: firstModel.remote.repositoryName, number: firstModel.number };
 			const staleEvents: TimelineEvent[] = [];
 			let resolveTimeline: (events: TimelineEvent[]) => void;
@@ -883,6 +890,7 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			prItem0.bodyHTML = '<p>Please merge thx</p>';
 			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
 			const identity0 = { owner: prModel0.remote.owner, repo: prModel0.remote.repositoryName, number: prModel0.number };
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
@@ -897,6 +905,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
+			prItem1.bodyHTML = '<p>Please merge thx</p>';
 			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
 			const identity1 = { owner: prModel1.remote.owner, repo: prModel1.remote.repositoryName, number: prModel1.number };
 			resolveStub.resolves(prModel1);
@@ -941,7 +950,8 @@ describe('PullRequestOverview', function () {
 
 		beforeEach(function () {
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
-			prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			prItem.bodyHTML = '<p>Please merge thx</p>';
+			prModel = repo.createOrUpdatePullRequestModel(prItem);
 			getRepository = sinon.stub(pullRequestManager, 'createGitHubRepositoryFromOwnerName').resolves(repo);
 			getPreview = sinon.stub(repo, 'getPullRequestPreview').resolves(preview);
 			getRepositoryAccess = sinon.stub(pullRequestManager, 'getPullRequestRepositoryAccessAndMergeMethods').resolves({
@@ -995,6 +1005,125 @@ describe('PullRequestOverview', function () {
 		});
 
 		previewLoadingTests(() => ({ model: prModel, preview, getPreview, getRepository, getRepositoryAccess, getAssignableUsers, openPanel, messages, webviewPanel }));
+
+		for (const bodyHTML of [undefined, '', '  ']) {
+			it(`loads missing description HTML before initialization (${JSON.stringify(bodyHTML)})`, async function () {
+				prModel.bodyHTML = bodyHTML;
+				let resolveDescription!: (description: PullRequestPreview) => void;
+				const getDescription = getPreview.returns(new Promise(resolve => resolveDescription = resolve));
+				const opening = openPanel();
+				await new Promise(resolve => setImmediate(resolve));
+				assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+				sinon.assert.calledOnce(getDescription);
+				sinon.assert.calledWithExactly(getDescription, prModel.number);
+				resolveDescription({ ...preview, body: prModel.body, bodyHTML: '<p>Please merge thx</p>' });
+				await opening;
+				assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML, prModel.bodyHTML);
+			});
+		}
+
+		it('replaces whitespace-only HTML in the shared cache when the Markdown is unchanged', async function () {
+			const body = 'Cached description';
+			const bodyHTML = '<p>Cached description</p>';
+			const cachedModel = repo.createOrUpdatePullRequestModel({ ...prModel.item, body, bodyHTML: '  ' });
+			assert.strictEqual(cachedModel, prModel);
+			assert.strictEqual(cachedModel.bodyHTML, '  ');
+
+			// A normal cache update preserves truthy HTML when the Markdown has not changed.
+			const updatedModel = repo.createOrUpdatePullRequestModel({ ...cachedModel.item, body, bodyHTML });
+			assert.strictEqual(updatedModel, cachedModel);
+			assert.strictEqual(updatedModel.bodyHTML, '  ');
+
+			getPreview.restore();
+			const query = sinon.stub(repo, 'query').resolves({
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+				data: { repository: { pullRequest: {
+					...preview, body, bodyHTML,
+					author: null, baseRefName: 'main', headRefName: 'feature',
+					baseRepository: { owner: { login: remote.owner } }, headRepository: null,
+				} } },
+			});
+			await openPanel(updatedModel);
+			sinon.assert.calledWithMatch(query, { query: repo.schema.PullRequestPreview });
+			assert.strictEqual(cachedModel.body, body);
+			assert.strictEqual(cachedModel.bodyHTML, bodyHTML);
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML, bodyHTML);
+		});
+
+		it('initializes with description HTML parsed from a GitHub GraphQL response', async function () {
+			prModel.bodyHTML = undefined;
+			getPreview.restore();
+			const query = sinon.stub(repo, 'query').resolves({
+				loading: false, stale: false, networkStatus: NetworkStatus.ready,
+				data: { repository: { pullRequest: {
+					...preview, body: 'Actual GitHub Markdown', bodyHTML: '<p>Actual GitHub Markdown</p>',
+					author: null, baseRefName: 'main', headRefName: 'feature',
+					baseRepository: { owner: { login: remote.owner } }, headRepository: null,
+				} } },
+			});
+			await openPanel();
+			sinon.assert.calledWithMatch(query, { query: repo.schema.PullRequestPreview });
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML,
+				'<p>Actual GitHub Markdown</p>');
+		});
+
+		it('ignores description lookups that finish after the overview closes', async function () {
+			prModel.bodyHTML = undefined;
+			let resolveDescription!: (description: PullRequestPreview) => void;
+			getPreview.returns(new Promise(resolve => resolveDescription = resolve));
+			const opening = openPanel();
+			await new Promise(resolve => setImmediate(resolve));
+			webviewPanel.dispose();
+			resolveDescription({ ...preview, bodyHTML: '<p>Late description</p>' });
+			await opening;
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+		});
+
+		it('does not overwrite a newer overview when an older description lookup finishes', async function () {
+			prModel.bodyHTML = undefined;
+			let resolveDescription!: (description: PullRequestPreview) => void;
+			const getDescription = getPreview.returns(new Promise(resolve => resolveDescription = resolve));
+			const firstOpening = openPanel();
+			await new Promise(resolve => setImmediate(resolve));
+			sinon.assert.calledOnce(getDescription);
+			const cachedModel = repo.createOrUpdatePullRequestModel(prModel.item);
+			assert.strictEqual(cachedModel, prModel);
+			cachedModel.update({ ...cachedModel.item, body: 'New description', bodyHTML: '<p>New description</p>' });
+			const secondOpening = openPanel(cachedModel);
+			resolveDescription({ ...preview, body: 'Old description', bodyHTML: '<p>Old description</p>' });
+			await Promise.all([firstOpening, secondOpening]);
+			const initializations = messages.filter(message => message.command === 'pr.initialize');
+			assert.strictEqual(cachedModel.body, 'New description');
+			assert.strictEqual(cachedModel.bodyHTML, '<p>New description</p>');
+			assert.strictEqual(initializations.length, 1);
+			assert.strictEqual(initializations[0].pullrequest?.bodyHTML, '<p>New description</p>');
+		});
+
+		it('does not resolve a description that already has HTML', async function () {
+			const getDescription = getPreview;
+			await openPanel();
+			sinon.assert.notCalled(getDescription);
+			assert.strictEqual(messages.find(message => message.command === 'pr.initialize')?.pullrequest?.bodyHTML, prModel.bodyHTML);
+		});
+
+		it('does not resolve an empty description', async function () {
+			prModel.body = '';
+			prModel.bodyHTML = undefined;
+			const getDescription = getPreview;
+			await openPanel();
+			sinon.assert.notCalled(getDescription);
+			assert.ok(messages.some(message => message.command === 'pr.initialize'));
+		});
+
+		it('reports a description lookup failure instead of initializing a blank body', async function () {
+			prModel.bodyHTML = undefined;
+			getPreview.rejects(new Error('Description lookup failed'));
+			const showError = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+			await openPanel();
+			assert.strictEqual(showError.firstCall.args[0], 'Error updating pull request description: Description lookup failed');
+			assert.strictEqual(messages.some(message => message.command === 'pr.initialize'), false);
+		});
+
 
 		describe('branch labels', function () {
 			const initialized = () => messages.find(message => message.command === 'pr.initialize')?.pullrequest;
@@ -1772,6 +1901,7 @@ describe('PullRequestOverview', function () {
 	}
 
 	function stubModelServices(model: PullRequestModel) {
+		model.bodyHTML ??= '<p>Please merge thx</p>';
 		sinon.stub(model, 'canEdit').resolves(true);
 		sinon.stub(model, 'getReviewRequests').resolves([]);
 		const timeline = sinon.stub(model, 'getTimelineEvents').resolves([]);
