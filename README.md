@@ -20,7 +20,7 @@ This extension allows you to review and manage GitHub pull requests and issues i
 ![Issue Demo](.readme/issueDemo.gif)
 
 # Getting Started
-
+Test
 It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
 
 1. Install the extension from within VS Code or download it from [the marketplace](https://aka.ms/vscodepr-download).
