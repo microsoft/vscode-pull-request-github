@@ -535,6 +535,10 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
+				if (matchedFile.status === GitChangeType.DELETE) {
+					Logger.debug('No commenting ranges: File was deleted.', ReviewCommentController.ID);
+					return { ranges: [], enableFileComments: true };
+				}
 				const diffHunks = await matchedFile.changeModel.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);

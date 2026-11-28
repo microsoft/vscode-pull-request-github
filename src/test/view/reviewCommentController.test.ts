@@ -140,12 +140,12 @@ describe('ReviewCommentController', function () {
 		sinon.restore();
 	});
 
-	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
+	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri, status: GitChangeType = GitChangeType.MODIFY): GitFileChangeNode {
 		const gitFileChangeModel = new GitFileChangeModel(
 			manager,
 			activePullRequest,
 			{
-				status: GitChangeType.MODIFY,
+				status,
 				fileName,
 				blobUrl: 'https://example.com',
 				diffHunks:
@@ -593,6 +593,34 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(obsolete[fileName].length, 2);
 			assert.strictEqual(obsolete[fileName][0], existingObsolete);
 			assert.strictEqual(obsolete[fileName][1], threadB);
+		});
+	});
+
+	describe('provideCommentingRanges', function () {
+		it('enables file comments for deleted files (#9207)', async function () {
+			const fileName = 'data/deleted.json';
+			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			const reviewModel = new ReviewModel();
+			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri, GitChangeType.DELETE)];
+			reviewModel.localFileChanges = localFileChanges;
+			sinon.stub(manager, 'activePullRequest').get(() => activePullRequest);
+			sinon.stub(activePullRequest, 'isResolved').returns(true);
+			sinon.stub(gitApiImpl, 'repositories').get(() => [repository]);
+
+			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				reviewModel,
+				gitApiImpl,
+				telemetry,
+			);
+			context.subscriptions.push(reviewCommentController, ...localFileChanges);
+
+			const document = { uri, lineCount: 0 } as vscode.TextDocument;
+			const result = await reviewCommentController.provideCommentingRanges(document, new vscode.CancellationTokenSource().token);
+
+			assert.deepStrictEqual(result, { ranges: [], enableFileComments: true });
 		});
 	});
 });
